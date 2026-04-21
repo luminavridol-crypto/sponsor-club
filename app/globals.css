@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  background: #07070d;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(255, 79, 216, 0.14), transparent 35%),
+    radial-gradient(circle at 20% 20%, rgba(120, 231, 255, 0.08), transparent 22%),
+    linear-gradient(180deg, #0b0b12 0%, #07070d 100%);
+  color: #fff;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  padding: 0.85rem 1rem;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+select {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+select option {
+  background: #171927;
+  color: white;
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+button {
+  cursor: pointer;
+}
+
+.glass-card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 1.75rem;
+}
+
+.protected-media {
+  position: relative;
+}
+
+.protected-media video::-internal-media-controls-download-button {
+  display: none;
+}
+
+.protected-media video::-webkit-media-controls-enclosure {
+  overflow: hidden;
+}
