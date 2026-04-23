@@ -51,11 +51,11 @@ export default async function AdminPurchaseRequestsPage() {
         <section className="rounded-[28px] border border-white/10 bg-white/5 p-4 shadow-glow sm:rounded-[32px] sm:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Purchase Requests</p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">Заявки на покупку</h2>
+              <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Invite Requests</p>
+              <h2 className="mt-3 text-3xl font-semibold text-white">Заявки на приглашение</h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-white/60 sm:leading-7">
-                Здесь появляются все запросы с главной страницы. Можно быстро увидеть tier, почту,
-                страну и контакт, а потом отметить заявку как обработанную.
+                Здесь появляются все запросы с главной страницы. Можно быстро увидеть уровень,
+                имя, почту, страну и контакт, а потом отметить заявку как обработанную.
               </p>
             </div>
 
@@ -91,7 +91,8 @@ export default async function AdminPurchaseRequestsPage() {
                     </span>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    <InfoCard label="Имя" value={request.display_name || "Не указано"} />
                     <InfoCard label="Email" value={request.email} />
                     <InfoCard label="Страна" value={request.country} />
                     <InfoCard label="Контакт" value={request.contact} />

@@ -2,12 +2,11 @@ import Link from "next/link";
 import { createPurchaseRequestAction } from "@/app/actions";
 import { BrandShell } from "@/components/layout/brand-shell";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Tier } from "@/lib/types";
 
 const steps = [
   {
     number: "01",
-    title: "Выбираешь уровень подписки",
+    title: "Выбираешь уровень доступа",
     text: "Смотри, какой tier подходит по глубине доступа и формату контента."
   },
   {
@@ -26,58 +25,42 @@ const tierCards = [
   {
     tier: "Tier 1",
     name: "Наблюдатель",
-    price: "10 €",
-    period: "в месяц",
     image: "/tiers/tier-1.jpg",
-    tierKey: "tier_1" as const,
     glow: "border-accent/25 shadow-glow",
-    button:
-      "border border-accent/40 text-accentSoft hover:bg-accent/10 hover:text-white",
     lockTone: "border-accent/35 bg-accent/12 text-accentSoft",
     points: [
-      "Ранний доступ к контенту",
-      "Закрытые фото и видео",
-      "Бэкстейдж и закулисье",
-      "Истории и развитие сюжета"
+      "Первый уровень закрытого клуба",
+      "Материалы с ограниченным доступом",
+      "Более камерная атмосфера",
+      "Мягкое знакомство с внутренним пространством"
     ]
   },
   {
     tier: "Tier 2",
     name: "Приближённый",
-    price: "25 €",
-    period: "в месяц",
     image: "/tiers/tier-2.jpg",
-    tierKey: "tier_2" as const,
     glow: "border-accent/35 shadow-glow",
-    button:
-      "border border-accent/45 bg-gradient-to-r from-accent/85 to-[#c457f5] text-white hover:brightness-110",
     lockTone: "border-accent/40 bg-accent/14 text-accentSoft",
-    featured: "Самый популярный",
     points: [
-      "Всё из уровня «Наблюдатель»",
-      "Больше эксклюзивных фото и видео",
-      "Доступ к закрытым постам",
-      "Редкий контент и личные моменты",
-      "Общение ближе и чаще"
+      "Более глубокий уровень клуба",
+      "Расширенный доступ к внутренним материалам",
+      "Больше закрытого пространства",
+      "Формат для тех, кто хочет быть ближе",
+      "Дополнительные клубные возможности"
     ]
   },
   {
     tier: "Tier 3",
     name: "VIP",
-    price: "50 €",
-    period: "в месяц",
     image: "/tiers/tier-3.jpg",
-    tierKey: "tier_3" as const,
     glow: "border-cyanGlow/30 shadow-cyan",
-    button:
-      "border border-cyanGlow/45 text-cyanGlow hover:bg-cyanGlow/10 hover:text-white",
     lockTone: "border-cyanGlow/35 bg-cyanGlow/12 text-cyanGlow",
     points: [
-      "Всё, что есть в клубе",
-      "Личные и особые материалы",
-      "Контент без ограничений",
-      "Приоритет и особое внимание",
-      "Возможность личного общения"
+      "Самый высокий уровень доступа",
+      "Особый статус внутри клуба",
+      "Максимальная глубина закрытого пространства",
+      "Отдельные клубные возможности",
+      "Формат для самых близких участников"
     ]
   }
 ];
@@ -183,12 +166,6 @@ const tierHighlights = [
   }
 ];
 
-const tierFormLabels: Record<Tier, { title: string; price: string }> = {
-  tier_1: { title: "Наблюдатель", price: "10 €" },
-  tier_2: { title: "Приближённый", price: "25 €" },
-  tier_3: { title: "VIP", price: "50 €" }
-};
-
 export default async function HomePage({
   searchParams
 }: {
@@ -199,11 +176,14 @@ export default async function HomePage({
     data: { user }
   } = await supabase.auth.getUser();
   const params = (await searchParams) ?? {};
-  const tierParam = Array.isArray(params.tier) ? params.tier[0] : params.tier;
-  const purchaseSent = (Array.isArray(params.purchaseSent) ? params.purchaseSent[0] : params.purchaseSent) === "1";
-  const purchaseError = (Array.isArray(params.purchaseError) ? params.purchaseError[0] : params.purchaseError) === "1";
-  const selectedTier: Tier =
-    tierParam === "tier_2" || tierParam === "tier_3" ? tierParam : "tier_1";
+  const inviteRequestSent =
+    (Array.isArray(params.inviteRequestSent)
+      ? params.inviteRequestSent[0]
+      : params.inviteRequestSent) === "1";
+  const inviteRequestError =
+    (Array.isArray(params.inviteRequestError)
+      ? params.inviteRequestError[0]
+      : params.inviteRequestError) === "1";
 
   const profileHref = user ? "/profile" : "/login";
   const accessHref = user ? "/dashboard" : "/invite";
@@ -271,7 +251,7 @@ export default async function HomePage({
               </div>
 
               <div className="mx-auto mt-8 max-w-3xl space-y-2 text-base leading-8 text-white/68 sm:mt-10 sm:text-[2rem] sm:leading-[1.5]">
-                <p>Доступ по подписке и приглашению.</p>
+                <p>Доступ по приглашению.</p>
                 <p>Редкие фото, видео и личные материалы.</p>
               </div>
 
@@ -289,7 +269,7 @@ export default async function HomePage({
                   className="inline-flex w-full items-center justify-center gap-4 rounded-[1.35rem] border border-accent/45 bg-gradient-to-r from-accent/80 via-[#c458f6] to-[#6f3ff4] px-5 py-4 text-lg font-medium text-white shadow-[0_10px_40px_rgba(255,79,216,0.28)] transition hover:scale-[1.01] hover:brightness-110 sm:min-w-[19rem] sm:px-7 sm:py-5 sm:text-xl"
                 >
                   <DiamondButtonIcon />
-                  <span>Уровни подписки</span>
+                  <span>Уровни доступа</span>
                 </Link>
               </div>
 
@@ -331,7 +311,7 @@ export default async function HomePage({
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-white/58">
-              Никакой сложной схемы. Всё понятно с первого взгляда: выбираешь уровень,
+              Никакой сложной схемы. Всё понятно с первого взгляда: выбираешь формат,
               получаешь доступ и открываешь закрытый контент.
             </p>
           </div>
@@ -357,7 +337,7 @@ export default async function HomePage({
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
-              Уровни подписки
+              Уровни доступа
             </p>
             <h2 className="mt-3 text-3xl font-semibold text-white sm:text-5xl">
               Выбери <span className="text-accentSoft">глубину</span> доступа
@@ -365,7 +345,7 @@ export default async function HomePage({
             <p className="mt-5 text-base leading-8 text-white/58 sm:text-lg sm:leading-9">
               Каждый уровень открывает больше редкого контента.
               <br />
-              Можно начать мягко или сразу взять максимальный доступ.
+              Доступ выдаётся вручную и только после личного подтверждения.
             </p>
           </div>
 
@@ -390,12 +370,6 @@ export default async function HomePage({
               key={tier.tier}
               className={`relative overflow-hidden rounded-[30px] border bg-[#0a0b14] ${tier.glow}`}
             >
-              {tier.featured ? (
-                <div className="absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-accent/35 bg-gradient-to-r from-[#8f356f] to-[#ad4ba5] px-6 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-white shadow-glow">
-                  ☆ {tier.featured}
-                </div>
-              ) : null}
-
               <div
                 className="relative h-[260px] overflow-hidden border-b border-white/10 bg-cover bg-center sm:h-[320px]"
                 style={{ backgroundImage: `url('${tier.image}')` }}
@@ -420,16 +394,13 @@ export default async function HomePage({
                   <h3 className="text-[1.7rem] font-semibold leading-tight text-white sm:text-[2rem]">
                     {tier.name}
                   </h3>
-                  <div className="text-left sm:text-right">
-                      <p
-                        className={`whitespace-nowrap text-[2.25rem] font-semibold sm:text-[2.45rem] ${
-                          tier.tier === "Tier 3" ? "text-cyanGlow" : "text-accentSoft"
-                        }`}
-                      >
-                        {tier.price}
-                      </p>
-                    <p className="text-sm text-white/55">{tier.period}</p>
-                  </div>
+                  <p
+                    className={`text-sm uppercase tracking-[0.24em] ${
+                      tier.tier === "Tier 3" ? "text-cyanGlow" : "text-accentSoft"
+                    }`}
+                  >
+                    закрытый уровень
+                  </p>
                 </div>
 
                 <div className="mt-5 space-y-4">
@@ -481,14 +452,7 @@ export default async function HomePage({
                   ))}
                 </div>
 
-                <Link
-                  href={`/?tier=${tier.tierKey}#purchase-request`}
-                  className={`mt-8 inline-flex w-full items-center justify-center rounded-[1.1rem] px-5 py-4 text-lg font-medium transition sm:text-xl ${tier.button}`}
-                >
-                  Купить доступ
-                </Link>
-
-                <div className="mt-5 flex items-center justify-center gap-2 text-base text-white/38">
+                <div className="mt-8 flex items-center justify-center gap-2 text-base text-white/38">
                   <LockMiniIcon />
                   <span>И многое, что не публикуется открыто</span>
                 </div>
@@ -518,53 +482,78 @@ export default async function HomePage({
           </div>
         </div>
 
+        <div className="mt-8 rounded-[30px] border border-accent/20 bg-[linear-gradient(180deg,rgba(255,79,216,0.06),rgba(255,255,255,0.02))] px-6 py-7 sm:px-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
+                Закрытый вход
+              </p>
+              <h3
+                className="mt-3 text-[1.9rem] leading-[1.08] text-white sm:text-[2.6rem]"
+                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+              >
+                Хочешь попасть внутрь?
+              </h3>
+              <p className="mt-4 text-base leading-7 text-white/62 sm:text-lg sm:leading-8">
+                Оставь короткий запрос, и я сама свяжусь с тобой удобным способом.
+              </p>
+            </div>
+
+            <Link
+              href="#invitation-request"
+              className="inline-flex items-center justify-center rounded-[1.15rem] border border-accent/45 bg-gradient-to-r from-accent/85 to-[#c457f5] px-6 py-4 text-lg font-medium text-white transition hover:brightness-110"
+            >
+              Получить приглашение
+            </Link>
+          </div>
+        </div>
+
         <div
-          id="purchase-request"
-          className="mt-8 rounded-[30px] border border-accent/20 bg-[linear-gradient(180deg,rgba(255,79,216,0.05),rgba(255,255,255,0.02))] px-6 py-6 sm:px-8"
+          id="invitation-request"
+          className="mt-8 rounded-[30px] border border-white/10 bg-white/[0.03] px-6 py-6 sm:px-8"
         >
           <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
             <div>
               <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
-                Заявка на покупку
+                Запрос на приглашение
               </p>
               <h3
                 className="mt-4 text-[1.9rem] leading-[1.08] text-white sm:text-[2.6rem]"
                 style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
               >
-                Оставь заявку,
+                Расскажи, как
                 <br />
-                и я свяжусь с тобой по оплате
+                с тобой связаться
               </h3>
               <p className="mt-4 max-w-xl text-lg leading-8 text-white/62">
-                Уровень подставляется автоматически. После отправки заявка появится у меня в рабочем кабинете.
+                Эти данные попадут только в мой рабочий кабинет. После этого я смогу
+                написать тебе лично и обсудить детали доступа.
               </p>
-
-              <div className="mt-6 rounded-[24px] border border-white/10 bg-black/20 p-5">
-                <p className="text-sm uppercase tracking-[0.24em] text-white/45">Выбранный уровень</p>
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-2xl font-semibold text-white">{tierFormLabels[selectedTier].title}</p>
-                    <p className="mt-1 text-sm text-white/48">Доступ по заявке и ручному подтверждению</p>
-                  </div>
-                  <p className="text-3xl font-semibold text-accentSoft">{tierFormLabels[selectedTier].price}</p>
-                </div>
-              </div>
             </div>
 
             <div className="rounded-[26px] border border-white/10 bg-black/20 p-5 sm:p-6">
-              {purchaseSent ? (
+              {inviteRequestSent ? (
                 <div className="mb-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
-                  Заявка отправлена. Я увижу её в админке и свяжусь с человеком по указанным данным.
+                  Запрос отправлен. Я увижу его в админке и свяжусь с тобой по указанным данным.
                 </div>
               ) : null}
-              {purchaseError ? (
+              {inviteRequestError ? (
                 <div className="mb-5 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
-                  Не получилось отправить заявку. Проверь поля и попробуй ещё раз.
+                  Не получилось отправить запрос. Проверь поля и попробуй ещё раз.
                 </div>
               ) : null}
 
               <form action={createPurchaseRequestAction} className="space-y-4">
-                <input type="hidden" name="tier" value={selectedTier} />
+                <label className="block">
+                  <span className="mb-2 block text-sm text-white/68">Имя</span>
+                  <input
+                    type="text"
+                    name="displayName"
+                    required
+                    placeholder="Как к тебе обращаться"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/28 focus:border-accent/45"
+                  />
+                </label>
 
                 <label className="block">
                   <span className="mb-2 block text-sm text-white/68">Email</span>
@@ -583,27 +572,40 @@ export default async function HomePage({
                     type="text"
                     name="country"
                     required
-                    placeholder="Например: Германия, Украина, Россия"
+                    placeholder="Например: Украина, Германия, Польша"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/28 focus:border-accent/45"
                   />
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm text-white/68">Удобный контакт</span>
+                  <span className="mb-2 block text-sm text-white/68">Удобная связь</span>
                   <input
                     type="text"
                     name="contact"
                     required
-                    placeholder="Telegram / @username / другой контакт"
+                    placeholder="Telegram / Instagram / другой контакт"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/28 focus:border-accent/45"
                   />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm text-white/68">Интересующий уровень</span>
+                  <select
+                    name="tier"
+                    defaultValue="tier_1"
+                    className="w-full rounded-2xl border border-white/10 bg-[#11121b] px-4 py-3 text-white outline-none transition focus:border-accent/45"
+                  >
+                    <option value="tier_1">Наблюдатель</option>
+                    <option value="tier_2">Приближённый</option>
+                    <option value="tier_3">VIP</option>
+                  </select>
                 </label>
 
                 <button
                   type="submit"
                   className="inline-flex w-full items-center justify-center rounded-[1.15rem] border border-accent/45 bg-gradient-to-r from-accent/85 to-[#c457f5] px-5 py-4 text-lg font-medium text-white transition hover:brightness-110"
                 >
-                  Отправить заявку
+                  Отправить запрос
                 </button>
               </form>
             </div>
@@ -657,7 +659,7 @@ export default async function HomePage({
 
           <div className="glass-card rounded-[30px] border-accent/20 p-6 sm:p-8">
             <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
-              Почему стоит подписаться
+              Почему это интересно
             </p>
             <h2
               className="mt-4 max-w-2xl text-[2rem] leading-[1.08] text-white sm:text-[3.1rem]"

@@ -95,6 +95,7 @@ export interface PostWithMedia extends Post {
 export interface PurchaseRequest {
   id: string;
   tier: Tier;
+  display_name: string | null;
   email: string;
   country: string;
   contact: string;

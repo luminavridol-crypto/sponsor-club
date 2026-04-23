@@ -35,6 +35,7 @@ const passwordUpdateSchema = z.object({
 
 const purchaseRequestSchema = z.object({
   tier: z.enum(["tier_1", "tier_2", "tier_3"]),
+  displayName: z.string().min(2),
   email: z.string().email(),
   country: z.string().min(2),
   contact: z.string().min(2)
@@ -236,31 +237,53 @@ export async function updatePasswordAction(formData: FormData) {
 export async function createPurchaseRequestAction(formData: FormData) {
   const parsed = purchaseRequestSchema.safeParse({
     tier: formValue(formData.get("tier")),
+    displayName: formValue(formData.get("displayName")),
     email: formValue(formData.get("email")).toLowerCase(),
     country: formValue(formData.get("country")),
     contact: formValue(formData.get("contact"))
   });
 
   if (!parsed.success) {
-    redirect("/?purchaseError=1#purchase-request");
+    redirect("/?inviteRequestError=1#invitation-request");
   }
 
   const admin = createAdminSupabaseClient();
-  const { error } = await admin.from("purchase_requests").insert({
+  const requestPayload = {
     tier: parsed.data.tier,
+    display_name: parsed.data.displayName,
     email: parsed.data.email,
     country: parsed.data.country,
     contact: parsed.data.contact
-  });
+  };
+
+  const { error } = await admin.from("purchase_requests").insert(requestPayload);
+
+  if (error?.message.includes("display_name")) {
+    const { error: fallbackError } = await admin.from("purchase_requests").insert({
+      tier: parsed.data.tier,
+      email: parsed.data.email,
+      country: parsed.data.country,
+      contact: `Имя: ${parsed.data.displayName}\nСвязь: ${parsed.data.contact}`
+    });
+
+    if (fallbackError) {
+      redirect("/?inviteRequestError=1#invitation-request");
+    }
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath("/admin/requests");
+    redirect("/?inviteRequestSent=1#invitation-request");
+  }
 
   if (error) {
-    redirect("/?purchaseError=1#purchase-request");
+    redirect("/?inviteRequestError=1#invitation-request");
   }
 
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
-  redirect("/?purchaseSent=1#purchase-request");
+  redirect("/?inviteRequestSent=1#invitation-request");
 }
 
 export async function updatePurchaseRequestStatusAction(formData: FormData) {
