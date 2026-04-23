@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { uploadVideoToR2 } from "@/lib/r2/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PostStatus, PostType, Tier } from "@/lib/types";
@@ -44,6 +45,14 @@ async function uploadFile(file: File, folder: string) {
   }
 
   return fileName;
+}
+
+async function uploadPostMedia(file: File, folder: string) {
+  if (file.type.startsWith("video/")) {
+    return uploadVideoToR2(file, folder);
+  }
+
+  return uploadFile(file, folder);
 }
 
 export async function POST(request: Request) {
@@ -123,7 +132,7 @@ export async function POST(request: Request) {
     }
 
     for (const [index, file] of mediaFiles.entries()) {
-      const storagePath = await uploadFile(file, `posts/${post.id}`);
+      const storagePath = await uploadPostMedia(file, `posts/${post.id}`);
       const mediaType = file.type.startsWith("video/") ? "video" : "image";
 
       const { error: mediaError } = await admin.from("post_media").insert({

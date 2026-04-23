@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { deleteUserChatAction } from "@/app/actions";
+import { ConfirmActionForm } from "@/components/admin/confirm-action-form";
 import { AdminChatComposer } from "@/components/chat/admin-chat-composer";
 import { MessageThread } from "@/components/chat/message-thread";
 import { PrivateShell } from "@/components/layout/private-shell";
@@ -83,7 +85,7 @@ export default async function AdminChatPage({
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
-          <div className="rounded-[32px] border border-white/10 bg-white/5 p-5">
+          <div className="rounded-[32px] border border-white/10 bg-white/5 p-4 sm:p-5">
             <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Участники</p>
             <div className="mt-4 space-y-3">
               {users.length ? (
@@ -109,7 +111,7 @@ export default async function AdminChatPage({
                           <span className="inline-flex h-3 w-3 shrink-0 rounded-full bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.7)]" />
                         ) : null}
                       </div>
-                      <p className="mt-1 text-sm text-white/55">{user.email}</p>
+                      <p className="mt-1 break-all text-sm text-white/55">{user.email}</p>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
                           {TIER_LABELS[user.tier]}
@@ -118,7 +120,7 @@ export default async function AdminChatPage({
                           {formatTime(lastMessage?.created_at ?? null)}
                         </span>
                       </div>
-                      <div className="mt-4">
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                         <Link
                           href={`/admin/chat?user=${user.id}`}
                           className={`inline-flex rounded-2xl border px-4 py-2 text-sm transition ${
@@ -129,6 +131,13 @@ export default async function AdminChatPage({
                         >
                           {active ? "Чат открыт" : "Открыть чат"}
                         </Link>
+                        <ConfirmActionForm
+                          action={deleteUserChatAction}
+                          confirmMessage={`Точно очистить весь чат с ${user.display_name || user.email}? Все сообщения и вложения удалятся.`}
+                          buttonLabel="Очистить чат"
+                          buttonClassName="inline-flex rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-200 transition hover:bg-rose-400/20"
+                          hiddenFields={[{ name: "profileId", value: user.id }]}
+                        />
                       </div>
                     </article>
                   );
@@ -141,7 +150,7 @@ export default async function AdminChatPage({
             </div>
           </div>
 
-          <div className="rounded-[32px] border border-white/10 bg-white/5 p-6">
+          <div className="rounded-[32px] border border-white/10 bg-white/5 p-4 sm:p-6">
             {selectedUser ? (
               <>
                 <div className="mb-5">
@@ -149,7 +158,7 @@ export default async function AdminChatPage({
                   <h3 className="mt-3 text-2xl font-semibold text-white">
                     {selectedUser.display_name || "Без имени"}
                   </h3>
-                  <p className="mt-2 text-sm text-white/55">{selectedUser.email}</p>
+                  <p className="mt-2 break-all text-sm text-white/55">{selectedUser.email}</p>
                 </div>
 
                 <MessageThread

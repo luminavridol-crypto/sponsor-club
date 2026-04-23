@@ -4,6 +4,7 @@ export type AccessStatus = "active" | "disabled";
 export type PostType = "gallery" | "video" | "text" | "announcement";
 export type PostStatus = "draft" | "published";
 export type MediaType = "image" | "video";
+export type PurchaseRequestStatus = "new" | "in_progress" | "completed";
 
 export interface Profile {
   id: string;
@@ -89,4 +90,15 @@ export interface PostMedia {
 export interface PostWithMedia extends Post {
   post_media: PostMedia[];
   thumbnail_url?: string | null;
+}
+
+export interface PurchaseRequest {
+  id: string;
+  tier: Tier;
+  email: string;
+  country: string;
+  contact: string;
+  status: PurchaseRequestStatus;
+  created_at: string;
+  updated_at: string;
 }

@@ -50,8 +50,8 @@ export function MessageThread({
   }, [messages]);
 
   return (
-    <div className="space-y-3 rounded-3xl border border-white/10 bg-black/10 p-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-3 rounded-3xl border border-white/10 bg-black/10 p-3 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs uppercase tracking-[0.22em] text-white/35">История сообщений</p>
         <button
           type="button"
@@ -77,14 +77,14 @@ export function MessageThread({
             return (
               <div
                 key={message.id}
-                className={`max-w-[92%] rounded-2xl border px-4 py-3 ${
+                className={`max-w-full rounded-2xl border px-3 py-3 sm:max-w-[92%] sm:px-4 ${
                   isAdminMessage
                     ? "border-accent/25 bg-accent/10 text-white"
                     : "ml-auto border-cyanGlow/25 bg-cyanGlow/10 text-white"
                 }`}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-[0.2em] text-white/45">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/45 sm:tracking-[0.2em]">
                     {isAdminMessage ? adminLabel : memberLabel}
                   </p>
                   <p className="text-xs text-white/35">{formatMessageTime(message.created_at)}</p>
@@ -118,7 +118,7 @@ export function MessageThread({
                         </a>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                       <a
                         href={message.media_url}
                         target="_blank"

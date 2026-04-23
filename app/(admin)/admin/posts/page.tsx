@@ -1,8 +1,9 @@
-import { PrivateShell } from "@/components/layout/private-shell";
+﻿import { deleteAllPostsAction, deletePostAction, updatePostAction } from "@/app/actions";
+import { ConfirmActionForm } from "@/components/admin/confirm-action-form";
 import { PostCreateForm } from "@/components/admin/post-create-form";
+import { PrivateShell } from "@/components/layout/private-shell";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { deletePostAction, updatePostAction } from "@/app/actions";
 import { formatDate } from "@/lib/utils/format";
 
 export default async function AdminPostsPage() {
@@ -17,8 +18,18 @@ export default async function AdminPostsPage() {
     <PrivateShell profile={profile} admin>
       <div className="space-y-6">
         <section className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-glow">
-          <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Posts Manager</p>
-          <h2 className="mt-3 text-3xl font-semibold text-white">Создание публикаций</h2>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Posts Manager</p>
+              <h2 className="mt-3 text-3xl font-semibold text-white">Создание публикаций</h2>
+            </div>
+            <ConfirmActionForm
+              action={deleteAllPostsAction}
+              confirmMessage="Удалить все посты? Это действие нельзя отменить."
+              buttonLabel="Удалить все посты"
+              buttonClassName="rounded-2xl border border-rose-400/35 bg-rose-400/10 px-4 py-3 text-sm font-medium text-rose-100 transition hover:bg-rose-400/15"
+            />
+          </div>
           <PostCreateForm />
         </section>
 
@@ -32,12 +43,13 @@ export default async function AdminPostsPage() {
                     {post.post_type} • {post.required_tier} • {post.status} • {formatDate(post.publish_at)}
                   </p>
                 </div>
-                <form action={deletePostAction}>
-                  <input type="hidden" name="postId" value={post.id} />
-                  <button className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-100">
-                    Удалить
-                  </button>
-                </form>
+                <ConfirmActionForm
+                  action={deletePostAction}
+                  confirmMessage="Удалить этот пост?"
+                  buttonLabel="Удалить"
+                  buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-100"
+                  hiddenFields={[{ name: "postId", value: post.id }]}
+                />
               </div>
 
               <form action={updatePostAction} className="grid gap-4">

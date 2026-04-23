@@ -101,6 +101,9 @@ export function BirthdayCalendar({ birthdays }: { birthdays: BirthdayPerson[] })
   const today = new Date();
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const todayDay = today.getDate();
+  const isCurrentMonthView =
+    selectedYear === today.getFullYear() && selectedMonth === today.getMonth();
 
   const years = useMemo(() => {
     const currentYear = today.getFullYear();
@@ -139,13 +142,13 @@ export function BirthdayCalendar({ birthdays }: { birthdays: BirthdayPerson[] })
   }
 
   return (
-    <section className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-glow">
-      <div className="flex items-start justify-between gap-3">
+    <section className="rounded-[28px] border border-white/10 bg-white/5 p-4 shadow-glow sm:rounded-[32px] sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.28em] text-cyanGlow">Календарь</p>
           <h3 className="mt-3 text-2xl font-semibold text-white">Дни рождения подписчиков</h3>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 self-end sm:self-auto">
           <button
             type="button"
             onClick={goToPreviousMonth}
@@ -164,10 +167,14 @@ export function BirthdayCalendar({ birthdays }: { birthdays: BirthdayPerson[] })
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_120px]">
-        <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-white capitalize">
+        <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-white capitalize sm:text-base">
           {getMonthName(selectedMonth)} {selectedYear}
         </div>
-        <select value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>
+        <select
+          value={selectedYear}
+          onChange={(event) => setSelectedYear(Number(event.target.value))}
+          className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-white outline-none transition focus:border-accent/40 sm:text-base"
+        >
           {years.map((year) => (
             <option key={year} value={year}>
               {year}
@@ -176,9 +183,9 @@ export function BirthdayCalendar({ birthdays }: { birthdays: BirthdayPerson[] })
         </select>
       </div>
 
-      <div className="mt-5 grid grid-cols-7 gap-2 text-center">
+      <div className="mt-5 grid grid-cols-7 gap-1.5 text-center sm:gap-2">
         {WEEK_DAYS.map((day) => (
-          <div key={day} className="text-xs uppercase tracking-[0.16em] text-white/40">
+          <div key={day} className="text-[10px] uppercase tracking-[0.12em] text-white/40 sm:text-xs sm:tracking-[0.16em]">
             {day}
           </div>
         ))}
@@ -186,11 +193,15 @@ export function BirthdayCalendar({ birthdays }: { birthdays: BirthdayPerson[] })
         {calendarDays.map((day, index) => (
           <div
             key={`${day.day}-${day.inCurrentMonth}-${index}`}
-            className={`rounded-2xl border px-2 py-3 text-sm transition ${
+            className={`rounded-xl border px-1.5 py-2 text-xs transition sm:rounded-2xl sm:px-2 sm:py-3 sm:text-sm ${
               day.inCurrentMonth
-                ? day.birthdayCount > 0
-                  ? "border-emerald-400/40 bg-emerald-400/15 text-emerald-200"
-                  : "border-white/10 bg-black/10 text-white"
+                ? isCurrentMonthView && day.day === todayDay
+                  ? day.birthdayCount > 0
+                    ? "border-cyanGlow bg-cyanGlow/20 text-white shadow-[0_0_0_1px_rgba(103,232,249,0.22),0_0_28px_rgba(34,211,238,0.16)]"
+                    : "border-cyanGlow/70 bg-cyanGlow/12 text-white shadow-[0_0_0_1px_rgba(103,232,249,0.18),0_0_24px_rgba(34,211,238,0.12)]"
+                  : day.birthdayCount > 0
+                    ? "border-emerald-400/40 bg-emerald-400/15 text-emerald-200"
+                    : "border-white/10 bg-black/10 text-white"
                 : "border-white/5 bg-transparent text-white/25"
             }`}
           >
@@ -212,7 +223,7 @@ export function BirthdayCalendar({ birthdays }: { birthdays: BirthdayPerson[] })
               return (
                 <div
                   key={person.id}
-                  className={`flex items-center justify-between rounded-2xl border px-4 py-3 ${getBirthdayRowClass(person.tierKey)}`}
+                  className={`flex flex-col gap-2 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${getBirthdayRowClass(person.tierKey)}`}
                 >
                   <div>
                     <p className="font-medium text-white">{person.displayName}</p>

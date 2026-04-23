@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin, requireProfile } from "@/lib/auth/guards";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
+import { deleteR2Objects, isR2StoragePath, uploadVideoToR2 } from "@/lib/r2/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { AccessStatus, PostStatus, PostType, Tier } from "@/lib/types";
@@ -21,6 +22,22 @@ const inviteSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   displayName: z.string().optional()
+});
+
+const passwordResetRequestSchema = z.object({
+  email: z.string().email()
+});
+
+const passwordUpdateSchema = z.object({
+  password: z.string().min(8),
+  confirmPassword: z.string().min(8)
+});
+
+const purchaseRequestSchema = z.object({
+  tier: z.enum(["tier_1", "tier_2", "tier_3"]),
+  email: z.string().email(),
+  country: z.string().min(2),
+  contact: z.string().min(2)
 });
 
 function formValue(value: FormDataEntryValue | null) {
@@ -44,6 +61,10 @@ function currentDonationPeriod() {
     donationYear: now.getUTCFullYear(),
     donationMonth: now.getUTCMonth() + 1
   };
+}
+
+function getSiteUrl() {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
 function humanizeStorageError(message: string) {
@@ -107,6 +128,43 @@ async function uploadChatFile(file: File, profileId: string) {
   return fileName;
 }
 
+async function uploadPostMedia(file: File, folder: string) {
+  if (file.type.startsWith("video/")) {
+    return uploadVideoToR2(file, folder);
+  }
+
+  return uploadFile(file, folder);
+}
+
+async function removePostStorage(paths: string[]) {
+  if (!paths.length) {
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  const uniquePaths = [...new Set(paths)];
+  const r2Paths = uniquePaths.filter(isR2StoragePath);
+  const supabasePaths = uniquePaths.filter((path) => !isR2StoragePath(path));
+
+  if (supabasePaths.length) {
+    await admin.storage.from("post-media").remove(supabasePaths);
+  }
+
+  if (r2Paths.length) {
+    await deleteR2Objects(r2Paths);
+  }
+}
+
+async function removeChatStorage(paths: string[]) {
+  if (!paths.length) {
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  const uniquePaths = [...new Set(paths)];
+  await admin.storage.from("chat-media").remove(uniquePaths);
+}
+
 export async function loginAction(formData: FormData) {
   const parsed = loginSchema.safeParse({
     email: formValue(formData.get("email")),
@@ -125,6 +183,115 @@ export async function loginAction(formData: FormData) {
   }
 
   redirect("/dashboard");
+}
+
+export async function requestPasswordResetAction(formData: FormData) {
+  const parsed = passwordResetRequestSchema.safeParse({
+    email: formValue(formData.get("email"))
+  });
+
+  if (!parsed.success) {
+    redirect("/forgot-password?error=1");
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const redirectTo = `${getSiteUrl()}/api/auth/callback?next=/reset-password`;
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo
+  });
+
+  if (error) {
+    redirect("/forgot-password?error=1");
+  }
+
+  redirect("/forgot-password?sent=1");
+}
+
+export async function updatePasswordAction(formData: FormData) {
+  const parsed = passwordUpdateSchema.safeParse({
+    password: formValue(formData.get("password")),
+    confirmPassword: formValue(formData.get("confirmPassword"))
+  });
+
+  if (!parsed.success) {
+    redirect("/reset-password?error=1");
+  }
+
+  if (parsed.data.password !== parsed.data.confirmPassword) {
+    redirect("/reset-password?error=match");
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.password
+  });
+
+  if (error) {
+    redirect("/reset-password?error=1");
+  }
+
+  redirect("/login?passwordUpdated=1");
+}
+
+export async function createPurchaseRequestAction(formData: FormData) {
+  const parsed = purchaseRequestSchema.safeParse({
+    tier: formValue(formData.get("tier")),
+    email: formValue(formData.get("email")).toLowerCase(),
+    country: formValue(formData.get("country")),
+    contact: formValue(formData.get("contact"))
+  });
+
+  if (!parsed.success) {
+    redirect("/?purchaseError=1#purchase-request");
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { error } = await admin.from("purchase_requests").insert({
+    tier: parsed.data.tier,
+    email: parsed.data.email,
+    country: parsed.data.country,
+    contact: parsed.data.contact
+  });
+
+  if (error) {
+    redirect("/?purchaseError=1#purchase-request");
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/admin/requests");
+  redirect("/?purchaseSent=1#purchase-request");
+}
+
+export async function updatePurchaseRequestStatusAction(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+  const requestId = formValue(formData.get("requestId"));
+  const status = formValue(formData.get("status"));
+
+  if (!requestId || !["new", "in_progress", "completed"].includes(status)) {
+    revalidatePath("/admin");
+    revalidatePath("/admin/requests");
+    return;
+  }
+
+  await admin
+    .from("purchase_requests")
+    .update({ status })
+    .eq("id", requestId);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/requests");
+}
+
+export async function deleteAllPurchaseRequestsAction() {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+
+  await admin.from("purchase_requests").delete().not("id", "is", null);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/requests");
 }
 
 export async function signOutAction() {
@@ -330,6 +497,34 @@ export async function sendAdminChatMessageAction(formData: FormData) {
   revalidatePath("/chat");
 }
 
+export async function deleteUserChatAction(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+  const profileId = formValue(formData.get("profileId"));
+
+  if (!profileId) {
+    revalidatePath("/admin/chat");
+    return;
+  }
+
+  const { data: messages } = await admin
+    .from("member_chat_messages")
+    .select("media_path")
+    .eq("profile_id", profileId);
+
+  await removeChatStorage(
+    (messages ?? [])
+      .map((message) => message.media_path)
+      .filter((path): path is string => Boolean(path))
+  );
+
+  await admin.from("member_chat_messages").delete().eq("profile_id", profileId);
+
+  revalidatePath("/admin/chat");
+  revalidatePath("/admin/users");
+  revalidatePath("/chat");
+}
+
 export async function createInviteAction(formData: FormData) {
   const adminProfile = await requireAdmin();
   const admin = createAdminSupabaseClient();
@@ -402,7 +597,7 @@ export async function createPostAction(formData: FormData) {
   }
 
   for (const [index, file] of mediaFiles.entries()) {
-    const storagePath = await uploadFile(file, `posts/${post.id}`);
+    const storagePath = await uploadPostMedia(file, `posts/${post.id}`);
     const mediaType = file.type.startsWith("video/") ? "video" : "image";
 
     await admin.from("post_media").insert({
@@ -442,15 +637,37 @@ export async function deletePostAction(formData: FormData) {
   const admin = createAdminSupabaseClient();
   const postId = formValue(formData.get("postId"));
 
+  const { data: post } = await admin.from("posts").select("thumbnail_path").eq("id", postId).single();
   const { data: media } = await admin.from("post_media").select("storage_path").eq("post_id", postId);
 
-  if (media?.length) {
-    await admin.storage
-      .from("post-media")
-      .remove(media.map((item) => item.storage_path));
-  }
+  await removePostStorage([
+    ...(post?.thumbnail_path ? [post.thumbnail_path] : []),
+    ...((media ?? []).map((item) => item.storage_path))
+  ]);
 
   await admin.from("posts").delete().eq("id", postId);
+
+  revalidatePath("/admin/posts");
+  revalidatePath("/feed");
+}
+
+export async function deleteAllPostsAction() {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+
+  const [{ data: posts }, { data: media }] = await Promise.all([
+    admin.from("posts").select("thumbnail_path"),
+    admin.from("post_media").select("storage_path")
+  ]);
+
+  await removePostStorage([
+    ...((posts ?? [])
+      .map((post) => post.thumbnail_path)
+      .filter((path): path is string => Boolean(path))),
+    ...((media ?? []).map((item) => item.storage_path))
+  ]);
+
+  await admin.from("posts").delete().not("id", "is", null);
 
   revalidatePath("/admin/posts");
   revalidatePath("/feed");

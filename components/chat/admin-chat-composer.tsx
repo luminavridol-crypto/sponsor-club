@@ -110,14 +110,14 @@ export function AdminChatComposer({
     <form ref={formRef} onSubmit={handleSubmit} className="mt-5 space-y-4">
       <input type="hidden" name="profileId" value={profileId} />
 
-      <div className="space-y-3 rounded-3xl border border-white/10 bg-black/10 p-4">
+      <div className="space-y-3 rounded-3xl border border-white/10 bg-black/10 p-3 sm:p-4">
         <textarea
           name="body"
           placeholder={`Ответить ${memberLabel}...`}
-          className="min-h-[160px]"
+          className="min-h-[140px] sm:min-h-[160px]"
         />
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <button
             disabled={status === "uploading"}
             className="rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accentSoft transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-70"
@@ -142,7 +142,7 @@ export function AdminChatComposer({
             Выбрать файл
           </button>
 
-          <span className="text-sm text-white/55">{selectedFileName}</span>
+          <span className="break-all text-sm text-white/55">{selectedFileName}</span>
         </div>
 
         <p className="text-xs text-white/40">
