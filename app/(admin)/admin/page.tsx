@@ -50,7 +50,16 @@ export default async function AdminDashboardPage() {
           <StatCard label="Новые заявки" value={purchaseRequestsCount ?? 0} tone="accent" />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <Link
+            href="/admin/creator"
+            className="rounded-3xl border border-cyanGlow/30 bg-[linear-gradient(135deg,rgba(111,234,255,0.16),rgba(255,79,216,0.1))] p-5 transition hover:border-cyanGlow/50 hover:bg-cyanGlow/15"
+          >
+            <h3 className="text-xl font-semibold text-white">Creator Studio</h3>
+            <p className="mt-2 text-sm text-white/70">
+              Черновики, идеи, сценарии и будущий AI-помощник для контента.
+            </p>
+          </Link>
           <Link
             href="/admin/posts"
             className="rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:border-accent/30 hover:bg-white/10"
@@ -76,9 +85,9 @@ export default async function AdminDashboardPage() {
             href="/admin/requests"
             className="rounded-3xl border border-accent/30 bg-accent/10 p-5 transition hover:bg-accent/20"
           >
-            <h3 className="text-xl font-semibold text-white">Заявки на покупку</h3>
+            <h3 className="text-xl font-semibold text-white">Заявки</h3>
             <p className="mt-2 text-sm text-white/70">
-              Новые обращения по доступу и ручная обработка оплаты.
+              Новые обращения по доступу и ручная обработка приглашений.
             </p>
           </Link>
         </div>

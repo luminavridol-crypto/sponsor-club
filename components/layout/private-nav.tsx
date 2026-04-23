@@ -25,6 +25,7 @@ const memberLinks: NavLink[] = [
 ];
 
 const adminLinks: NavLink[] = [
+  { href: "/admin/creator", label: "Creator Studio", accent: "cyan", match: "startsWith" },
   { href: "/admin/posts", label: "Добавить пост", accent: "cyan", match: "startsWith" },
   { href: "/dashboard", label: "Аналитика", accent: "neutral", match: "exact" },
   { href: "/admin/users", label: "Пользователи", accent: "neutral", match: "startsWith" },

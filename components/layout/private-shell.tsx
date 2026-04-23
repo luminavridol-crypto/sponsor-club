@@ -1,14 +1,12 @@
 import { ReactNode } from "react";
 import Link from "next/link";
 import { signOutAction } from "@/app/actions";
-import { BirthdayCalendar } from "@/components/admin/birthday-calendar";
 import { PrivateNav } from "@/components/layout/private-nav";
 import { SiteSoundNotifier } from "@/components/layout/site-sound-notifier";
 import { getAdminUnreadChatProfileIds, hasUnreadMemberChat } from "@/lib/data/chat";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { Profile, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
-import { TIER_LABELS } from "@/lib/utils/tier";
 
 export async function PrivateShell({
   profile,
@@ -27,23 +25,8 @@ export async function PrivateShell({
   let hasPendingRequests = false;
   let pendingRequestsCount = 0;
   let initialLatestPendingRequestAt: string | null = null;
-  let birthdays:
-    | Array<{
-        id: string;
-        displayName: string;
-        birthDate: string;
-        tierLabel: string;
-        tierKey: Tier;
-      }>
-    | undefined;
 
   if (admin) {
-    const { data: birthdayProfiles } = await adminClient
-      .from("profiles")
-      .select("id, display_name, email, birth_date, tier, access_status")
-      .neq("role", "admin")
-      .not("birth_date", "is", null);
-
     const unreadProfileIds = await getAdminUnreadChatProfileIds(adminClient);
     hasUnreadChat = unreadProfileIds.length > 0;
     unreadChatCount = unreadProfileIds.length;
@@ -72,16 +55,6 @@ export async function PrivateShell({
     ]);
     initialLatestUnreadChatAt = latestUnreadChatRow?.created_at ?? null;
     initialLatestPendingRequestAt = latestPendingRequestRow?.created_at ?? null;
-
-    birthdays = (birthdayProfiles ?? [])
-      .filter((item) => item.birth_date && item.access_status === "active")
-      .map((item) => ({
-        id: item.id,
-        displayName: item.display_name || item.email || "Подписчик",
-        birthDate: item.birth_date as string,
-        tierLabel: TIER_LABELS[item.tier as Tier],
-        tierKey: item.tier as Tier
-      }));
   } else {
     hasUnreadChat = await hasUnreadMemberChat(adminClient, profile.id);
     unreadChatCount = hasUnreadChat ? 1 : 0;
@@ -170,7 +143,7 @@ export async function PrivateShell({
         />
 
         {admin ? (
-          <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_430px]">
+          <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
             <PrivateNav
               profile={profile}
               admin
@@ -178,9 +151,6 @@ export async function PrivateShell({
               hasPendingRequests={hasPendingRequests}
             />
             <div>{children}</div>
-            <aside className="xl:sticky xl:top-6 xl:h-fit">
-              <BirthdayCalendar birthdays={birthdays ?? []} />
-            </aside>
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
