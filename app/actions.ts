@@ -11,6 +11,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { AccessStatus, PostStatus, PostType, Tier } from "@/lib/types";
 import { slugify } from "@/lib/utils/slug";
+import { canAccessTier } from "@/lib/utils/tier";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -39,6 +40,12 @@ const purchaseRequestSchema = z.object({
   email: z.string().email(),
   country: z.string().min(2),
   contact: z.string().min(2)
+});
+
+const commentSchema = z.object({
+  postId: z.string().uuid(),
+  postSlug: z.string().min(1),
+  body: z.string().trim().min(1).max(1000)
 });
 
 function formValue(value: FormDataEntryValue | null) {
@@ -445,6 +452,49 @@ export async function updateProfileAction(formData: FormData) {
     .eq("id", profile.id);
 
   revalidatePath("/profile");
+}
+
+export async function createPostCommentAction(formData: FormData) {
+  const profile = await requireProfile();
+  const parsed = commentSchema.safeParse({
+    postId: formValue(formData.get("postId")),
+    postSlug: formValue(formData.get("postSlug")),
+    body: formValue(formData.get("body"))
+  });
+
+  if (!parsed.success) {
+    revalidatePath("/feed");
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { data: post } = await admin
+    .from("posts")
+    .select("id, slug, status, publish_at, expires_at, required_tier")
+    .eq("id", parsed.data.postId)
+    .single();
+
+  const postIsAvailable =
+    post &&
+    post.slug === parsed.data.postSlug &&
+    post.status === "published" &&
+    new Date(post.publish_at) <= new Date() &&
+    (!post.expires_at || new Date(post.expires_at) > new Date()) &&
+    canAccessTier(profile.tier, post.required_tier);
+
+  if (!postIsAvailable) {
+    revalidatePath("/feed");
+    return;
+  }
+
+  await admin.from("post_comments").insert({
+    post_id: parsed.data.postId,
+    profile_id: profile.id,
+    body: parsed.data.body
+  });
+
+  revalidatePath("/feed");
+  revalidatePath(`/feed/${parsed.data.postSlug}`);
 }
 
 export async function sendMemberChatMessageAction(formData: FormData) {

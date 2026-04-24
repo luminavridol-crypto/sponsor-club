@@ -2,18 +2,22 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TIER_ACCESS_HINTS, TIER_LABELS } from "@/lib/utils/tier";
 import { Tier } from "@/lib/types";
+import { TIER_ACCESS_HINTS, TIER_LABELS } from "@/lib/utils/tier";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
+
+const emotionOptions = ["❤️", "💋", "✨", "🔥", "🥀", "😭", "🫀", "🥹", "😈", "🖤"];
 
 export function PostCreateForm() {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<UploadState>("idle");
   const [message, setMessage] = useState("");
   const [selectedTier, setSelectedTier] = useState<Tier>("tier_1");
+  const [showEmotions, setShowEmotions] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,6 +52,7 @@ export function PostCreateForm() {
           setMessage("Пост успешно создан.");
           formRef.current?.reset();
           setSelectedTier("tier_1");
+          setShowEmotions(false);
           router.refresh();
           return;
         }
@@ -67,6 +72,27 @@ export function PostCreateForm() {
 
     xhr.open("POST", "/api/admin/posts");
     xhr.send(formData);
+  }
+
+  function insertEmotion(emoji: string) {
+    const textarea = descriptionRef.current;
+
+    if (!textarea) {
+      return;
+    }
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    const prefix = textarea.value.slice(0, start);
+    const suffix = textarea.value.slice(end);
+    const beforeSpacer = prefix && !prefix.endsWith(" ") && !prefix.endsWith("\n") ? " " : "";
+    const afterSpacer = suffix && !suffix.startsWith(" ") && !suffix.startsWith("\n") ? " " : "";
+
+    textarea.value = `${prefix}${beforeSpacer}${emoji}${afterSpacer}${suffix}`;
+    textarea.focus();
+
+    const caretPosition = prefix.length + beforeSpacer.length + emoji.length + afterSpacer.length;
+    textarea.setSelectionRange(caretPosition, caretPosition);
   }
 
   const imageAccept = ".jpg,.jpeg,.png,.webp,.gif,.avif,image/*";
@@ -123,8 +149,31 @@ export function PostCreateForm() {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm text-white/60">Описание</label>
-        <textarea name="description" />
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <label className="block text-sm text-white/60">Описание</label>
+          <button
+            type="button"
+            onClick={() => setShowEmotions((value) => !value)}
+            className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accentSoft transition hover:border-accent/50 hover:bg-accent/15"
+          >
+            Добавить эмоции
+          </button>
+        </div>
+        <textarea ref={descriptionRef} name="description" />
+        {showEmotions ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {emotionOptions.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => insertEmotion(emoji)}
+                className="rounded-full border border-white/10 bg-black/10 px-3 py-2 text-lg transition hover:border-accent/35 hover:bg-white/5"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div>

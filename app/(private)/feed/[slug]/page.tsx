@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
 import { PrivateShell } from "@/components/layout/private-shell";
+import { PostComments } from "@/components/posts/post-comments";
+import { PostReactions } from "@/components/posts/post-reactions";
 import { ProtectedMedia } from "@/components/posts/protected-media";
 import { requireProfile } from "@/lib/auth/guards";
+import { getCommentsForPost } from "@/lib/data/comments";
 import { getPostBySlugForTier, getSignedMediaUrls } from "@/lib/data/posts";
 import { formatDate } from "@/lib/utils/format";
 
@@ -23,6 +26,7 @@ export default async function PostDetailPage({
     ...(post.thumbnail_path ? [post.thumbnail_path] : [])
   ]);
   const thumbnailUrl = post.thumbnail_path ? mediaMap[post.thumbnail_path] ?? null : null;
+  const comments = await getCommentsForPost(post.id);
 
   return (
     <PrivateShell profile={profile} admin={profile.role === "admin"}>
@@ -32,15 +36,13 @@ export default async function PostDetailPage({
           <h2 className="mt-3 text-3xl font-semibold text-white">{post.title}</h2>
           <p className="mt-4 text-sm leading-7 text-white/66">{post.description}</p>
           <p className="mt-4 text-sm text-white/40">Опубликовано: {formatDate(post.publish_at)}</p>
+          <div className="mt-5">
+            <PostReactions postId={post.id} />
+          </div>
         </div>
 
         {thumbnailUrl ? (
-          <ProtectedMedia
-            kind="image"
-            src={thumbnailUrl}
-            alt={post.title}
-            className="w-full"
-          />
+          <ProtectedMedia kind="image" src={thumbnailUrl} alt={post.title} className="w-full" />
         ) : null}
 
         {post.body ? (
@@ -53,26 +55,21 @@ export default async function PostDetailPage({
           <section className="grid gap-4 md:grid-cols-2">
             {post.post_media.map((media) => {
               const signedUrl = mediaMap[media.storage_path];
-              if (!signedUrl) return null;
+
+              if (!signedUrl) {
+                return null;
+              }
 
               return media.media_type === "video" ? (
-                <ProtectedMedia
-                  key={media.id}
-                  kind="video"
-                  src={signedUrl}
-                  alt={post.title}
-                />
+                <ProtectedMedia key={media.id} kind="video" src={signedUrl} alt={post.title} />
               ) : (
-                <ProtectedMedia
-                  key={media.id}
-                  kind="image"
-                  src={signedUrl}
-                  alt={post.title}
-                />
+                <ProtectedMedia key={media.id} kind="image" src={signedUrl} alt={post.title} />
               );
             })}
           </section>
         ) : null}
+
+        <PostComments postId={post.id} postSlug={post.slug} comments={comments} />
       </article>
     </PrivateShell>
   );

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PostWithMedia } from "@/lib/types";
 import { formatDate } from "@/lib/utils/format";
 import { TIER_LABELS } from "@/lib/utils/tier";
+import { PostReactions } from "@/components/posts/post-reactions";
 
 export function PostCard({ post }: { post: PostWithMedia }) {
   return (
@@ -30,12 +31,23 @@ export function PostCard({ post }: { post: PostWithMedia }) {
           <span>{formatDate(post.publish_at)}</span>
           <span>{post.post_media?.length ?? 0} media</span>
         </div>
-        <Link
-          href={`/feed/${post.slug}`}
-          className="inline-flex rounded-2xl bg-white px-4 py-2 text-sm font-medium text-background transition hover:bg-goldSoft"
-        >
-          Открыть пост
-        </Link>
+        <div className="mb-4">
+          <PostReactions postId={post.id} />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={`/feed/${post.slug}`}
+            className="inline-flex rounded-2xl bg-white px-4 py-2 text-sm font-medium text-background transition hover:bg-goldSoft"
+          >
+            Открыть пост
+          </Link>
+          <Link
+            href={`/feed/${post.slug}#comments`}
+            className="inline-flex rounded-2xl border border-white/10 px-4 py-2 text-sm font-medium text-white/75 transition hover:border-accent/30 hover:bg-white/5 hover:text-white"
+          >
+            Комментарии
+          </Link>
+        </div>
       </div>
     </article>
   );

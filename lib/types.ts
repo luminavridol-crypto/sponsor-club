@@ -92,6 +92,18 @@ export interface PostWithMedia extends Post {
   thumbnail_url?: string | null;
 }
 
+export interface PostComment {
+  id: string;
+  post_id: string;
+  profile_id: string;
+  body: string;
+  created_at: string;
+}
+
+export interface PostCommentWithAuthor extends PostComment {
+  profiles: Pick<Profile, "display_name" | "nickname" | "email" | "role"> | null;
+}
+
 export interface PurchaseRequest {
   id: string;
   tier: Tier;
