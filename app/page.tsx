@@ -577,16 +577,33 @@ export default async function HomePage({
                   />
                 </label>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm text-white/68">Удобная связь</span>
-                  <input
-                    type="text"
-                    name="contact"
-                    required
-                    placeholder="Telegram / Instagram / другой контакт"
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/28 focus:border-accent/45"
-                  />
-                </label>
+                <div className="grid gap-3 sm:grid-cols-[0.82fr_1.18fr]">
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-white/68">Удобная связь</span>
+                    <select
+                      name="contactMethod"
+                      defaultValue="Telegram"
+                      required
+                      className="w-full rounded-2xl border border-white/10 bg-[#11121b] px-4 py-3 text-white outline-none transition focus:border-accent/45"
+                    >
+                      <option value="Telegram">Telegram</option>
+                      <option value="Instagram">Instagram</option>
+                      <option value="Email">Email</option>
+                      <option value="Other">Другая связь</option>
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-white/68">Ник или ссылка</span>
+                    <input
+                      type="text"
+                      name="contactHandle"
+                      required
+                      placeholder="@username или ссылка, где тебе ответить"
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/28 focus:border-accent/45"
+                    />
+                  </label>
+                </div>
 
                 <label className="block">
                   <span className="mb-2 block text-sm text-white/68">Интересующий уровень</span>

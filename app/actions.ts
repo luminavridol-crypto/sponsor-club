@@ -39,7 +39,8 @@ const purchaseRequestSchema = z.object({
   displayName: z.string().min(2),
   email: z.string().email(),
   country: z.string().min(2),
-  contact: z.string().min(2)
+  contactMethod: z.enum(["Telegram", "Instagram", "Email", "Other"]),
+  contactHandle: z.string().min(2)
 });
 
 const commentSchema = z.object({
@@ -242,12 +243,15 @@ export async function updatePasswordAction(formData: FormData) {
 }
 
 export async function createPurchaseRequestAction(formData: FormData) {
+  const contactMethod = formValue(formData.get("contactMethod"));
+  const contactHandle = formValue(formData.get("contactHandle"));
   const parsed = purchaseRequestSchema.safeParse({
     tier: formValue(formData.get("tier")),
     displayName: formValue(formData.get("displayName")),
     email: formValue(formData.get("email")).toLowerCase(),
     country: formValue(formData.get("country")),
-    contact: formValue(formData.get("contact"))
+    contactMethod,
+    contactHandle
   });
 
   if (!parsed.success) {
@@ -255,12 +259,13 @@ export async function createPurchaseRequestAction(formData: FormData) {
   }
 
   const admin = createAdminSupabaseClient();
+  const contact = `${parsed.data.contactMethod}: ${parsed.data.contactHandle}`;
   const requestPayload = {
     tier: parsed.data.tier,
     display_name: parsed.data.displayName,
     email: parsed.data.email,
     country: parsed.data.country,
-    contact: parsed.data.contact
+    contact
   };
 
   const { error } = await admin.from("purchase_requests").insert(requestPayload);
@@ -270,7 +275,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
       tier: parsed.data.tier,
       email: parsed.data.email,
       country: parsed.data.country,
-      contact: `Имя: ${parsed.data.displayName}\nСвязь: ${parsed.data.contact}`
+      contact: `Имя: ${parsed.data.displayName}\nСвязь: ${contact}`
     });
 
     if (fallbackError) {
