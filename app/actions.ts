@@ -6,10 +6,17 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin, requireProfile } from "@/lib/auth/guards";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
+import { reactionOptions } from "@/lib/data/reactions";
+import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
 import { deleteR2Objects, isR2StoragePath, uploadVideoToR2 } from "@/lib/r2/server";
+import {
+  assertUploadFile,
+  getSafeFileExtension,
+  getUploadMediaType
+} from "@/lib/security/file-uploads";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { AccessStatus, PostStatus, PostType, Tier } from "@/lib/types";
+import { AccessStatus, PostReactionType, PostStatus, PostType, Tier } from "@/lib/types";
 import { slugify } from "@/lib/utils/slug";
 import { canAccessTier } from "@/lib/utils/tier";
 
@@ -36,17 +43,24 @@ const passwordUpdateSchema = z.object({
 
 const purchaseRequestSchema = z.object({
   tier: z.enum(["tier_1", "tier_2", "tier_3"]),
-  displayName: z.string().min(2),
-  email: z.string().email(),
-  country: z.string().min(2),
+  displayName: z.string().min(2).max(80),
+  email: z.string().email().max(120),
+  country: z.string().min(2).max(80),
   contactMethod: z.enum(["Telegram", "Instagram", "Email", "Other"]),
-  contactHandle: z.string().min(2)
+  contactHandle: z.string().min(2).max(160),
+  website: z.string().max(0)
 });
 
 const commentSchema = z.object({
   postId: z.string().uuid(),
   postSlug: z.string().min(1),
   body: z.string().trim().min(1).max(1000)
+});
+
+const postReactionSchema = z.object({
+  postId: z.string().uuid(),
+  postSlug: z.string().min(1),
+  reaction: z.enum(reactionOptions.map((item) => item.key) as [PostReactionType, ...PostReactionType[]])
 });
 
 function formValue(value: FormDataEntryValue | null) {
@@ -100,8 +114,9 @@ function redirectToInviteError(message: string, code?: string) {
 }
 
 async function uploadFile(file: File, folder: string) {
+  assertUploadFile(file, { allowImages: true, allowVideos: false });
   const admin = createAdminSupabaseClient();
-  const extension = file.name.split(".").pop() || "bin";
+  const extension = getSafeFileExtension(file);
   const fileName = `${folder}/${randomUUID()}.${extension}`;
   const arrayBuffer = await file.arrayBuffer();
   const { error } = await admin.storage
@@ -119,8 +134,9 @@ async function uploadFile(file: File, folder: string) {
 }
 
 async function uploadChatFile(file: File, profileId: string) {
+  assertUploadFile(file);
   const admin = createAdminSupabaseClient();
-  const extension = file.name.split(".").pop() || "bin";
+  const extension = getSafeFileExtension(file);
   const fileName = `${profileId}/${randomUUID()}.${extension}`;
   const arrayBuffer = await file.arrayBuffer();
   const { error } = await admin.storage
@@ -138,7 +154,9 @@ async function uploadChatFile(file: File, profileId: string) {
 }
 
 async function uploadPostMedia(file: File, folder: string) {
-  if (file.type.startsWith("video/")) {
+  const mediaType = assertUploadFile(file);
+
+  if (mediaType === "video") {
     return uploadVideoToR2(file, folder);
   }
 
@@ -251,7 +269,8 @@ export async function createPurchaseRequestAction(formData: FormData) {
     email: formValue(formData.get("email")).toLowerCase(),
     country: formValue(formData.get("country")),
     contactMethod,
-    contactHandle
+    contactHandle,
+    website: formValue(formData.get("website"))
   });
 
   if (!parsed.success) {
@@ -260,6 +279,19 @@ export async function createPurchaseRequestAction(formData: FormData) {
 
   const admin = createAdminSupabaseClient();
   const contact = `${parsed.data.contactMethod}: ${parsed.data.contactHandle}`;
+  const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { data: recentRequest } = await admin
+    .from("purchase_requests")
+    .select("id")
+    .eq("email", parsed.data.email)
+    .gte("created_at", recentCutoff)
+    .limit(1)
+    .maybeSingle();
+
+  if (recentRequest) {
+    redirect("/?inviteRequestSent=1#invitation-request");
+  }
+
   const requestPayload = {
     tier: parsed.data.tier,
     display_name: parsed.data.displayName,
@@ -537,6 +569,64 @@ export async function deletePostCommentAction(formData: FormData) {
   revalidatePath(`/feed/${postSlug}`);
 }
 
+export async function togglePostReactionAction(formData: FormData) {
+  const profile = await requireProfile();
+  const parsed = postReactionSchema.safeParse({
+    postId: formValue(formData.get("postId")),
+    postSlug: formValue(formData.get("postSlug")),
+    reaction: formValue(formData.get("reaction"))
+  });
+
+  if (!parsed.success) {
+    revalidatePath("/feed");
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { data: post } = await admin
+    .from("posts")
+    .select("id, slug, status, publish_at, expires_at, required_tier")
+    .eq("id", parsed.data.postId)
+    .single();
+
+  const postIsAvailable =
+    post &&
+    post.slug === parsed.data.postSlug &&
+    post.status === "published" &&
+    new Date(post.publish_at) <= new Date() &&
+    (!post.expires_at || new Date(post.expires_at) > new Date()) &&
+    canAccessTier(profile.tier, post.required_tier);
+
+  if (!postIsAvailable) {
+    revalidatePath("/feed");
+    return;
+  }
+
+  const { data: existingReaction } = await admin
+    .from("post_reactions")
+    .select("id, reaction")
+    .eq("post_id", parsed.data.postId)
+    .eq("profile_id", profile.id)
+    .maybeSingle();
+
+  if (existingReaction?.reaction === parsed.data.reaction) {
+    await admin.from("post_reactions").delete().eq("id", existingReaction.id);
+  } else {
+    await admin.from("post_reactions").upsert(
+      {
+        post_id: parsed.data.postId,
+        profile_id: profile.id,
+        reaction: parsed.data.reaction,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: "post_id,profile_id" }
+    );
+  }
+
+  revalidatePath("/feed");
+  revalidatePath(`/feed/${parsed.data.postSlug}`);
+}
+
 export async function sendMemberChatMessageAction(formData: FormData) {
   const profile = await requireProfile();
   const admin = createAdminSupabaseClient();
@@ -591,7 +681,25 @@ export async function sendAdminChatMessageAction(formData: FormData) {
     }
 
     mediaPath = await uploadChatFile(mediaFile, profileId);
-    mediaType = mediaFile.type.startsWith("video/") ? "video" : "image";
+    mediaType = getUploadMediaType(mediaFile);
+  }
+
+  const { data: targetProfile } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("id", profileId)
+    .eq("role", "member")
+    .eq("access_status", "active")
+    .maybeSingle();
+
+  if (!targetProfile) {
+    if (mediaPath) {
+      await removeChatStorage([mediaPath]);
+    }
+
+    revalidatePath("/admin/users");
+    revalidatePath("/admin/chat");
+    return;
   }
 
   await admin.from("member_chat_messages").insert({
@@ -706,19 +814,25 @@ export async function createPostAction(formData: FormData) {
     .single();
 
   if (error || !post) {
+    await cleanupOrphanedStorage(admin);
     throw new Error(error?.message || "Post creation failed");
   }
 
   for (const [index, file] of mediaFiles.entries()) {
     const storagePath = await uploadPostMedia(file, `posts/${post.id}`);
-    const mediaType = file.type.startsWith("video/") ? "video" : "image";
+    const mediaType = getUploadMediaType(file);
 
-    await admin.from("post_media").insert({
+    const { error: mediaError } = await admin.from("post_media").insert({
       post_id: post.id,
       storage_path: storagePath,
       media_type: mediaType,
       sort_order: index
     });
+
+    if (mediaError) {
+      await cleanupOrphanedStorage(admin);
+      throw new Error(mediaError.message);
+    }
   }
 
   revalidatePath("/admin/posts");
@@ -784,6 +898,18 @@ export async function deleteAllPostsAction() {
 
   revalidatePath("/admin/posts");
   revalidatePath("/feed");
+}
+
+export async function cleanupStorageAction() {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+
+  await cleanupOldChatMessages(admin);
+  await cleanupOrphanedStorage(admin);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/posts");
+  revalidatePath("/admin/chat");
 }
 
 export async function updateUserAccessAction(formData: FormData) {

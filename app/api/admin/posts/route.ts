@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
 import { uploadVideoToR2 } from "@/lib/r2/server";
+import {
+  assertUploadFile,
+  getSafeFileExtension,
+  getUploadMediaType
+} from "@/lib/security/file-uploads";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PostStatus, PostType, Tier } from "@/lib/types";
@@ -29,8 +35,9 @@ function humanizeStorageError(message: string) {
 }
 
 async function uploadFile(file: File, folder: string) {
+  assertUploadFile(file, { allowImages: true, allowVideos: false });
   const admin = createAdminSupabaseClient();
-  const extension = file.name.split(".").pop() || "bin";
+  const extension = getSafeFileExtension(file);
   const fileName = `${folder}/${randomUUID()}.${extension}`;
   const arrayBuffer = await file.arrayBuffer();
   const { error } = await admin.storage
@@ -48,7 +55,9 @@ async function uploadFile(file: File, folder: string) {
 }
 
 async function uploadPostMedia(file: File, folder: string) {
-  if (file.type.startsWith("video/")) {
+  const mediaType = assertUploadFile(file);
+
+  if (mediaType === "video") {
     return uploadVideoToR2(file, folder);
   }
 
@@ -78,6 +87,7 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const admin = createAdminSupabaseClient();
+    await cleanupOrphanedStorage(admin);
     const title = formValue(formData.get("title"));
     const retentionDaysRaw = Number(formValue(formData.get("retentionDays")) || 0);
 
@@ -125,6 +135,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !post) {
+      await cleanupOrphanedStorage(admin);
       return NextResponse.json(
         { error: error?.message || "Не удалось создать пост." },
         { status: 500 }
@@ -133,7 +144,7 @@ export async function POST(request: Request) {
 
     for (const [index, file] of mediaFiles.entries()) {
       const storagePath = await uploadPostMedia(file, `posts/${post.id}`);
-      const mediaType = file.type.startsWith("video/") ? "video" : "image";
+      const mediaType = getUploadMediaType(file);
 
       const { error: mediaError } = await admin.from("post_media").insert({
         post_id: post.id,
@@ -143,6 +154,7 @@ export async function POST(request: Request) {
       });
 
       if (mediaError) {
+        await cleanupOrphanedStorage(admin);
         return NextResponse.json(
           { error: humanizeStorageError(mediaError.message) },
           { status: 500 }

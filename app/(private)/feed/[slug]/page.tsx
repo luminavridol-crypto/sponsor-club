@@ -6,6 +6,7 @@ import { ProtectedMedia } from "@/components/posts/protected-media";
 import { requireProfile } from "@/lib/auth/guards";
 import { getCommentsForPost } from "@/lib/data/comments";
 import { getPostBySlugForTier, getSignedMediaUrls } from "@/lib/data/posts";
+import { getReactionSummaryForPost } from "@/lib/data/reactions";
 import { formatDate } from "@/lib/utils/format";
 
 export default async function PostDetailPage({
@@ -27,6 +28,7 @@ export default async function PostDetailPage({
   ]);
   const thumbnailUrl = post.thumbnail_path ? mediaMap[post.thumbnail_path] ?? null : null;
   const comments = await getCommentsForPost(post.id);
+  const reactionSummary = await getReactionSummaryForPost(post.id, profile.id);
 
   return (
     <PrivateShell profile={profile} admin={profile.role === "admin"}>
@@ -37,7 +39,7 @@ export default async function PostDetailPage({
           <p className="mt-4 text-sm leading-7 text-white/66">{post.description}</p>
           <p className="mt-4 text-sm text-white/40">Опубликовано: {formatDate(post.publish_at)}</p>
           <div className="mt-5">
-            <PostReactions postId={post.id} />
+            <PostReactions postId={post.id} postSlug={post.slug} summary={reactionSummary} />
           </div>
         </div>
 

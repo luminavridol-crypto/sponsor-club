@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tier } from "@/lib/types";
 import { TIER_ACCESS_HINTS, TIER_LABELS } from "@/lib/utils/tier";
@@ -18,6 +18,34 @@ export function PostCreateForm() {
   const [message, setMessage] = useState("");
   const [selectedTier, setSelectedTier] = useState<Tier>("tier_1");
   const [showEmotions, setShowEmotions] = useState(false);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [mediaNames, setMediaNames] = useState<string[]>([]);
+  const [preview, setPreview] = useState({
+    title: "Lumina Exclusive Drop",
+    postType: "announcement",
+    status: "published",
+    description: "",
+    body: ""
+  });
+
+  useEffect(() => {
+    return () => {
+      if (thumbnailPreview) {
+        URL.revokeObjectURL(thumbnailPreview);
+      }
+    };
+  }, [thumbnailPreview]);
+
+  function refreshPreview(form: HTMLFormElement) {
+    const formData = new FormData(form);
+    setPreview({
+      title: String(formData.get("title") || "Новый пост"),
+      postType: String(formData.get("postType") || "announcement"),
+      status: String(formData.get("status") || "draft"),
+      description: String(formData.get("description") || ""),
+      body: String(formData.get("body") || "")
+    });
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,6 +79,15 @@ export function PostCreateForm() {
           setProgress(100);
           setMessage("Пост успешно создан.");
           formRef.current?.reset();
+          setPreview({
+            title: "Lumina Exclusive Drop",
+            postType: "announcement",
+            status: "published",
+            description: "",
+            body: ""
+          });
+          setThumbnailPreview(null);
+          setMediaNames([]);
           setSelectedTier("tier_1");
           setShowEmotions(false);
           router.refresh();
@@ -93,12 +130,23 @@ export function PostCreateForm() {
 
     const caretPosition = prefix.length + beforeSpacer.length + emoji.length + afterSpacer.length;
     textarea.setSelectionRange(caretPosition, caretPosition);
+
+    if (formRef.current) {
+      refreshPreview(formRef.current);
+    }
   }
 
   const imageAccept = ".jpg,.jpeg,.png,.webp,.gif,.avif,image/*";
+  const mediaAccept = ".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,image/*,video/*";
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="mt-6 grid gap-4">
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit}
+      onChange={(event) => refreshPreview(event.currentTarget)}
+      className="mt-6 grid gap-4"
+      encType="multipart/form-data"
+    >
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="mb-2 block text-sm text-white/60">Название</label>
@@ -188,13 +236,82 @@ export function PostCreateForm() {
         </div>
         <div>
           <label className="mb-2 block text-sm text-white/60">Thumbnail</label>
-          <input name="thumbnail" type="file" accept={imageAccept} />
+          <input
+            name="thumbnail"
+            type="file"
+            accept={imageAccept}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              setThumbnailPreview((current) => {
+                if (current) URL.revokeObjectURL(current);
+                return file ? URL.createObjectURL(file) : null;
+              });
+            }}
+          />
         </div>
       </div>
 
       <div>
         <label className="mb-2 block text-sm text-white/60">Media files (можно несколько)</label>
-        <input name="media" type="file" multiple />
+        <input
+          name="media"
+          type="file"
+          accept={mediaAccept}
+          multiple
+          onChange={(event) =>
+            setMediaNames(Array.from(event.target.files ?? []).map((file) => file.name))
+          }
+        />
+      </div>
+
+      <div className="rounded-3xl border border-white/10 bg-black/10 p-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm uppercase tracking-[0.22em] text-accentSoft">Preview</p>
+            <h3 className="mt-2 text-2xl font-semibold text-white">Предпросмотр поста</h3>
+          </div>
+          <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-white/50">
+            {preview.status}
+          </span>
+        </div>
+        <article className="overflow-hidden rounded-[24px] border border-white/10 bg-white/5">
+          {thumbnailPreview ? (
+            <img src={thumbnailPreview} alt="" className="h-52 w-full object-cover" />
+          ) : null}
+          <div className="border-b border-white/10 bg-gradient-to-br from-accent/10 to-cyanGlow/10 p-4">
+            <div className="mb-3 flex flex-wrap gap-2">
+              <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-accentSoft">
+                {preview.postType}
+              </span>
+              <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/60">
+                {TIER_LABELS[selectedTier]}
+              </span>
+            </div>
+            <h4 className="break-words text-xl font-semibold text-white">{preview.title}</h4>
+            {preview.description ? (
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/65">
+                {preview.description}
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-3 p-4">
+            {preview.body ? (
+              <p className="whitespace-pre-wrap text-sm leading-6 text-white/72">{preview.body}</p>
+            ) : null}
+            {mediaNames.length ? (
+              <div className="flex flex-wrap gap-2">
+                {mediaNames.map((name) => (
+                  <span
+                    key={name}
+                    className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/55"
+                  >
+                    {name}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </article>
       </div>
 
       <div className="rounded-3xl border border-white/10 bg-black/10 p-4">

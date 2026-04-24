@@ -1,10 +1,19 @@
 import Link from "next/link";
+import { ReactionSummary } from "@/lib/data/reactions";
 import { PostWithMedia } from "@/lib/types";
 import { formatDate } from "@/lib/utils/format";
 import { TIER_LABELS } from "@/lib/utils/tier";
 import { PostReactions } from "@/components/posts/post-reactions";
 
-export function PostCard({ post, commentCount = 0 }: { post: PostWithMedia; commentCount?: number }) {
+export function PostCard({
+  post,
+  commentCount = 0,
+  reactionSummary
+}: {
+  post: PostWithMedia;
+  commentCount?: number;
+  reactionSummary: ReactionSummary;
+}) {
   return (
     <article className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-glow">
       {post.thumbnail_url ? (
@@ -32,7 +41,7 @@ export function PostCard({ post, commentCount = 0 }: { post: PostWithMedia; comm
           <span>{post.post_media?.length ?? 0} media</span>
         </div>
         <div className="mb-4">
-          <PostReactions postId={post.id} />
+          <PostReactions postId={post.id} postSlug={post.slug} summary={reactionSummary} />
         </div>
         <div className="flex flex-wrap gap-3">
           <Link

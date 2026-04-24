@@ -59,14 +59,22 @@ export default async function AdminPurchaseRequestsPage() {
               </p>
             </div>
 
-            {requests.length ? (
-              <ConfirmActionForm
-                action={deleteAllPurchaseRequestsAction}
-                confirmMessage="Точно удалить все заявки? Это действие нельзя отменить."
-                buttonLabel="Очистить всё"
-                buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-5 py-3 text-sm font-medium text-rose-200 transition hover:bg-rose-400/20"
-              />
-            ) : null}
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <a
+                href="/api/admin/export/requests"
+                className="rounded-2xl border border-cyanGlow/35 bg-cyanGlow/10 px-5 py-3 text-center text-sm font-medium text-cyanGlow transition hover:bg-cyanGlow/15"
+              >
+                Скачать CSV
+              </a>
+              {requests.length ? (
+                <ConfirmActionForm
+                  action={deleteAllPurchaseRequestsAction}
+                  confirmMessage="Точно удалить все заявки? Это действие нельзя отменить."
+                  buttonLabel="Очистить всё"
+                  buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-5 py-3 text-sm font-medium text-rose-200 transition hover:bg-rose-400/20"
+                />
+              ) : null}
+            </div>
           </div>
         </section>
 

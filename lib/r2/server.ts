@@ -2,11 +2,13 @@ import { randomUUID } from "crypto";
 import {
   DeleteObjectsCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getR2Env } from "@/lib/r2/env";
+import { assertUploadFile, getSafeFileExtension } from "@/lib/security/file-uploads";
 
 const R2_PREFIX = "r2:";
 
@@ -31,11 +33,6 @@ function getR2Client() {
   return cachedClient;
 }
 
-function getFileExtension(file: File) {
-  const extension = file.name.split(".").pop()?.trim().toLowerCase();
-  return extension || "bin";
-}
-
 function toR2Key(path: string) {
   return path.slice(R2_PREFIX.length);
 }
@@ -49,9 +46,10 @@ export function isR2StoragePath(path: string) {
 }
 
 export async function uploadVideoToR2(file: File, folder: string) {
+  assertUploadFile(file, { allowImages: false, allowVideos: true });
   const client = getR2Client();
   const { bucketName } = getR2Env();
-  const extension = getFileExtension(file);
+  const extension = getSafeFileExtension(file);
   const key = `${folder}/${randomUUID()}.${extension}`;
   const arrayBuffer = await file.arrayBuffer();
 
@@ -66,6 +64,33 @@ export async function uploadVideoToR2(file: File, folder: string) {
   );
 
   return toR2StoragePath(key);
+}
+
+export async function listR2StoragePaths(prefix = "posts/") {
+  const client = getR2Client();
+  const { bucketName } = getR2Env();
+  const paths: string[] = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const result = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucketName,
+        Prefix: prefix,
+        ContinuationToken: continuationToken
+      })
+    );
+
+    for (const object of result.Contents ?? []) {
+      if (object.Key) {
+        paths.push(toR2StoragePath(object.Key));
+      }
+    }
+
+    continuationToken = result.NextContinuationToken;
+  } while (continuationToken);
+
+  return paths;
 }
 
 export async function getSignedR2Urls(paths: string[], expiresIn = 60 * 60) {

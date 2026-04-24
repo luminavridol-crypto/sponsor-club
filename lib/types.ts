@@ -5,6 +5,7 @@ export type PostType = "gallery" | "video" | "text" | "announcement";
 export type PostStatus = "draft" | "published";
 export type MediaType = "image" | "video";
 export type PurchaseRequestStatus = "new" | "in_progress" | "completed";
+export type PostReactionType = "heart" | "fire" | "cry" | "sparkles" | "devil";
 
 export interface Profile {
   id: string;
@@ -102,6 +103,15 @@ export interface PostComment {
 
 export interface PostCommentWithAuthor extends PostComment {
   profiles: Pick<Profile, "display_name" | "nickname" | "email" | "role"> | null;
+}
+
+export interface PostReaction {
+  id: string;
+  post_id: string;
+  profile_id: string;
+  reaction: PostReactionType;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PurchaseRequest {

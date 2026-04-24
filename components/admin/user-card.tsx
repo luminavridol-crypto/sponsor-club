@@ -226,6 +226,11 @@ export function UserCard({
             ) : null}
           </div>
           <p className="text-sm text-white/55">{user.email}</p>
+          {user.admin_note ? (
+            <p className="max-w-3xl rounded-2xl border border-accent/20 bg-accent/10 px-4 py-3 text-sm leading-6 text-white/70">
+              {user.admin_note}
+            </p>
+          ) : null}
 
           {!isCurrentAdmin ? (
             <div className="flex flex-wrap items-center gap-2">

@@ -1,12 +1,17 @@
 import Link from "next/link";
+import { cleanupStorageAction } from "@/app/actions";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { StatCard } from "@/components/admin/stat-card";
 import { requireAdmin } from "@/lib/auth/guards";
+import { cleanupOldChatMessages } from "@/lib/data/chat";
+import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 export default async function AdminDashboardPage() {
   const profile = await requireAdmin();
   const admin = createAdminSupabaseClient();
+  await cleanupOldChatMessages(admin);
+  const cleanupResult = await cleanupOrphanedStorage(admin);
 
   const [
     { count: usersCount },
@@ -48,6 +53,60 @@ export default async function AdminDashboardPage() {
           <StatCard label="Tier 2" value={tierCounts.tier_2 ?? 0} tone="accent" />
           <StatCard label="Tier 3" value={tierCounts.tier_3 ?? 0} tone="cyan" />
           <StatCard label="Новые заявки" value={purchaseRequestsCount ?? 0} tone="accent" />
+        </div>
+
+        <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
+                Storage cleanup
+              </p>
+              <h3 className="mt-2 text-2xl font-semibold text-white">Чистка файлов</h3>
+              <p className="mt-2 text-sm leading-6 text-white/58">
+                Авточистка запускается при открытии админ-панели. Сейчас удалено:
+                {" "}
+                {cleanupResult.postMedia + cleanupResult.chatMedia + cleanupResult.r2Media}
+                {" "}
+                лишних файлов.
+              </p>
+            </div>
+            <form action={cleanupStorageAction}>
+              <button className="rounded-2xl border border-cyanGlow/35 bg-cyanGlow/10 px-5 py-3 text-sm font-medium text-cyanGlow transition hover:bg-cyanGlow/15">
+                Запустить чистку вручную
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Link
+            href="/admin/notifications"
+            className="rounded-3xl border border-accent/30 bg-accent/10 p-5 transition hover:bg-accent/20"
+          >
+            <h3 className="text-xl font-semibold text-white">Уведомления</h3>
+            <p className="mt-2 text-sm text-white/70">Комментарии, чат, заявки и доступы, которые скоро закончатся.</p>
+          </Link>
+          <Link
+            href="/admin/media"
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:border-accent/30 hover:bg-white/10"
+          >
+            <h3 className="text-xl font-semibold text-white">Медиа</h3>
+            <p className="mt-2 text-sm text-white/55">Все файлы, которые уже привязаны к постам.</p>
+          </Link>
+          <a
+            href="/api/admin/export/users"
+            className="rounded-3xl border border-cyanGlow/30 bg-cyanGlow/10 p-5 transition hover:bg-cyanGlow/15"
+          >
+            <h3 className="text-xl font-semibold text-white">Экспорт пользователей</h3>
+            <p className="mt-2 text-sm text-white/70">CSV-файл с пользователями и заметками.</p>
+          </a>
+          <a
+            href="/api/admin/export/requests"
+            className="rounded-3xl border border-accent/30 bg-accent/10 p-5 transition hover:bg-accent/20"
+          >
+            <h3 className="text-xl font-semibold text-white">Экспорт заявок</h3>
+            <p className="mt-2 text-sm text-white/70">CSV-файл по входящим запросам.</p>
+          </a>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">

@@ -73,12 +73,22 @@ export default async function AdminUsersPage() {
     <PrivateShell profile={profile} admin>
       <div className="space-y-4">
         <section className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-glow">
-          <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Users Manager</p>
-          <h2 className="mt-3 text-3xl font-semibold text-white">Пользователи</h2>
-          <p className="mt-3 text-sm text-white/60">
-            Список отсортирован по приоритету: сначала VIP по их VIP-уровню, потом Приближённые,
-            ниже Наблюдатели.
-          </p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Users Manager</p>
+              <h2 className="mt-3 text-3xl font-semibold text-white">Пользователи</h2>
+              <p className="mt-3 text-sm text-white/60">
+                Список отсортирован по приоритету: сначала VIP по их VIP-уровню, потом Приближённые,
+                ниже Наблюдатели.
+              </p>
+            </div>
+            <a
+              href="/api/admin/export/users"
+              className="rounded-2xl border border-cyanGlow/35 bg-cyanGlow/10 px-5 py-3 text-center text-sm font-medium text-cyanGlow transition hover:bg-cyanGlow/15"
+            >
+              Скачать CSV
+            </a>
+          </div>
         </section>
 
         {users.map((user) => (

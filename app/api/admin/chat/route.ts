@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
+import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
+import {
+  assertUploadFile,
+  getSafeFileExtension,
+  getUploadMediaType
+} from "@/lib/security/file-uploads";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -9,8 +15,9 @@ function formValue(value: FormDataEntryValue | null) {
 }
 
 async function uploadChatFile(file: File, profileId: string) {
+  assertUploadFile(file);
   const admin = createAdminSupabaseClient();
-  const extension = file.name.split(".").pop() || "bin";
+  const extension = getSafeFileExtension(file);
   const fileName = `${profileId}/${randomUUID()}.${extension}`;
   const arrayBuffer = await file.arrayBuffer();
   const { error } = await admin.storage
@@ -57,12 +64,25 @@ export async function POST(request: Request) {
       mediaEntry instanceof File && mediaEntry.size > 0 ? mediaEntry : null;
 
     await cleanupOldChatMessages(admin);
+    await cleanupOrphanedStorage(admin);
 
     if (!profileId || (!body && !mediaFile)) {
       return NextResponse.json(
         { error: "Нужно написать сообщение или прикрепить файл." },
         { status: 400 }
       );
+    }
+
+    const { data: targetProfile } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("id", profileId)
+      .eq("role", "member")
+      .eq("access_status", "active")
+      .maybeSingle();
+
+    if (!targetProfile) {
+      return NextResponse.json({ error: "Получатель не найден или не активен." }, { status: 400 });
     }
 
     let mediaPath: string | null = null;
@@ -77,7 +97,7 @@ export async function POST(request: Request) {
       }
 
       mediaPath = await uploadChatFile(mediaFile, profileId);
-      mediaType = mediaFile.type.startsWith("video/") ? "video" : "image";
+      mediaType = getUploadMediaType(mediaFile);
     }
 
     const { error } = await admin.from("member_chat_messages").insert({
@@ -91,6 +111,10 @@ export async function POST(request: Request) {
     });
 
     if (error) {
+      if (mediaPath) {
+        await admin.storage.from("chat-media").remove([mediaPath]);
+      }
+
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

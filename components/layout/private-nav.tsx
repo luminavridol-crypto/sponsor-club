@@ -30,7 +30,9 @@ const adminLinks: NavLink[] = [
   { href: "/dashboard", label: "Аналитика", accent: "neutral", match: "exact" },
   { href: "/admin/users", label: "Пользователи", accent: "neutral", match: "startsWith" },
   { href: "/admin", label: "Админ-панель", accent: "accent", match: "startsWith" },
+  { href: "/admin/notifications", label: "Уведомления", accent: "accent", match: "startsWith", adminNoticeKind: "requests" },
   { href: "/admin/requests", label: "Заявки", accent: "accent", match: "startsWith", adminNoticeKind: "requests" },
+  { href: "/admin/media", label: "Медиа", accent: "neutral", match: "startsWith" },
   { href: "/feed", label: "Контент", accent: "neutral", match: "startsWith", unreadKind: "content" },
   { href: "/admin/chat", label: "Чат", accent: "neutral", match: "startsWith", unreadKind: "chat" }
 ];

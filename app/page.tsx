@@ -544,12 +544,20 @@ export default async function HomePage({
               ) : null}
 
               <form action={createPurchaseRequestAction} className="space-y-4">
+                <input
+                  type="text"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  className="hidden"
+                />
                 <label className="block">
                   <span className="mb-2 block text-sm text-white/68">Имя</span>
                   <input
                     type="text"
                     name="displayName"
                     required
+                    maxLength={80}
                     placeholder="Как к тебе обращаться"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/28 focus:border-accent/45"
                   />
@@ -561,6 +569,7 @@ export default async function HomePage({
                     type="email"
                     name="email"
                     required
+                    maxLength={120}
                     placeholder="you@example.com"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/28 focus:border-accent/45"
                   />
@@ -572,6 +581,7 @@ export default async function HomePage({
                     type="text"
                     name="country"
                     required
+                    maxLength={80}
                     placeholder="Например: Украина, Германия, Польша"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/28 focus:border-accent/45"
                   />
@@ -599,6 +609,7 @@ export default async function HomePage({
                       type="text"
                       name="contactHandle"
                       required
+                      maxLength={160}
                       placeholder="@username или ссылка, где тебе ответить"
                       className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/28 focus:border-accent/45"
                     />
