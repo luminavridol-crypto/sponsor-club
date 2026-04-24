@@ -21,6 +21,26 @@ export async function getCommentsForPost(postId: string) {
   return (data ?? []) as PostCommentWithAuthor[];
 }
 
+export async function getCommentCountsForPosts(postIds: string[]) {
+  noStore();
+
+  if (!postIds.length) {
+    return new Map<string, number>();
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { data } = await admin
+    .from("post_comments")
+    .select("post_id")
+    .in("post_id", postIds);
+
+  return (data ?? []).reduce((counts, comment) => {
+    const postId = String(comment.post_id);
+    counts.set(postId, (counts.get(postId) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+}
+
 export async function getAdminUnreadPostComments(lastSeenAt: string | null) {
   noStore();
   const admin = createAdminSupabaseClient();

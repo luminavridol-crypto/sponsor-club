@@ -4,7 +4,7 @@ import { formatDate } from "@/lib/utils/format";
 import { TIER_LABELS } from "@/lib/utils/tier";
 import { PostReactions } from "@/components/posts/post-reactions";
 
-export function PostCard({ post }: { post: PostWithMedia }) {
+export function PostCard({ post, commentCount = 0 }: { post: PostWithMedia; commentCount?: number }) {
   return (
     <article className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-glow">
       {post.thumbnail_url ? (
@@ -45,7 +45,7 @@ export function PostCard({ post }: { post: PostWithMedia }) {
             href={`/feed/${post.slug}#comments`}
             className="inline-flex rounded-2xl border border-white/10 px-4 py-2 text-sm font-medium text-white/75 transition hover:border-accent/30 hover:bg-white/5 hover:text-white"
           >
-            Комментарии
+            Комментарии: {commentCount}
           </Link>
         </div>
       </div>

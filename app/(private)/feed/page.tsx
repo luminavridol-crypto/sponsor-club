@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { PostCard } from "@/components/posts/post-card";
 import { requireProfile } from "@/lib/auth/guards";
-import { getAdminUnreadPostComments } from "@/lib/data/comments";
+import { getAdminUnreadPostComments, getCommentCountsForPosts } from "@/lib/data/comments";
 import { getSignedMediaUrls, getVisiblePostsForTier } from "@/lib/data/posts";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -49,6 +49,7 @@ export default async function FeedPage() {
   }
 
   const posts = await getVisiblePostsForTier(profile.tier);
+  const commentCounts = await getCommentCountsForPosts(posts.map((post) => post.id));
   const thumbnailMap = await getSignedMediaUrls(
     posts.map((post) => post.thumbnail_path).filter((path): path is string => Boolean(path))
   );
@@ -128,7 +129,9 @@ export default async function FeedPage() {
 
         <div className="mx-auto max-w-5xl space-y-5">
           {postsWithThumbnails.length ? (
-            postsWithThumbnails.map((post) => <PostCard key={post.id} post={post} />)
+            postsWithThumbnails.map((post) => (
+              <PostCard key={post.id} post={post} commentCount={commentCounts.get(post.id) ?? 0} />
+            ))
           ) : (
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-white/60">
               Пока нет контента для отображения.
