@@ -961,6 +961,38 @@ export async function extendUserAccessAction(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+export async function setUserAccessUntilAction(formData: FormData) {
+  const adminProfile = await requireAdmin();
+  const userId = formValue(formData.get("userId"));
+  const accessUntil = formValue(formData.get("accessUntil"));
+
+  if (!userId || userId === adminProfile.id) {
+    revalidatePath("/admin/users");
+    return;
+  }
+
+  const parsedDate = accessUntil ? new Date(accessUntil) : null;
+
+  if (accessUntil && (!parsedDate || Number.isNaN(parsedDate.getTime()))) {
+    revalidatePath("/admin/users");
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  await admin
+    .from("profiles")
+    .update({
+      access_expires_at: parsedDate ? parsedDate.toISOString() : null,
+      access_status: "active"
+    })
+    .eq("id", userId);
+
+  revalidatePath("/admin/users");
+  revalidatePath("/dashboard");
+  revalidatePath("/feed");
+  revalidatePath("/profile");
+}
+
 export async function deleteUserAction(formData: FormData) {
   const adminProfile = await requireAdmin();
   const userId = formValue(formData.get("userId"));

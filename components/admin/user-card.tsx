@@ -6,6 +6,7 @@ import {
   addUserDonationForMonthAction,
   deleteUserAction,
   extendUserAccessAction,
+  setUserAccessUntilAction,
   updateUserDetailsAction
 } from "@/app/actions";
 import { DonationEvent, MemberChatMessage, Profile, Tier } from "@/lib/types";
@@ -29,6 +30,14 @@ function formatMoney(value: number | null | undefined) {
 function formatDateInput(value: string | null) {
   if (!value) return "";
   return new Date(value).toISOString().slice(0, 10);
+}
+
+function formatDateTimeInput(value: string | null) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
 }
 
 function formatDateTime(value: string | null) {
@@ -161,6 +170,7 @@ export function UserCard({
   const [selectedBadges, setSelectedBadges] = useState<string[]>(user.admin_badges ?? []);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [quickAmount, setQuickAmount] = useState("");
+  const [accessUntil, setAccessUntil] = useState(formatDateTimeInput(user.access_expires_at));
 
   const isVipMember = user.tier === "tier_3";
   const vip = getVipProgress(user.total_donations);
@@ -186,6 +196,10 @@ export function UserCard({
       setSelectedYear(availableYears[0]);
     }
   }, [availableYears, selectedYear]);
+
+  useEffect(() => {
+    setAccessUntil(formatDateTimeInput(user.access_expires_at));
+  }, [user.access_expires_at]);
 
   function toggleBadge(value: string) {
     setSelectedBadges((current) =>
@@ -246,6 +260,31 @@ export function UserCard({
                 <input type="hidden" name="userId" value={user.id} />
                 <button className="rounded-2xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accentSoft transition hover:bg-accent/20">
                   Продлить на 30 дней
+                </button>
+              </form>
+
+              <form action={setUserAccessUntilAction} className="flex flex-wrap items-center gap-2">
+                <input type="hidden" name="userId" value={user.id} />
+                <input
+                  name="accessUntil"
+                  type="datetime-local"
+                  value={accessUntil}
+                  onChange={(event) => setAccessUntil(event.target.value)}
+                  className="h-10 w-[210px] min-w-0"
+                />
+                <button className="rounded-2xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accentSoft transition hover:bg-accent/20">
+                  Установить срок
+                </button>
+              </form>
+
+              <form action={setUserAccessUntilAction}>
+                <input type="hidden" name="userId" value={user.id} />
+                <button
+                  type="submit"
+                  onClick={() => setAccessUntil("")}
+                  className="rounded-2xl border border-white/10 px-3 py-2 text-sm text-white/70 transition hover:border-accent/30 hover:bg-white/5 hover:text-white"
+                >
+                  Без ограничения
                 </button>
               </form>
             </div>
