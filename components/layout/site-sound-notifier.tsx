@@ -6,8 +6,10 @@ type NotificationStatus = {
   role: "admin" | "member";
   unreadChatCount: number;
   pendingRequestsCount: number;
+  unreadContentCommentCount: number;
   latestUnreadChatAt: string | null;
   latestPendingRequestAt: string | null;
+  latestContentCommentAt: string | null;
 };
 
 function useAudioUnlock() {
@@ -104,19 +106,23 @@ export function SiteSoundNotifier({
   initialUnreadChatCount,
   initialPendingRequestsCount = 0,
   initialLatestUnreadChatAt = null,
-  initialLatestPendingRequestAt = null
+  initialLatestPendingRequestAt = null,
+  initialLatestContentCommentAt = null
 }: {
   admin?: boolean;
   initialUnreadChatCount: number;
   initialPendingRequestsCount?: number;
   initialLatestUnreadChatAt?: string | null;
   initialLatestPendingRequestAt?: string | null;
+  initialLatestContentCommentAt?: string | null;
 }) {
   const previousRef = useRef({
     unreadChatCount: initialUnreadChatCount,
     pendingRequestsCount: initialPendingRequestsCount,
+    unreadContentCommentCount: 0,
     latestUnreadChatAt: initialLatestUnreadChatAt,
-    latestPendingRequestAt: initialLatestPendingRequestAt
+    latestPendingRequestAt: initialLatestPendingRequestAt,
+    latestContentCommentAt: initialLatestContentCommentAt
   });
   const { contextRef, unlockedRef } = useAudioUnlock();
 
@@ -147,8 +153,11 @@ export function SiteSoundNotifier({
         const hasNewPendingRequest =
           Boolean(next.latestPendingRequestAt) &&
           next.latestPendingRequestAt !== previous.latestPendingRequestAt;
+        const hasNewContentComment =
+          Boolean(next.latestContentCommentAt) &&
+          next.latestContentCommentAt !== previous.latestContentCommentAt;
         const hasNewAdminEvent =
-          admin && (hasNewUnreadChat || hasNewPendingRequest);
+          admin && (hasNewUnreadChat || hasNewPendingRequest || hasNewContentComment);
         const hasNewMemberEvent = !admin && hasNewUnreadChat;
 
         if ((hasNewAdminEvent || hasNewMemberEvent) && unlockedRef.current && contextRef.current) {
@@ -161,8 +170,10 @@ export function SiteSoundNotifier({
         previousRef.current = {
           unreadChatCount: next.unreadChatCount,
           pendingRequestsCount: next.pendingRequestsCount,
+          unreadContentCommentCount: next.unreadContentCommentCount,
           latestUnreadChatAt: next.latestUnreadChatAt,
-          latestPendingRequestAt: next.latestPendingRequestAt
+          latestPendingRequestAt: next.latestPendingRequestAt,
+          latestContentCommentAt: next.latestContentCommentAt
         };
       } catch {
         // Не мешаем работе интерфейса, если опрос временно недоступен.

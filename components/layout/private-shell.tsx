@@ -4,6 +4,7 @@ import { signOutAction } from "@/app/actions";
 import { PrivateNav } from "@/components/layout/private-nav";
 import { SiteSoundNotifier } from "@/components/layout/site-sound-notifier";
 import { getAdminUnreadChatProfileIds, hasUnreadMemberChat } from "@/lib/data/chat";
+import { getAdminLatestPostCommentAt } from "@/lib/data/comments";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { Profile, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
@@ -25,6 +26,7 @@ export async function PrivateShell({
   let hasPendingRequests = false;
   let pendingRequestsCount = 0;
   let initialLatestPendingRequestAt: string | null = null;
+  let initialLatestContentCommentAt: string | null = null;
 
   if (admin) {
     const unreadProfileIds = await getAdminUnreadChatProfileIds(adminClient);
@@ -36,7 +38,11 @@ export async function PrivateShell({
       .in("status", ["new", "in_progress"]);
     pendingRequestsCount = pendingRequestsResult ?? 0;
     hasPendingRequests = pendingRequestsCount > 0;
-    const [{ data: latestUnreadChatRow }, { data: latestPendingRequestRow }] = await Promise.all([
+    const [
+      { data: latestUnreadChatRow },
+      { data: latestPendingRequestRow },
+      latestContentCommentAt
+    ] = await Promise.all([
       adminClient
         .from("member_chat_messages")
         .select("created_at")
@@ -51,10 +57,16 @@ export async function PrivateShell({
         .in("status", ["new", "in_progress"])
         .order("created_at", { ascending: false })
         .limit(1)
-        .maybeSingle()
+        .maybeSingle(),
+      getAdminLatestPostCommentAt()
     ]);
     initialLatestUnreadChatAt = latestUnreadChatRow?.created_at ?? null;
     initialLatestPendingRequestAt = latestPendingRequestRow?.created_at ?? null;
+    initialLatestContentCommentAt = latestContentCommentAt;
+    hasUnreadContent =
+      Boolean(latestContentCommentAt) &&
+      (!profile.last_content_seen_at ||
+        new Date(latestContentCommentAt) > new Date(profile.last_content_seen_at));
   } else {
     hasUnreadChat = await hasUnreadMemberChat(adminClient, profile.id);
     unreadChatCount = hasUnreadChat ? 1 : 0;
@@ -140,6 +152,7 @@ export async function PrivateShell({
           initialPendingRequestsCount={pendingRequestsCount}
           initialLatestUnreadChatAt={initialLatestUnreadChatAt}
           initialLatestPendingRequestAt={initialLatestPendingRequestAt}
+          initialLatestContentCommentAt={initialLatestContentCommentAt}
         />
 
         {admin ? (
@@ -148,6 +161,7 @@ export async function PrivateShell({
               profile={profile}
               admin
               hasUnreadChat={hasUnreadChat}
+              hasUnreadContent={hasUnreadContent}
               hasPendingRequests={hasPendingRequests}
             />
             <div>{children}</div>

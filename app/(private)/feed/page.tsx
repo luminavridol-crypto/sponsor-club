@@ -1,18 +1,42 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { PostCard } from "@/components/posts/post-card";
 import { requireProfile } from "@/lib/auth/guards";
+import { getAdminUnreadPostComments } from "@/lib/data/comments";
 import { getSignedMediaUrls, getVisiblePostsForTier } from "@/lib/data/posts";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+
+function formatCommentTime(value: string) {
+  return new Date(value).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
 
 export default async function FeedPage() {
   const profile = await requireProfile();
   let nextProfile = profile;
+  const unreadComments =
+    profile.role === "admin" ? await getAdminUnreadPostComments(profile.last_content_seen_at) : [];
 
-  if (profile.role !== "admin") {
-    const supabase = await createServerSupabaseClient();
-    const seenAt = new Date().toISOString();
+  const supabase = await createServerSupabaseClient();
+  const seenAt = new Date().toISOString();
+
+  if (profile.role === "admin") {
+    await supabase
+      .from("profiles")
+      .update({ last_content_seen_at: seenAt })
+      .eq("id", profile.id);
+
+    nextProfile = {
+      ...profile,
+      last_content_seen_at: seenAt
+    };
+  } else {
     await supabase
       .from("profiles")
       .update({ last_content_seen_at: seenAt })
@@ -44,6 +68,63 @@ export default async function FeedPage() {
             Tier 3 видит весь контент.
           </p>
         </div>
+
+        {profile.role === "admin" && unreadComments.length ? (
+          <section className="rounded-[32px] border border-accent/25 bg-accent/10 p-5 shadow-glow">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-accentSoft">
+                  New comments
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold text-white">
+                  Новые комментарии под постами
+                </h3>
+              </div>
+              <p className="text-sm text-white/55">{unreadComments.length} новых</p>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              {unreadComments.map((comment) => {
+                const author =
+                  comment.profiles?.display_name ||
+                  comment.profiles?.nickname ||
+                  comment.profiles?.email.split("@")[0] ||
+                  "Участник";
+                const postTitle = comment.posts?.title ?? "Пост";
+                const postSlug = comment.posts?.slug;
+
+                return (
+                  <article
+                    key={comment.id}
+                    className="rounded-3xl border border-white/10 bg-black/15 p-4"
+                  >
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm text-white/45">
+                          {author} • {formatCommentTime(comment.created_at)}
+                        </p>
+                        <h4 className="mt-1 break-words text-lg font-semibold text-white">
+                          {postTitle}
+                        </h4>
+                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/70">
+                          {comment.body}
+                        </p>
+                      </div>
+                      {postSlug ? (
+                        <Link
+                          href={`/feed/${postSlug}#comments`}
+                          className="shrink-0 rounded-2xl bg-white px-4 py-2 text-center text-sm font-medium text-background transition hover:bg-goldSoft"
+                        >
+                          Открыть комментарии
+                        </Link>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <div className="mx-auto max-w-5xl space-y-5">
           {postsWithThumbnails.length ? (

@@ -16,7 +16,7 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, last_content_seen_at")
     .eq("id", user.id)
     .single();
 
@@ -27,11 +27,22 @@ export async function GET() {
   const admin = createAdminSupabaseClient();
 
   if (profile.role === "admin") {
+    const lastContentSeenAt = profile.last_content_seen_at as string | null;
+    const contentCommentCountQuery = admin
+      .from("post_comments")
+      .select("*", { count: "exact", head: true });
+
+    if (lastContentSeenAt) {
+      contentCommentCountQuery.gt("created_at", lastContentSeenAt);
+    }
+
     const [
       { count: unreadChatCount },
       { count: pendingRequestsCount },
+      { count: unreadContentCommentCount },
       { data: latestUnreadChat },
-      { data: latestPendingRequest }
+      { data: latestPendingRequest },
+      { data: latestContentComment }
     ] = await Promise.all([
       admin
         .from("member_chat_messages")
@@ -42,6 +53,7 @@ export async function GET() {
         .from("purchase_requests")
         .select("*", { count: "exact", head: true })
         .in("status", ["new", "in_progress"]),
+      contentCommentCountQuery,
       admin
         .from("member_chat_messages")
         .select("created_at")
@@ -56,6 +68,12 @@ export async function GET() {
         .in("status", ["new", "in_progress"])
         .order("created_at", { ascending: false })
         .limit(1)
+        .maybeSingle(),
+      admin
+        .from("post_comments")
+        .select("created_at")
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle()
     ]);
 
@@ -64,8 +82,10 @@ export async function GET() {
         role: "admin",
         unreadChatCount: unreadChatCount ?? 0,
         pendingRequestsCount: pendingRequestsCount ?? 0,
+        unreadContentCommentCount: unreadContentCommentCount ?? 0,
         latestUnreadChatAt: latestUnreadChat?.created_at ?? null,
-        latestPendingRequestAt: latestPendingRequest?.created_at ?? null
+        latestPendingRequestAt: latestPendingRequest?.created_at ?? null,
+        latestContentCommentAt: latestContentComment?.created_at ?? null
       },
       {
         headers: {
@@ -98,8 +118,10 @@ export async function GET() {
       role: "member",
       unreadChatCount: unreadChatCount ?? 0,
       pendingRequestsCount: 0,
+      unreadContentCommentCount: 0,
       latestUnreadChatAt: latestUnreadChat?.created_at ?? null,
-      latestPendingRequestAt: null
+      latestPendingRequestAt: null,
+      latestContentCommentAt: null
     },
     {
       headers: {

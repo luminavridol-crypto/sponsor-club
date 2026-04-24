@@ -31,7 +31,7 @@ const adminLinks: NavLink[] = [
   { href: "/admin/users", label: "Пользователи", accent: "neutral", match: "startsWith" },
   { href: "/admin", label: "Админ-панель", accent: "accent", match: "startsWith" },
   { href: "/admin/requests", label: "Заявки", accent: "accent", match: "startsWith", adminNoticeKind: "requests" },
-  { href: "/feed", label: "Контент", accent: "neutral", match: "startsWith" },
+  { href: "/feed", label: "Контент", accent: "neutral", match: "startsWith", unreadKind: "content" },
   { href: "/profile", label: "Профиль", accent: "neutral", match: "startsWith" },
   { href: "/admin/chat", label: "Чат", accent: "neutral", match: "startsWith", unreadKind: "chat" }
 ];
