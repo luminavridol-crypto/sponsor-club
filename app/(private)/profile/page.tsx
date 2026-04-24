@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { redirect } from "next/navigation";
 import { updateProfileAction } from "@/app/actions";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { requireProfile } from "@/lib/auth/guards";
@@ -102,36 +103,7 @@ export default async function ProfilePage() {
   const admin = createAdminSupabaseClient();
 
   if (profile.role === "admin") {
-    return (
-      <PrivateShell profile={profile} admin>
-        <section className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-glow">
-          <p className="text-sm uppercase tracking-[0.28em] text-cyanGlow">Creator Profile</p>
-          <h2 className="mt-3 text-3xl font-semibold text-white">Профиль автора</h2>
-          <p className="mt-3 text-sm leading-7 text-white/62">
-            Здесь можно менять только публичные поля твоего профиля. Остальная логика доступа и
-            пользователей управляется отдельно из админ-разделов.
-          </p>
-
-          <form action={updateProfileAction} className="mt-6 grid gap-4">
-            <div>
-              <label className="mb-2 block text-sm text-white/60">Email</label>
-              <input value={profile.email} disabled />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm text-white/60">Отображаемое имя</label>
-              <input name="displayName" defaultValue={profile.display_name ?? ""} />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm text-white/60">Описание</label>
-              <textarea name="bio" defaultValue={profile.bio ?? ""} />
-            </div>
-            <button className="w-full rounded-2xl bg-white px-4 py-3 font-medium text-background transition hover:bg-goldSoft sm:w-fit">
-              Сохранить изменения
-            </button>
-          </form>
-        </section>
-      </PrivateShell>
-    );
+    redirect("/admin/users");
   }
 
   const { donationYear, donationMonth } = currentDonationPeriod();

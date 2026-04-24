@@ -185,7 +185,7 @@ export default async function HomePage({
       ? params.inviteRequestError[0]
       : params.inviteRequestError) === "1";
 
-  const profileHref = user ? "/profile" : "/login";
+  const profileHref = user ? "/dashboard" : "/login";
   const accessHref = user ? "/dashboard" : "/invite";
   const accessLabel = user ? "Перейти в кабинет" : "Получить доступ";
 
@@ -197,7 +197,7 @@ export default async function HomePage({
             href={profileHref}
             className="w-full rounded-2xl border border-white/10 px-4 py-2 text-center text-sm text-white/80 transition hover:border-accent/40 hover:text-white sm:w-auto"
           >
-            {user ? "Профиль" : "Вход"}
+            {user ? "Кабинет" : "Вход"}
           </Link>
           <Link
             href="/invite"
