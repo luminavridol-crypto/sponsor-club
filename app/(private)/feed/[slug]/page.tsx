@@ -69,7 +69,13 @@ export default async function PostDetailPage({
           </section>
         ) : null}
 
-        <PostComments postId={post.id} postSlug={post.slug} comments={comments} />
+        <PostComments
+          postId={post.id}
+          postSlug={post.slug}
+          comments={comments}
+          currentProfileId={profile.id}
+          admin={profile.role === "admin"}
+        />
       </article>
     </PrivateShell>
   );

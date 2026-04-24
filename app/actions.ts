@@ -497,6 +497,41 @@ export async function createPostCommentAction(formData: FormData) {
   revalidatePath(`/feed/${parsed.data.postSlug}`);
 }
 
+export async function deletePostCommentAction(formData: FormData) {
+  const profile = await requireProfile();
+  const commentId = formValue(formData.get("commentId"));
+  const postSlug = formValue(formData.get("postSlug"));
+
+  if (!commentId || !postSlug) {
+    revalidatePath("/feed");
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { data: comment } = await admin
+    .from("post_comments")
+    .select("id, profile_id")
+    .eq("id", commentId)
+    .single();
+
+  if (!comment) {
+    revalidatePath(`/feed/${postSlug}`);
+    return;
+  }
+
+  const canDelete = profile.role === "admin" || comment.profile_id === profile.id;
+
+  if (!canDelete) {
+    revalidatePath(`/feed/${postSlug}`);
+    return;
+  }
+
+  await admin.from("post_comments").delete().eq("id", commentId);
+
+  revalidatePath("/feed");
+  revalidatePath(`/feed/${postSlug}`);
+}
+
 export async function sendMemberChatMessageAction(formData: FormData) {
   const profile = await requireProfile();
   const admin = createAdminSupabaseClient();

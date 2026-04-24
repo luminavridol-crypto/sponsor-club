@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useFormStatus } from "react-dom";
-import { createPostCommentAction } from "@/app/actions";
+import { createPostCommentAction, deletePostCommentAction } from "@/app/actions";
 import { PostCommentWithAuthor } from "@/lib/types";
 
 function formatCommentTime(value: string) {
@@ -41,11 +41,15 @@ function SubmitButton() {
 export function PostComments({
   postId,
   postSlug,
-  comments
+  comments,
+  currentProfileId,
+  admin = false
 }: {
   postId: string;
   postSlug: string;
   comments: PostCommentWithAuthor[];
+  currentProfileId: string;
+  admin?: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -69,29 +73,74 @@ export function PostComments({
 
       <div className="mt-5 space-y-3">
         {comments.length ? (
-          comments.map((comment) => (
-            <article
-              key={comment.id}
-              className="rounded-3xl border border-white/10 bg-black/15 px-4 py-3"
-            >
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium text-white">{getAuthorLabel(comment)}</p>
-                  {comment.profiles?.role === "admin" ? (
-                    <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-accentSoft">
-                      Lumina
-                    </span>
-                  ) : null}
+          comments.map((comment) => {
+            const canDelete = admin || comment.profile_id === currentProfileId;
+
+            return (
+              <article
+                key={comment.id}
+                className="rounded-3xl border border-white/10 bg-black/15 px-4 py-3"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium text-white">{getAuthorLabel(comment)}</p>
+                      {comment.profiles?.role === "admin" ? (
+                        <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-accentSoft">
+                          Lumina
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/78">
+                      {comment.body}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2 self-end sm:self-start">
+                    <time className="text-xs text-white/35" dateTime={comment.created_at}>
+                      {formatCommentTime(comment.created_at)}
+                    </time>
+                    {canDelete ? (
+                      <form
+                        action={deletePostCommentAction}
+                        onSubmit={(event) => {
+                          if (!window.confirm("Удалить этот комментарий?")) {
+                            event.preventDefault();
+                          }
+                        }}
+                      >
+                        <input type="hidden" name="commentId" value={comment.id} />
+                        <input type="hidden" name="postSlug" value={postSlug} />
+                        <button
+                          type="submit"
+                          title="Удалить комментарий"
+                          aria-label="Удалить комментарий"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/5 text-rose-200/75 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-100"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M3 6h18" />
+                            <path d="M8 6V4h8v2" />
+                            <path d="M19 6l-1 14H6L5 6" />
+                            <path d="M10 11v5" />
+                            <path d="M14 11v5" />
+                          </svg>
+                        </button>
+                      </form>
+                    ) : null}
+                  </div>
                 </div>
-                <time className="text-xs text-white/35" dateTime={comment.created_at}>
-                  {formatCommentTime(comment.created_at)}
-                </time>
-              </div>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/78">
-                {comment.body}
-              </p>
-            </article>
-          ))
+              </article>
+            );
+          })
         ) : (
           <div className="rounded-3xl border border-dashed border-white/10 bg-black/10 px-4 py-6 text-sm text-white/50">
             Будь первым, кто оставит комментарий к этому посту.
