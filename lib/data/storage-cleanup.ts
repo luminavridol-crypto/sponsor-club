@@ -12,7 +12,11 @@ type StorageObject = {
   name: string;
 };
 
-async function listBucketFiles(admin: SupabaseClient, bucket: string, prefix = ""): Promise<string[]> {
+export async function listBucketFiles(
+  admin: SupabaseClient,
+  bucket: string,
+  prefix = ""
+): Promise<string[]> {
   const { data, error } = await admin.storage.from(bucket).list(prefix, {
     limit: 1000,
     sortBy: { column: "name", order: "asc" }

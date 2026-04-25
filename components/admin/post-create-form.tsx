@@ -2,12 +2,37 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Tier } from "@/lib/types";
 import { TIER_ACCESS_HINTS, TIER_LABELS } from "@/lib/utils/tier";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
+type UploadKind = "thumbnail" | "media";
 
-const emotionOptions = ["❤️", "💋", "✨", "🔥", "🥀", "😭", "🫀", "🥹", "😈", "🖤"];
+type UploadPreparationItem = {
+  fileName: string;
+  contentType: string;
+  kind: UploadKind;
+};
+
+type UploadResponseItem = UploadPreparationItem & {
+  mediaType: "image" | "video";
+  storagePath: string;
+  uploadMethod: "supabase" | "r2";
+  token?: string;
+  signedUrl?: string;
+  uploadPath?: string;
+};
+
+const emotionOptions = ["❤️", "💋", "✨", "🔥", "🥂", "😵", "🫦", "🥹", "😀", "🖤"];
+
+const defaultPreview = {
+  title: "Lumina Exclusive Drop",
+  postType: "announcement",
+  status: "published",
+  description: "",
+  body: ""
+};
 
 export function PostCreateForm() {
   const router = useRouter();
@@ -20,13 +45,7 @@ export function PostCreateForm() {
   const [showEmotions, setShowEmotions] = useState(false);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [mediaNames, setMediaNames] = useState<string[]>([]);
-  const [preview, setPreview] = useState({
-    title: "Lumina Exclusive Drop",
-    postType: "announcement",
-    status: "published",
-    description: "",
-    body: ""
-  });
+  const [preview, setPreview] = useState(defaultPreview);
 
   useEffect(() => {
     return () => {
@@ -47,68 +66,173 @@ export function PostCreateForm() {
     });
   }
 
+  async function prepareUploads(files: UploadPreparationItem[]) {
+    const response = await fetch("/api/admin/posts/upload-urls", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ files })
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      items?: UploadResponseItem[];
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Не удалось подготовить загрузку файлов.");
+    }
+
+    return Array.isArray(payload.items) ? payload.items : [];
+  }
+
+  async function uploadPreparedFile(file: File, prepared: UploadResponseItem) {
+    if (prepared.uploadMethod === "supabase") {
+      if (!prepared.token || !prepared.uploadPath) {
+        throw new Error("Сервер не вернул данные для загрузки изображения.");
+      }
+
+      const supabase = createClient();
+      const { error } = await supabase.storage
+        .from("post-media")
+        .uploadToSignedUrl(prepared.uploadPath, prepared.token, file, {
+          contentType: file.type || prepared.contentType
+        });
+
+      if (error) {
+        throw new Error(error.message || "Не удалось загрузить файл в хранилище.");
+      }
+
+      return;
+    }
+
+    if (!prepared.signedUrl) {
+      throw new Error("Сервер не вернул ссылку для загрузки видео.");
+    }
+
+    const response = await fetch(prepared.signedUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type || prepared.contentType
+      },
+      body: file
+    });
+
+    if (!response.ok) {
+      throw new Error("Не удалось загрузить видео в хранилище.");
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const formData = new FormData(event.currentTarget);
-    const xhr = new XMLHttpRequest();
-
     setStatus("uploading");
     setProgress(0);
-    setMessage("Загрузка началась...");
+    setMessage("Подготавливаю загрузку...");
 
-    xhr.upload.addEventListener("progress", (progressEvent) => {
-      if (!progressEvent.lengthComputable) {
-        return;
+    try {
+      const formData = new FormData(event.currentTarget);
+      const thumbnailFile = formData.get("thumbnail");
+      const mediaFiles = formData
+        .getAll("media")
+        .filter((item): item is File => item instanceof File && item.size > 0);
+      const uploadFiles: Array<{ file: File; kind: UploadKind }> = [];
+
+      if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
+        uploadFiles.push({ file: thumbnailFile, kind: "thumbnail" });
       }
 
-      const nextProgress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-      setProgress(nextProgress);
-      setMessage(`Загрузка: ${nextProgress}%`);
-    });
+      uploadFiles.push(...mediaFiles.map((file) => ({ file, kind: "media" as const })));
 
-    xhr.addEventListener("load", () => {
-      try {
-        const response = JSON.parse(xhr.responseText || "{}") as {
-          error?: string;
-          success?: boolean;
-        };
+      const preparedUploads = uploadFiles.length
+        ? await prepareUploads(
+            uploadFiles.map(({ file, kind }) => ({
+              fileName: file.name,
+              contentType: file.type,
+              kind
+            }))
+          )
+        : [];
 
-        if (xhr.status >= 200 && xhr.status < 300 && response.success) {
-          setStatus("success");
-          setProgress(100);
-          setMessage("Пост успешно создан.");
-          formRef.current?.reset();
-          setPreview({
-            title: "Lumina Exclusive Drop",
-            postType: "announcement",
-            status: "published",
-            description: "",
-            body: ""
-          });
-          setThumbnailPreview(null);
-          setMediaNames([]);
-          setSelectedTier("tier_1");
-          setShowEmotions(false);
-          router.refresh();
-          return;
+      const thumbnailPath = preparedUploads.find((item) => item.kind === "thumbnail")?.storagePath;
+      const mediaEntries: Array<{ path: string; mediaType: "image" | "video" }> = [];
+
+      for (let index = 0; index < uploadFiles.length; index += 1) {
+        const current = uploadFiles[index];
+        const prepared = preparedUploads[index];
+
+        if (!current || !prepared) {
+          throw new Error("Сервер вернул неполный набор данных для загрузки.");
         }
 
-        setStatus("error");
-        setMessage(response.error || "Не удалось создать пост.");
-      } catch {
-        setStatus("error");
-        setMessage("Сервер вернул непонятный ответ.");
+        setMessage(`Загружаю файлы: ${index + 1} из ${uploadFiles.length}`);
+        await uploadPreparedFile(current.file, prepared);
+
+        if (prepared.kind === "media") {
+          mediaEntries.push({
+            path: prepared.storagePath,
+            mediaType: prepared.mediaType
+          });
+        }
+
+        setProgress(Math.round(((index + 1) / Math.max(uploadFiles.length, 1)) * 90));
       }
-    });
 
-    xhr.addEventListener("error", () => {
+      formData.delete("thumbnail");
+      formData.delete("media");
+
+      if (thumbnailPath) {
+        formData.set("uploadedThumbnailPath", thumbnailPath);
+      }
+
+      mediaEntries.forEach((entry) => {
+        formData.append("uploadedMediaPath", entry.path);
+        formData.append("uploadedMediaType", entry.mediaType);
+      });
+
+      setMessage("Сохраняю пост...");
+
+      const response = await fetch("/api/admin/posts", {
+        method: "POST",
+        body: formData
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        success?: boolean;
+      };
+
+      if (!response.ok || !payload.success) {
+        if (response.status === 413) {
+          throw new Error("Файл оказался слишком большим для текущих ограничений сервера.");
+        }
+
+        throw new Error(payload.error || "Не удалось создать пост.");
+      }
+
+      setStatus("success");
+      setProgress(100);
+      setMessage("Пост успешно создан.");
+      formRef.current?.reset();
+      setPreview(defaultPreview);
+      setThumbnailPreview((current) => {
+        if (current) {
+          URL.revokeObjectURL(current);
+        }
+
+        return null;
+      });
+      setMediaNames([]);
+      setSelectedTier("tier_1");
+      setShowEmotions(false);
+      router.refresh();
+    } catch (error) {
       setStatus("error");
-      setMessage("Ошибка сети при загрузке файла.");
-    });
-
-    xhr.open("POST", "/api/admin/posts");
-    xhr.send(formData);
+      setMessage(
+        error instanceof Error ? error.message : "Не удалось загрузить файлы и создать пост."
+      );
+    }
   }
 
   function insertEmotion(emoji: string) {
@@ -243,7 +367,10 @@ export function PostCreateForm() {
             onChange={(event) => {
               const file = event.target.files?.[0];
               setThumbnailPreview((current) => {
-                if (current) URL.revokeObjectURL(current);
+                if (current) {
+                  URL.revokeObjectURL(current);
+                }
+
                 return file ? URL.createObjectURL(file) : null;
               });
             }}

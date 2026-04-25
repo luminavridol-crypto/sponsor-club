@@ -3,7 +3,9 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { requireAdmin } from "@/lib/auth/guards";
+import { listBucketFiles } from "@/lib/data/storage-cleanup";
 import { getSignedMediaUrls } from "@/lib/data/posts";
+import { listR2StoragePaths } from "@/lib/r2/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 type MediaItem = {
@@ -12,14 +14,24 @@ type MediaItem = {
   slug: string;
   path: string;
   type: "image" | "video";
-  source: "thumbnail" | "media";
+  source: "thumbnail" | "media" | "storage";
   createdAt: string;
 };
+
+function getMediaTypeFromPath(path: string): "image" | "video" {
+  const normalized = path.toLowerCase();
+
+  if (normalized.endsWith(".mp4") || normalized.endsWith(".mov") || normalized.endsWith(".webm")) {
+    return "video";
+  }
+
+  return "image";
+}
 
 export default async function AdminMediaPage() {
   const profile = await requireAdmin();
   const admin = createAdminSupabaseClient();
-  const [{ data: posts }, { data: media }] = await Promise.all([
+  const [{ data: posts }, { data: media }, bucketPaths, r2Paths] = await Promise.all([
     admin
       .from("posts")
       .select("id, title, slug, thumbnail_path, created_at")
@@ -28,10 +40,12 @@ export default async function AdminMediaPage() {
     admin
       .from("post_media")
       .select("id, storage_path, media_type, created_at, posts(title, slug)")
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: false }),
+    listBucketFiles(admin, "post-media").catch(() => []),
+    listR2StoragePaths().catch(() => [])
   ]);
 
-  const items: MediaItem[] = [
+  const linkedItems: MediaItem[] = [
     ...((posts ?? []).map((post) => ({
       id: `thumb-${post.id}`,
       title: post.title,
@@ -55,6 +69,20 @@ export default async function AdminMediaPage() {
     }))
   ].filter((item) => Boolean(item.path));
 
+  const linkedPaths = new Set(linkedItems.map((item) => item.path));
+  const storageItems: MediaItem[] = [...bucketPaths, ...r2Paths]
+    .filter((path) => !linkedPaths.has(path))
+    .map((path) => ({
+      id: `storage-${path}`,
+      title: "Не привязано к посту",
+      slug: "",
+      path,
+      type: getMediaTypeFromPath(path),
+      source: "storage" as const,
+      createdAt: ""
+    }));
+
+  const items = [...linkedItems, ...storageItems];
   const signedUrls = await getSignedMediaUrls(items.map((item) => item.path));
 
   return (
@@ -64,7 +92,7 @@ export default async function AdminMediaPage() {
           <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Media Library</p>
           <h2 className="mt-3 text-3xl font-semibold text-white">Медиа-библиотека</h2>
           <p className="mt-3 text-sm leading-7 text-white/62">
-            {items.length} файлов уже привязано к постам. Новые копии в Supabase здесь не создаются.
+            {linkedItems.length} файлов привязано к постам, ещё {storageItems.length} найдено в storage без связи с постом.
           </p>
         </div>
 
