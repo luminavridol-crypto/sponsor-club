@@ -6,6 +6,27 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { formatDate } from "@/lib/utils/format";
 
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M6 6l1 14h10l1-14" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
+}
+
 export default async function AdminPostsPage() {
   const profile = await requireAdmin();
   const admin = createAdminSupabaseClient();
@@ -26,7 +47,12 @@ export default async function AdminPostsPage() {
             <ConfirmActionForm
               action={deleteAllPostsAction}
               confirmMessage="Удалить все посты? Это действие нельзя отменить."
-              buttonLabel="Удалить все посты"
+              buttonLabel={
+                <span className="inline-flex items-center gap-2">
+                  <TrashIcon />
+                  Удалить все посты
+                </span>
+              }
               buttonClassName="rounded-2xl border border-rose-400/35 bg-rose-400/10 px-4 py-3 text-sm font-medium text-rose-100 transition hover:bg-rose-400/15"
             />
           </div>
@@ -46,8 +72,13 @@ export default async function AdminPostsPage() {
                 <ConfirmActionForm
                   action={deletePostAction}
                   confirmMessage="Удалить этот пост?"
-                  buttonLabel="Удалить"
-                  buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-100"
+                  buttonLabel={
+                    <span className="inline-flex items-center gap-2">
+                      <TrashIcon />
+                      Удалить
+                    </span>
+                  }
+                  buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20"
                   hiddenFields={[{ name: "postId", value: post.id }]}
                 />
               </div>
@@ -64,14 +95,14 @@ export default async function AdminPostsPage() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <select name="postType" defaultValue={post.post_type}>
-                    <option value="announcement">announcement</option>
-                    <option value="text">text</option>
-                    <option value="gallery">gallery</option>
-                    <option value="video">video</option>
+                    <option value="announcement">Объявление</option>
+                    <option value="text">Текст</option>
+                    <option value="gallery">Галерея</option>
+                    <option value="video">Видео</option>
                   </select>
                   <select name="status" defaultValue={post.status}>
-                    <option value="draft">draft</option>
-                    <option value="published">published</option>
+                    <option value="draft">Черновик</option>
+                    <option value="published">Опубликован</option>
                   </select>
                 </div>
                 <textarea name="description" defaultValue={post.description ?? ""} />

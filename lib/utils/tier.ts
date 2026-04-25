@@ -9,9 +9,9 @@ export const TIER_LABELS: Record<Tier, string> = {
 };
 
 export const TIER_ACCESS_HINTS: Record<Tier, string> = {
-  tier_1: "Этот пост увидят Наблюдатель, Приближённый и VIP",
-  tier_2: "Этот пост увидят Приближённый и VIP. Наблюдатель не увидит",
-  tier_3: "Этот пост увидит только VIP. При этом VIP-подписчик видит также все посты других уровней"
+  tier_1: "Этот пост увидят Наблюдатель, Приближённый и VIP.",
+  tier_2: "Этот пост увидят Приближённый и VIP. Наблюдатель его не увидит.",
+  tier_3: "Этот пост увидит только VIP. VIP также видит посты всех уровней ниже."
 };
 
 export function canAccessTier(userTier: Tier, requiredTier: Tier) {

@@ -8,12 +8,13 @@ import { requireAdmin, requireProfile } from "@/lib/auth/guards";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
 import { reactionOptions } from "@/lib/data/reactions";
 import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
-import { deleteR2Objects, isR2StoragePath, uploadVideoToR2 } from "@/lib/r2/server";
+import { deleteR2Objects, isR2StoragePath } from "@/lib/r2/server";
 import {
   assertUploadFile,
   getSafeFileExtension,
   getUploadMediaType
 } from "@/lib/security/file-uploads";
+import { deleteMedia, uploadMediaToR2 } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { AccessStatus, PostReactionType, PostStatus, PostType, Tier } from "@/lib/types";
@@ -115,52 +116,20 @@ function redirectToInviteError(message: string, code?: string) {
 
 async function uploadFile(file: File, folder: string) {
   assertUploadFile(file, { allowImages: true, allowVideos: false });
-  const admin = createAdminSupabaseClient();
   const extension = getSafeFileExtension(file);
-  const fileName = `${folder}/${randomUUID()}.${extension}`;
-  const arrayBuffer = await file.arrayBuffer();
-  const { error } = await admin.storage
-    .from("post-media")
-    .upload(fileName, Buffer.from(arrayBuffer), {
-      contentType: file.type,
-      upsert: false
-    });
-
-  if (error) {
-    throw new Error(humanizeStorageError(error.message));
-  }
-
-  return fileName;
+  return uploadMediaToR2(file, `${folder}/${randomUUID()}.${extension}`, file.type);
 }
 
 async function uploadChatFile(file: File, profileId: string) {
   assertUploadFile(file);
-  const admin = createAdminSupabaseClient();
   const extension = getSafeFileExtension(file);
-  const fileName = `${profileId}/${randomUUID()}.${extension}`;
-  const arrayBuffer = await file.arrayBuffer();
-  const { error } = await admin.storage
-    .from("chat-media")
-    .upload(fileName, Buffer.from(arrayBuffer), {
-      contentType: file.type,
-      upsert: false
-    });
-
-  if (error) {
-    throw new Error(humanizeStorageError(error.message));
-  }
-
-  return fileName;
+  return uploadMediaToR2(file, `chat/${profileId}/${randomUUID()}.${extension}`, file.type);
 }
 
 async function uploadPostMedia(file: File, folder: string) {
-  const mediaType = assertUploadFile(file);
-
-  if (mediaType === "video") {
-    return uploadVideoToR2(file, folder);
-  }
-
-  return uploadFile(file, folder);
+  assertUploadFile(file);
+  const extension = getSafeFileExtension(file);
+  return uploadMediaToR2(file, `${folder}/${randomUUID()}.${extension}`, file.type);
 }
 
 async function removePostStorage(paths: string[]) {
@@ -189,7 +158,16 @@ async function removeChatStorage(paths: string[]) {
 
   const admin = createAdminSupabaseClient();
   const uniquePaths = [...new Set(paths)];
-  await admin.storage.from("chat-media").remove(uniquePaths);
+  const r2Paths = uniquePaths.filter(isR2StoragePath);
+  const supabasePaths = uniquePaths.filter((path) => !isR2StoragePath(path));
+
+  if (supabasePaths.length) {
+    await admin.storage.from("chat-media").remove(supabasePaths);
+  }
+
+  if (r2Paths.length) {
+    await deleteR2Objects(r2Paths);
+  }
 }
 
 export async function loginAction(formData: FormData) {
@@ -673,14 +651,16 @@ export async function sendAdminChatMessageAction(formData: FormData) {
   }
 
   let mediaPath: string | null = null;
-  let mediaType: "image" | "video" | null = null;
+  let mediaType: "image" | "video" | "file" | null = null;
+  let uploadedChatMedia: Awaited<ReturnType<typeof uploadChatFile>> | null = null;
 
   if (mediaFile) {
     if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("video/")) {
       throw new Error("В чат можно загрузить только фото или видео.");
     }
 
-    mediaPath = await uploadChatFile(mediaFile, profileId);
+    uploadedChatMedia = await uploadChatFile(mediaFile, profileId);
+    mediaPath = uploadedChatMedia.storagePath;
     mediaType = getUploadMediaType(mediaFile);
   }
 
@@ -707,6 +687,11 @@ export async function sendAdminChatMessageAction(formData: FormData) {
     sender_role: "admin",
     body: body || null,
     media_path: mediaPath,
+    media_provider: uploadedChatMedia?.provider ?? null,
+    media_bucket: uploadedChatMedia?.bucket ?? null,
+    media_object_key: uploadedChatMedia?.objectKey ?? null,
+    media_mime_type: uploadedChatMedia?.contentType ?? null,
+    media_size_bytes: uploadedChatMedia?.sizeBytes ?? null,
     media_type: mediaType,
     read_by_admin_at: new Date().toISOString(),
     read_by_member_at: null
@@ -790,8 +775,20 @@ export async function createPostAction(formData: FormData) {
     .filter((value) => value instanceof File && value.size > 0) as File[];
 
   let thumbnailPath: string | null = null;
+  let thumbnailProvider: string | null = null;
+  let thumbnailBucket: string | null = null;
+  let thumbnailObjectKey: string | null = null;
+  let thumbnailMimeType: string | null = null;
+  let thumbnailSizeBytes: number | null = null;
+
   if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
-    thumbnailPath = await uploadFile(thumbnailFile, "thumbnails");
+    const uploadedThumbnail = await uploadFile(thumbnailFile, "thumbnails");
+    thumbnailPath = uploadedThumbnail.storagePath;
+    thumbnailProvider = uploadedThumbnail.provider;
+    thumbnailBucket = uploadedThumbnail.bucket;
+    thumbnailObjectKey = uploadedThumbnail.objectKey;
+    thumbnailMimeType = uploadedThumbnail.contentType;
+    thumbnailSizeBytes = uploadedThumbnail.sizeBytes;
   }
 
   const { data: post, error } = await admin
@@ -808,6 +805,11 @@ export async function createPostAction(formData: FormData) {
         ? new Date(formValue(formData.get("publishAt"))).toISOString()
         : new Date().toISOString(),
       thumbnail_path: thumbnailPath,
+      thumbnail_provider: thumbnailProvider,
+      thumbnail_bucket: thumbnailBucket,
+      thumbnail_object_key: thumbnailObjectKey,
+      thumbnail_mime_type: thumbnailMimeType,
+      thumbnail_size_bytes: thumbnailSizeBytes,
       author_id: profile.id
     })
     .select("id")
@@ -819,12 +821,17 @@ export async function createPostAction(formData: FormData) {
   }
 
   for (const [index, file] of mediaFiles.entries()) {
-    const storagePath = await uploadPostMedia(file, `posts/${post.id}`);
+    const uploaded = await uploadPostMedia(file, `posts/${post.id}`);
     const mediaType = getUploadMediaType(file);
 
     const { error: mediaError } = await admin.from("post_media").insert({
       post_id: post.id,
-      storage_path: storagePath,
+      storage_path: uploaded.storagePath,
+      storage_provider: uploaded.provider,
+      storage_bucket: uploaded.bucket,
+      storage_object_key: uploaded.objectKey,
+      mime_type: uploaded.contentType,
+      size_bytes: uploaded.sizeBytes,
       media_type: mediaType,
       sort_order: index
     });
@@ -910,6 +917,54 @@ export async function cleanupStorageAction() {
   revalidatePath("/admin");
   revalidatePath("/admin/posts");
   revalidatePath("/admin/chat");
+}
+
+export async function deleteMediaAction(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+  const source = formValue(formData.get("source"));
+  const id = formValue(formData.get("id"));
+  const provider = formValue(formData.get("provider")) || null;
+  const bucket = formValue(formData.get("bucket")) || null;
+  const objectKey = formValue(formData.get("objectKey")) || null;
+  const path = formValue(formData.get("path")) || null;
+
+  if (!path && !objectKey) {
+    revalidatePath("/admin/media");
+    return;
+  }
+
+  await deleteMedia(
+    {
+      provider,
+      bucket,
+      object_key: objectKey,
+      storage_path: path
+    },
+    { supabase: admin, legacyBucket: source === "chat" ? "chat-media" : "post-media" }
+  );
+
+  if (source === "thumbnail" && id) {
+    await admin
+      .from("posts")
+      .update({
+        thumbnail_path: null,
+        thumbnail_provider: null,
+        thumbnail_bucket: null,
+        thumbnail_object_key: null,
+        thumbnail_mime_type: null,
+        thumbnail_size_bytes: null
+      })
+      .eq("id", id);
+  }
+
+  if (source === "media" && id) {
+    await admin.from("post_media").delete().eq("id", id);
+  }
+
+  revalidatePath("/admin/media");
+  revalidatePath("/admin/posts");
+  revalidatePath("/feed");
 }
 
 export async function updateUserAccessAction(formData: FormData) {

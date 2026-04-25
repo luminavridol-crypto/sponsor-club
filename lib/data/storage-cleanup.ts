@@ -1,5 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { deleteR2Objects, listR2StoragePaths } from "@/lib/r2/server";
+import { listR2StoragePaths } from "@/lib/r2/server";
 
 type CleanupResult = {
   postMedia: number;
@@ -10,6 +10,9 @@ type CleanupResult = {
 type StorageObject = {
   id: string | null;
   name: string;
+  metadata?: {
+    size?: number;
+  } | null;
 };
 
 export async function listBucketFiles(
@@ -41,6 +44,45 @@ export async function listBucketFiles(
   return files;
 }
 
+export async function getBucketStorageUsage(
+  admin: SupabaseClient,
+  bucket: string,
+  prefix = ""
+): Promise<{ fileCount: number; totalBytes: number }> {
+  const { data, error } = await admin.storage.from(bucket).list(prefix, {
+    limit: 1000,
+    sortBy: { column: "name", order: "asc" }
+  });
+
+  if (error || !data) {
+    return {
+      fileCount: 0,
+      totalBytes: 0
+    };
+  }
+
+  let fileCount = 0;
+  let totalBytes = 0;
+
+  for (const item of data as StorageObject[]) {
+    const path = prefix ? `${prefix}/${item.name}` : item.name;
+
+    if (item.id) {
+      fileCount += 1;
+      totalBytes += item.metadata?.size ?? 0;
+    } else {
+      const nested = await getBucketStorageUsage(admin, bucket, path);
+      fileCount += nested.fileCount;
+      totalBytes += nested.totalBytes;
+    }
+  }
+
+  return {
+    fileCount,
+    totalBytes
+  };
+}
+
 async function removeSupabaseOrphans(
   admin: SupabaseClient,
   bucket: string,
@@ -48,11 +90,6 @@ async function removeSupabaseOrphans(
 ) {
   const allPaths = await listBucketFiles(admin, bucket);
   const orphanPaths = allPaths.filter((path) => !usedPaths.has(path));
-
-  if (orphanPaths.length) {
-    await admin.storage.from(bucket).remove(orphanPaths);
-  }
-
   return orphanPaths.length;
 }
 
@@ -96,10 +133,6 @@ export async function cleanupOrphanedStorage(admin: SupabaseClient): Promise<Cle
   ]);
 
   const orphanR2Paths = r2Paths.filter((path) => !usedR2Media.has(path));
-
-  if (orphanR2Paths.length) {
-    await deleteR2Objects(orphanR2Paths).catch(() => undefined);
-  }
 
   return {
     postMedia: postMediaCount,

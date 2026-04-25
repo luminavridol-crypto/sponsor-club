@@ -7,6 +7,7 @@ import {
   getSafeFileExtension,
   getUploadMediaType
 } from "@/lib/security/file-uploads";
+import { deleteMedia, uploadMediaToR2 } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -16,22 +17,8 @@ function formValue(value: FormDataEntryValue | null) {
 
 async function uploadChatFile(file: File, profileId: string) {
   assertUploadFile(file);
-  const admin = createAdminSupabaseClient();
   const extension = getSafeFileExtension(file);
-  const fileName = `${profileId}/${randomUUID()}.${extension}`;
-  const arrayBuffer = await file.arrayBuffer();
-  const { error } = await admin.storage
-    .from("chat-media")
-    .upload(fileName, Buffer.from(arrayBuffer), {
-      contentType: file.type || undefined,
-      upsert: false
-    });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return fileName;
+  return uploadMediaToR2(file, `chat/${profileId}/${randomUUID()}.${extension}`, file.type);
 }
 
 export async function POST(request: Request) {
@@ -86,7 +73,10 @@ export async function POST(request: Request) {
     }
 
     let mediaPath: string | null = null;
-    let mediaType: "image" | "video" | null = null;
+    let mediaType: "image" | "video" | "file" | null = null;
+    let uploadedMedia:
+      | Awaited<ReturnType<typeof uploadChatFile>>
+      | null = null;
 
     if (mediaFile) {
       if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("video/")) {
@@ -96,7 +86,8 @@ export async function POST(request: Request) {
         );
       }
 
-      mediaPath = await uploadChatFile(mediaFile, profileId);
+      uploadedMedia = await uploadChatFile(mediaFile, profileId);
+      mediaPath = uploadedMedia.storagePath;
       mediaType = getUploadMediaType(mediaFile);
     }
 
@@ -105,14 +96,27 @@ export async function POST(request: Request) {
       sender_role: "admin",
       body: body || null,
       media_path: mediaPath,
+      media_provider: uploadedMedia?.provider ?? null,
+      media_bucket: uploadedMedia?.bucket ?? null,
+      media_object_key: uploadedMedia?.objectKey ?? null,
+      media_mime_type: uploadedMedia?.contentType ?? null,
+      media_size_bytes: uploadedMedia?.sizeBytes ?? null,
       media_type: mediaType,
       read_by_admin_at: new Date().toISOString(),
       read_by_member_at: null
     });
 
     if (error) {
-      if (mediaPath) {
-        await admin.storage.from("chat-media").remove([mediaPath]);
+      if (uploadedMedia) {
+        await deleteMedia(
+          {
+            provider: uploadedMedia.provider,
+            bucket: uploadedMedia.bucket,
+            object_key: uploadedMedia.objectKey,
+            storage_path: uploadedMedia.storagePath
+          },
+          { supabase: admin, legacyBucket: "chat-media" }
+        );
       }
 
       return NextResponse.json({ error: error.message }, { status: 500 });

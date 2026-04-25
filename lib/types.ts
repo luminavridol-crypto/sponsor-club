@@ -3,7 +3,7 @@ export type Tier = "tier_1" | "tier_2" | "tier_3";
 export type AccessStatus = "active" | "disabled";
 export type PostType = "gallery" | "video" | "text" | "announcement";
 export type PostStatus = "draft" | "published";
-export type MediaType = "image" | "video";
+export type MediaType = "image" | "video" | "file";
 export type PurchaseRequestStatus = "new" | "in_progress" | "completed";
 export type PostReactionType = "heart" | "fire" | "cry" | "sparkles" | "devil";
 
@@ -76,6 +76,11 @@ export interface Post {
   expires_at: string | null;
   retention_days: number | null;
   thumbnail_path: string | null;
+  thumbnail_provider?: string | null;
+  thumbnail_bucket?: string | null;
+  thumbnail_object_key?: string | null;
+  thumbnail_mime_type?: string | null;
+  thumbnail_size_bytes?: number | null;
   created_at: string;
 }
 
@@ -83,6 +88,11 @@ export interface PostMedia {
   id: string;
   post_id: string;
   storage_path: string;
+  storage_provider?: string | null;
+  storage_bucket?: string | null;
+  storage_object_key?: string | null;
+  mime_type?: string | null;
+  size_bytes?: number | null;
   media_type: MediaType;
   sort_order: number;
   created_at: string;

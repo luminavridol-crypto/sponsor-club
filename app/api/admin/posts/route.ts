@@ -1,12 +1,12 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
-import { uploadVideoToR2 } from "@/lib/r2/server";
 import {
   assertUploadFile,
   getSafeFileExtension,
   getUploadMediaType
 } from "@/lib/security/file-uploads";
+import { R2_PROVIDER, toR2ObjectKey, uploadMediaToR2 } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PostStatus, PostType, Tier } from "@/lib/types";
@@ -21,6 +21,10 @@ function formValues(formData: FormData, key: string) {
     .getAll(key)
     .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter(Boolean);
+}
+
+function numberValues(formData: FormData, key: string) {
+  return formValues(formData, key).map((value) => Number(value) || 0);
 }
 
 function calculateExpirationDate(publishAtIso: string, retentionDays: number) {
@@ -43,32 +47,14 @@ function humanizeStorageError(message: string) {
 
 async function uploadFile(file: File, folder: string) {
   assertUploadFile(file, { allowImages: true, allowVideos: false });
-  const admin = createAdminSupabaseClient();
   const extension = getSafeFileExtension(file);
-  const fileName = `${folder}/${randomUUID()}.${extension}`;
-  const arrayBuffer = await file.arrayBuffer();
-  const { error } = await admin.storage
-    .from("post-media")
-    .upload(fileName, Buffer.from(arrayBuffer), {
-      contentType: file.type || undefined,
-      upsert: false
-    });
-
-  if (error) {
-    throw new Error(humanizeStorageError(error.message));
-  }
-
-  return fileName;
+  return uploadMediaToR2(file, `${folder}/${randomUUID()}.${extension}`, file.type);
 }
 
 async function uploadPostMedia(file: File, folder: string) {
-  const mediaType = assertUploadFile(file);
-
-  if (mediaType === "video") {
-    return uploadVideoToR2(file, folder);
-  }
-
-  return uploadFile(file, folder);
+  assertUploadFile(file);
+  const extension = getSafeFileExtension(file);
+  return uploadMediaToR2(file, `${folder}/${randomUUID()}.${extension}`, file.type);
 }
 
 export async function POST(request: Request) {
@@ -114,15 +100,37 @@ export async function POST(request: Request) {
     const slug = slugify(title);
     const thumbnailFile = formData.get("thumbnail");
     const uploadedThumbnailPath = formValue(formData.get("uploadedThumbnailPath")) || null;
+    const uploadedThumbnailProvider = formValue(formData.get("uploadedThumbnailProvider")) || null;
+    const uploadedThumbnailBucket = formValue(formData.get("uploadedThumbnailBucket")) || null;
+    const uploadedThumbnailObjectKey = formValue(formData.get("uploadedThumbnailObjectKey")) || null;
+    const uploadedThumbnailMimeType = formValue(formData.get("uploadedThumbnailMimeType")) || null;
+    const uploadedThumbnailSizeBytes = Number(formValue(formData.get("uploadedThumbnailSizeBytes"))) || null;
     const mediaFiles = formData
       .getAll("media")
       .filter((value) => value instanceof File && value.size > 0) as File[];
     const uploadedMediaPaths = formValues(formData, "uploadedMediaPath");
     const uploadedMediaTypes = formValues(formData, "uploadedMediaType");
+    const uploadedMediaProviders = formValues(formData, "uploadedMediaProvider");
+    const uploadedMediaBuckets = formValues(formData, "uploadedMediaBucket");
+    const uploadedMediaObjectKeys = formValues(formData, "uploadedMediaObjectKey");
+    const uploadedMediaMimeTypes = formValues(formData, "uploadedMediaMimeType");
+    const uploadedMediaSizeBytes = numberValues(formData, "uploadedMediaSizeBytes");
 
     let thumbnailPath: string | null = uploadedThumbnailPath;
+    let thumbnailProvider = uploadedThumbnailProvider;
+    let thumbnailBucket = uploadedThumbnailBucket;
+    let thumbnailObjectKey = uploadedThumbnailObjectKey;
+    let thumbnailMimeType = uploadedThumbnailMimeType;
+    let thumbnailSizeBytes = uploadedThumbnailSizeBytes;
+
     if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
-      thumbnailPath = await uploadFile(thumbnailFile, "thumbnails");
+      const uploaded = await uploadFile(thumbnailFile, "thumbnails");
+      thumbnailPath = uploaded.storagePath;
+      thumbnailProvider = uploaded.provider;
+      thumbnailBucket = uploaded.bucket;
+      thumbnailObjectKey = uploaded.objectKey;
+      thumbnailMimeType = uploaded.contentType;
+      thumbnailSizeBytes = uploaded.sizeBytes;
     }
 
     const { data: post, error } = await admin
@@ -139,6 +147,11 @@ export async function POST(request: Request) {
         retention_days: retentionDays || null,
         expires_at: expiresAt,
         thumbnail_path: thumbnailPath,
+        thumbnail_provider: thumbnailProvider || (thumbnailPath ? R2_PROVIDER : null),
+        thumbnail_bucket: thumbnailBucket,
+        thumbnail_object_key: thumbnailObjectKey || (thumbnailPath ? toR2ObjectKey(thumbnailPath) : null),
+        thumbnail_mime_type: thumbnailMimeType,
+        thumbnail_size_bytes: thumbnailSizeBytes,
         author_id: profile.id
       })
       .select("id")
@@ -154,13 +167,23 @@ export async function POST(request: Request) {
 
     const directUploads = uploadedMediaPaths.map((storagePath, index) => ({
       storagePath,
-      mediaType: uploadedMediaTypes[index] === "video" ? "video" : "image"
+      mediaType: uploadedMediaTypes[index] === "video" ? "video" : "image",
+      provider: uploadedMediaProviders[index] || R2_PROVIDER,
+      bucket: uploadedMediaBuckets[index] || null,
+      objectKey: uploadedMediaObjectKeys[index] || toR2ObjectKey(storagePath),
+      mimeType: uploadedMediaMimeTypes[index] || null,
+      sizeBytes: uploadedMediaSizeBytes[index] || null
     }));
 
     for (const [index, directUpload] of directUploads.entries()) {
       const { error: mediaError } = await admin.from("post_media").insert({
         post_id: post.id,
         storage_path: directUpload.storagePath,
+        storage_provider: directUpload.provider,
+        storage_bucket: directUpload.bucket,
+        storage_object_key: directUpload.objectKey,
+        mime_type: directUpload.mimeType,
+        size_bytes: directUpload.sizeBytes,
         media_type: directUpload.mediaType,
         sort_order: index
       });
@@ -175,12 +198,17 @@ export async function POST(request: Request) {
     }
 
     for (const [offset, file] of mediaFiles.entries()) {
-      const storagePath = await uploadPostMedia(file, `posts/${post.id}`);
+      const uploaded = await uploadPostMedia(file, `posts/${post.id}`);
       const mediaType = getUploadMediaType(file);
 
       const { error: mediaError } = await admin.from("post_media").insert({
         post_id: post.id,
-        storage_path: storagePath,
+        storage_path: uploaded.storagePath,
+        storage_provider: uploaded.provider,
+        storage_bucket: uploaded.bucket,
+        storage_object_key: uploaded.objectKey,
+        mime_type: uploaded.contentType,
+        size_bytes: uploaded.sizeBytes,
         media_type: mediaType,
         sort_order: directUploads.length + offset
       });

@@ -1,16 +1,15 @@
-import { randomUUID } from "crypto";
 import {
   DeleteObjectsCommand,
-  GetObjectCommand,
   ListObjectsV2Command,
-  PutObjectCommand,
   S3Client
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getR2Env } from "@/lib/r2/env";
-import { assertUploadFile, getSafeFileExtension } from "@/lib/security/file-uploads";
-
-const R2_PREFIX = "r2:";
+import {
+  getR2SignedReadUrl,
+  isR2StoragePath,
+  toR2ObjectKey,
+  toR2StoragePath
+} from "@/lib/storage/media";
 
 let cachedClient: S3Client | null = null;
 
@@ -33,40 +32,9 @@ function getR2Client() {
   return cachedClient;
 }
 
-function toR2Key(path: string) {
-  return path.slice(R2_PREFIX.length);
-}
+export { isR2StoragePath };
 
-function toR2StoragePath(key: string) {
-  return `${R2_PREFIX}${key}`;
-}
-
-export function isR2StoragePath(path: string) {
-  return path.startsWith(R2_PREFIX);
-}
-
-export async function uploadVideoToR2(file: File, folder: string) {
-  assertUploadFile(file, { allowImages: false, allowVideos: true });
-  const client = getR2Client();
-  const { bucketName } = getR2Env();
-  const extension = getSafeFileExtension(file);
-  const key = `${folder}/${randomUUID()}.${extension}`;
-  const arrayBuffer = await file.arrayBuffer();
-
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-      Body: Buffer.from(arrayBuffer),
-      ContentType: file.type || "application/octet-stream",
-      ContentDisposition: "inline"
-    })
-  );
-
-  return toR2StoragePath(key);
-}
-
-export async function listR2StoragePaths(prefix = "posts/") {
+export async function listR2StoragePaths(prefix = "") {
   const client = getR2Client();
   const { bucketName } = getR2Env();
   const paths: string[] = [];
@@ -93,21 +61,42 @@ export async function listR2StoragePaths(prefix = "posts/") {
   return paths;
 }
 
-export async function getSignedR2Urls(paths: string[], expiresIn = 60 * 60) {
+export async function getR2StorageUsage(prefix = "") {
   const client = getR2Client();
   const { bucketName } = getR2Env();
+  let totalBytes = 0;
+  let fileCount = 0;
+  let continuationToken: string | undefined;
 
+  do {
+    const result = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucketName,
+        Prefix: prefix,
+        ContinuationToken: continuationToken
+      })
+    );
+
+    for (const object of result.Contents ?? []) {
+      if (object.Key) {
+        fileCount += 1;
+        totalBytes += object.Size ?? 0;
+      }
+    }
+
+    continuationToken = result.NextContinuationToken;
+  } while (continuationToken);
+
+  return {
+    fileCount,
+    totalBytes
+  };
+}
+
+export async function getSignedR2Urls(paths: string[], expiresIn = 60 * 60) {
   const entries = await Promise.all(
     paths.filter(isR2StoragePath).map(async (path) => {
-      const signedUrl = await getSignedUrl(
-        client,
-        new GetObjectCommand({
-          Bucket: bucketName,
-          Key: toR2Key(path),
-          ResponseContentDisposition: "inline"
-        }),
-        { expiresIn }
-      );
+      const signedUrl = await getR2SignedReadUrl(toR2ObjectKey(path), expiresIn);
 
       return [path, signedUrl] as const;
     })
@@ -117,7 +106,7 @@ export async function getSignedR2Urls(paths: string[], expiresIn = 60 * 60) {
 }
 
 export async function deleteR2Objects(paths: string[]) {
-  const keys = paths.filter(isR2StoragePath).map(toR2Key);
+  const keys = paths.filter(isR2StoragePath).map(toR2ObjectKey);
 
   if (!keys.length) {
     return;

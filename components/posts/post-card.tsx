@@ -1,9 +1,16 @@
 import Link from "next/link";
+import { PostReactions } from "@/components/posts/post-reactions";
 import { ReactionSummary } from "@/lib/data/reactions";
 import { PostWithMedia } from "@/lib/types";
 import { formatDate } from "@/lib/utils/format";
 import { TIER_LABELS } from "@/lib/utils/tier";
-import { PostReactions } from "@/components/posts/post-reactions";
+
+const POST_TYPE_LABELS: Record<string, string> = {
+  announcement: "Объявление",
+  text: "Текст",
+  gallery: "Галерея",
+  video: "Видео"
+};
 
 export function PostCard({
   post,
@@ -25,15 +32,15 @@ export function PostCard({
       ) : null}
       <div className="border-b border-white/10 bg-gradient-to-br from-accent/10 to-cyanGlow/10 px-5 py-4">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs uppercase tracking-[0.22em] text-accentSoft">
-            {post.post_type}
+          <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-accentSoft">
+            {POST_TYPE_LABELS[post.post_type] ?? post.post_type}
           </span>
           <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/60">
             {TIER_LABELS[post.required_tier]}
           </span>
         </div>
         <h3 className="text-xl font-semibold text-white">{post.title}</h3>
-        <p className="mt-2 text-sm text-white/65">{post.description}</p>
+        {post.description ? <p className="mt-2 text-sm text-white/65">{post.description}</p> : null}
       </div>
       <div className="px-5 py-4">
         <div className="mb-4 flex items-center justify-between text-sm text-white/45">

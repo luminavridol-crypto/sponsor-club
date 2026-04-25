@@ -1,5 +1,7 @@
 "use client";
 
+import { ReactNode } from "react";
+
 type HiddenField = {
   name: string;
   value: string;
@@ -8,7 +10,7 @@ type HiddenField = {
 type ConfirmActionFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   confirmMessage: string;
-  buttonLabel: string;
+  buttonLabel: ReactNode;
   buttonClassName: string;
   hiddenFields?: HiddenField[];
 };

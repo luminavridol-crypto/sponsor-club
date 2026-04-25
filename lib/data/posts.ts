@@ -1,5 +1,5 @@
 import { unstable_noStore as noStore } from "next/cache";
-import { getSignedR2Urls, isR2StoragePath } from "@/lib/r2/server";
+import { getMediaUrl, isR2StoragePath } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { PostWithMedia, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
@@ -49,25 +49,18 @@ export async function getSignedMediaUrls(paths: string[]) {
   if (!paths.length) return {};
 
   const admin = createAdminSupabaseClient();
-  const supabasePaths = paths.filter((path) => !isR2StoragePath(path));
-  const r2Paths = paths.filter(isR2StoragePath);
-  const result: Record<string, string> = {};
+  const entries = await Promise.all(
+    [...new Set(paths)].map(async (path) => [
+      path,
+      (await getMediaUrl(
+        {
+          provider: isR2StoragePath(path) ? "r2" : "supabase",
+          storage_path: path
+        },
+        { supabase: admin, legacyBucket: "post-media" }
+      )) ?? ""
+    ] as const)
+  );
 
-  if (supabasePaths.length) {
-    const { data } = await admin.storage.from("post-media").createSignedUrls(
-      supabasePaths,
-      60 * 60
-    );
-
-    Object.assign(
-      result,
-      Object.fromEntries((data ?? []).map((item) => [item.path, item.signedUrl ?? ""]))
-    );
-  }
-
-  if (r2Paths.length) {
-    Object.assign(result, await getSignedR2Urls(r2Paths, 60 * 60));
-  }
-
-  return result;
+  return Object.fromEntries(entries);
 }

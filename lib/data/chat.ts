@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { deleteMedia, getMediaUrl, isR2StoragePath } from "@/lib/storage/media";
 import { MemberChatMessage } from "@/lib/types";
 
 export function getChatCutoffIso(days = 30) {
@@ -20,7 +21,17 @@ export async function cleanupOldChatMessages(admin: SupabaseClient, days = 30) {
     .filter((value): value is string => Boolean(value));
 
   if (stalePaths.length) {
-    await admin.storage.from("chat-media").remove(stalePaths);
+    await Promise.all(
+      stalePaths.map((path) =>
+        deleteMedia(
+          {
+            provider: isR2StoragePath(path) ? "r2" : "supabase",
+            storage_path: path
+          },
+          { supabase: admin, legacyBucket: "chat-media" }
+        )
+      )
+    );
   }
 
   await admin
@@ -91,12 +102,19 @@ export async function getSignedChatMediaUrls(paths: string[]) {
     return {};
   }
 
-  const { data } = await createAdminSupabaseClient()
-    .storage
-    .from("chat-media")
-    .createSignedUrls(paths, 60 * 60);
-
-  return Object.fromEntries(
-    (data ?? []).map((item) => [item.path, item.signedUrl ?? ""])
+  const admin = createAdminSupabaseClient();
+  const entries = await Promise.all(
+    paths.map(async (path) => [
+      path,
+      (await getMediaUrl(
+        {
+          provider: isR2StoragePath(path) ? "r2" : "supabase",
+          storage_path: path
+        },
+        { supabase: admin, legacyBucket: "chat-media" }
+      )) ?? ""
+    ] as const)
   );
+
+  return Object.fromEntries(entries);
 }

@@ -6,6 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "media:check-r2": "node scripts/check-r2.mjs",
+    "media:check-supabase": "node scripts/check-supabase-storage.mjs",
+    "media:configure-r2-cors": "node scripts/configure-r2-cors.mjs",
+    "media:migrate": "node scripts/migrate-supabase-storage-to-r2.mjs",
     "lint": "next lint"
   },
   "dependencies": {
