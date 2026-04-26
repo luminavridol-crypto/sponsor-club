@@ -7,7 +7,7 @@ import { z } from "zod";
 import { requireAdmin, requireProfile } from "@/lib/auth/guards";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
 import { reactionOptions } from "@/lib/data/reactions";
-import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
+import { cleanupOrphanedStorage, getOrphanedStorageReport } from "@/lib/data/storage-cleanup";
 import { deleteR2Objects, isR2StoragePath } from "@/lib/r2/server";
 import {
   assertUploadFile,
@@ -20,6 +20,13 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { AccessStatus, PostReactionType, PostStatus, PostType, Tier } from "@/lib/types";
 import { slugify } from "@/lib/utils/slug";
 import { canAccessTier } from "@/lib/utils/tier";
+
+export type CleanupCheckState = {
+  status: "idle" | "success" | "error";
+  message: string;
+  fileCount: number;
+  totalBytes: number;
+};
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -85,6 +92,16 @@ function currentDonationPeriod() {
     donationYear: now.getUTCFullYear(),
     donationMonth: now.getUTCMonth() + 1
   };
+}
+
+async function getOldPostIds(admin = createAdminSupabaseClient()) {
+  const nowIso = new Date().toISOString();
+  const { data } = await admin
+    .from("posts")
+    .select("id")
+    .or(`status.eq.draft,and(expires_at.not.is.null,expires_at.lt.${nowIso})`);
+
+  return (data ?? []).map((post) => post.id);
 }
 
 function getSiteUrl() {
@@ -334,6 +351,23 @@ export async function deleteAllPurchaseRequestsAction() {
   const admin = createAdminSupabaseClient();
 
   await admin.from("purchase_requests").delete().not("id", "is", null);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/requests");
+}
+
+export async function deletePurchaseRequestAction(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+  const requestId = formValue(formData.get("requestId"));
+
+  if (!requestId) {
+    revalidatePath("/admin");
+    revalidatePath("/admin/requests");
+    return;
+  }
+
+  await admin.from("purchase_requests").delete().eq("id", requestId);
 
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
@@ -731,6 +765,25 @@ export async function deleteUserChatAction(formData: FormData) {
   revalidatePath("/chat");
 }
 
+export async function deleteAllChatAction() {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+  const { data: messages } = await admin.from("member_chat_messages").select("media_path");
+
+  await removeChatStorage(
+    (messages ?? [])
+      .map((message) => message.media_path)
+      .filter((path): path is string => Boolean(path))
+  );
+
+  await admin.from("member_chat_messages").delete().not("id", "is", null);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/chat");
+  revalidatePath("/admin/users");
+  revalidatePath("/chat");
+}
+
 export async function createInviteAction(formData: FormData) {
   const adminProfile = await requireAdmin();
   const admin = createAdminSupabaseClient();
@@ -760,6 +813,33 @@ export async function disableInviteAction(formData: FormData) {
     .update({ disabled_at: new Date().toISOString() })
     .eq("id", inviteId);
 
+  revalidatePath("/admin/invites");
+}
+
+export async function deleteInviteAction(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+  const inviteId = formValue(formData.get("inviteId"));
+
+  if (!inviteId) {
+    revalidatePath("/admin");
+    revalidatePath("/admin/invites");
+    return;
+  }
+
+  await admin.from("invites").delete().eq("id", inviteId);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/invites");
+}
+
+export async function deleteAllInvitesAction() {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+
+  await admin.from("invites").delete().not("id", "is", null);
+
+  revalidatePath("/admin");
   revalidatePath("/admin/invites");
 }
 
@@ -907,15 +987,144 @@ export async function deleteAllPostsAction() {
   revalidatePath("/feed");
 }
 
-export async function cleanupStorageAction() {
+export async function checkStorageCleanupAction(
+  _prevState: CleanupCheckState,
+  _formData: FormData
+): Promise<CleanupCheckState> {
+  try {
+    await requireAdmin();
+    const admin = createAdminSupabaseClient();
+    const report = await getOrphanedStorageReport(admin);
+    const megabytes = report.totalBytes / 1024 / 1024;
+
+    return {
+      status: "success",
+      message:
+        report.totalCount > 0
+          ? `Проверка выполнена. Найдено ${report.totalCount} файлов. Можно очистить ${
+              megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)
+            } MB.`
+          : "Проверка выполнена. Лишних файлов не найдено.",
+      fileCount: report.totalCount,
+      totalBytes: report.totalBytes
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Не удалось проверить хранилище.",
+      fileCount: 0,
+      totalBytes: 0
+    };
+  }
+}
+
+export async function deleteOldPostsAction() {
   await requireAdmin();
   const admin = createAdminSupabaseClient();
+  const postIds = await getOldPostIds(admin);
 
-  await cleanupOldChatMessages(admin);
-  await cleanupOrphanedStorage(admin);
+  if (!postIds.length) {
+    revalidatePath("/admin");
+    revalidatePath("/admin/posts");
+    return;
+  }
+
+  const [{ data: posts }, { data: media }] = await Promise.all([
+    admin.from("posts").select("thumbnail_path").in("id", postIds),
+    admin.from("post_media").select("storage_path").in("post_id", postIds)
+  ]);
+
+  await removePostStorage([
+    ...((posts ?? [])
+      .map((post) => post.thumbnail_path)
+      .filter((path): path is string => Boolean(path))),
+    ...((media ?? []).map((item) => item.storage_path))
+  ]);
+
+  await admin.from("posts").delete().in("id", postIds);
 
   revalidatePath("/admin");
   revalidatePath("/admin/posts");
+  revalidatePath("/feed");
+}
+
+export async function deleteOrphanMediaAction(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+  const provider = formValue(formData.get("provider")) || null;
+  const bucket = formValue(formData.get("bucket")) || null;
+  const objectKey = formValue(formData.get("objectKey")) || null;
+  const path = formValue(formData.get("path")) || null;
+
+  if (!path && !objectKey) {
+    revalidatePath("/admin");
+    revalidatePath("/admin/media");
+    return;
+  }
+
+  const [{ data: linkedPost }, { data: linkedMedia }, { data: linkedChatMedia }] = await Promise.all([
+    admin.from("posts").select("id").eq("thumbnail_path", path).limit(1).maybeSingle(),
+    admin.from("post_media").select("id").eq("storage_path", path).limit(1).maybeSingle(),
+    admin.from("member_chat_messages").select("id").eq("media_path", path).limit(1).maybeSingle()
+  ]);
+
+  if (linkedPost || linkedMedia || linkedChatMedia) {
+    revalidatePath("/admin");
+    revalidatePath("/admin/media");
+    return;
+  }
+
+  await deleteMedia(
+    {
+      provider,
+      bucket,
+      object_key: objectKey,
+      storage_path: path
+    },
+    {
+      supabase: admin,
+      legacyBucket: bucket === "chat-media" ? "chat-media" : "post-media"
+    }
+  );
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/media");
+}
+
+export async function deleteAllOrphanMediaAction() {
+  await requireAdmin();
+  const admin = createAdminSupabaseClient();
+  const report = await getOrphanedStorageReport(admin);
+
+  await Promise.all(
+    report.postMedia.map((item) =>
+      deleteMedia(
+        { provider: "supabase", bucket: "post-media", object_key: item.path, storage_path: item.path },
+        { supabase: admin, legacyBucket: "post-media" }
+      )
+    )
+  );
+
+  await Promise.all(
+    report.chatMedia.map((item) =>
+      deleteMedia(
+        { provider: "supabase", bucket: "chat-media", object_key: item.path, storage_path: item.path },
+        { supabase: admin, legacyBucket: "chat-media" }
+      )
+    )
+  );
+
+  await Promise.all(
+    report.r2Media.map((item) =>
+      deleteMedia(
+        { provider: "r2", object_key: item.path.slice(3), storage_path: item.path },
+        { supabase: admin }
+      )
+    )
+  );
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/media");
   revalidatePath("/admin/chat");
 }
 

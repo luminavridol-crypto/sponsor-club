@@ -121,9 +121,9 @@ function StatCard({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-4">
+    <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-3">
       <p className="text-[11px] uppercase tracking-[0.2em] text-white/40">{label}</p>
-      <p className={`mt-3 text-2xl font-semibold ${accent ? "text-accentSoft" : "text-white"}`}>{value}</p>
+      <p className={`mt-2 text-xl font-semibold ${accent ? "text-accentSoft" : "text-white"}`}>{value}</p>
     </div>
   );
 }
@@ -208,11 +208,11 @@ export function UserCard({
   }
 
   return (
-    <article className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h3 className="text-xl font-semibold text-white">
+    <article className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0 space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold text-white">
               {user.display_name || "Без имени"}
               {user.role === "admin" ? " • admin" : ""}
             </h3>
@@ -225,9 +225,11 @@ export function UserCard({
               </span>
             ) : null}
           </div>
+
           <p className="text-sm text-white/55">{user.email}</p>
+
           {user.admin_note ? (
-            <p className="max-w-3xl rounded-2xl border border-accent/20 bg-accent/10 px-4 py-3 text-sm leading-6 text-white/70">
+            <p className="max-w-3xl rounded-2xl border border-accent/20 bg-accent/10 px-3 py-2 text-sm leading-6 text-white/70">
               {user.admin_note}
             </p>
           ) : null}
@@ -238,7 +240,7 @@ export function UserCard({
                 <form key={amount} action={addUserDonationAction}>
                   <input type="hidden" name="userId" value={user.id} />
                   <input type="hidden" name="donationDelta" value={amount} />
-                  <button className="rounded-2xl border border-cyanGlow/30 bg-cyanGlow/10 px-3 py-2 text-sm text-cyanGlow transition hover:bg-cyanGlow/20">
+                  <button className="rounded-2xl border border-cyanGlow/30 bg-cyanGlow/10 px-3 py-1.5 text-sm text-cyanGlow transition hover:bg-cyanGlow/20">
                     +{amount} EUR
                   </button>
                 </form>
@@ -256,14 +258,14 @@ export function UserCard({
                   placeholder="Своя сумма"
                   className="h-10 w-32 min-w-0"
                 />
-                <button className="rounded-2xl border border-cyanGlow/30 bg-cyanGlow/10 px-3 py-2 text-sm text-cyanGlow transition hover:bg-cyanGlow/20">
+                <button className="rounded-2xl border border-cyanGlow/30 bg-cyanGlow/10 px-3 py-1.5 text-sm text-cyanGlow transition hover:bg-cyanGlow/20">
                   Начислить
                 </button>
               </form>
 
               <form action={extendUserAccessAction}>
                 <input type="hidden" name="userId" value={user.id} />
-                <button className="rounded-2xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accentSoft transition hover:bg-accent/20">
+                <button className="rounded-2xl border border-accent/30 bg-accent/10 px-3 py-1.5 text-sm text-accentSoft transition hover:bg-accent/20">
                   Продлить на 30 дней
                 </button>
               </form>
@@ -277,7 +279,7 @@ export function UserCard({
                   onChange={(event) => setAccessUntil(event.target.value)}
                   className="h-10 w-[210px] min-w-0"
                 />
-                <button className="rounded-2xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accentSoft transition hover:bg-accent/20">
+                <button className="rounded-2xl border border-accent/30 bg-accent/10 px-3 py-1.5 text-sm text-accentSoft transition hover:bg-accent/20">
                   Установить срок
                 </button>
               </form>
@@ -287,7 +289,7 @@ export function UserCard({
                 <button
                   type="submit"
                   onClick={() => setAccessUntil("")}
-                  className="rounded-2xl border border-white/10 px-3 py-2 text-sm text-white/70 transition hover:border-accent/30 hover:bg-white/5 hover:text-white"
+                  className="rounded-2xl border border-white/10 px-3 py-1.5 text-sm text-white/70 transition hover:border-accent/30 hover:bg-white/5 hover:text-white"
                 >
                   Без ограничения
                 </button>
@@ -296,13 +298,13 @@ export function UserCard({
           ) : null}
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setOpen((prev) => !prev)}
             className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/85 transition hover:border-accent/35 hover:bg-white/5"
           >
-            {open ? "Свернуть" : "Открыть подробную информацию"}
+            {open ? "Свернуть" : "Открыть подробности"}
           </button>
 
           {!isCurrentAdmin ? (
@@ -316,7 +318,7 @@ export function UserCard({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Донаты за месяц" value={formatMoney(currentMonthDonations)} />
         <StatCard label="Донаты всего" value={formatMoney(user.total_donations)} />
 
@@ -339,14 +341,14 @@ export function UserCard({
       </div>
 
       {open ? (
-        <div className="mt-5 space-y-5 rounded-3xl border border-white/10 bg-black/10 p-4">
-          <form action={updateUserDetailsAction} className="space-y-5">
+        <div className="mt-4 space-y-4 rounded-3xl border border-white/10 bg-black/10 p-4">
+          <form action={updateUserDetailsAction} className="space-y-4">
             <input type="hidden" name="userId" value={user.id} />
             {selectedBadges.map((badge) => (
               <input key={badge} type="hidden" name="adminBadges" value={badge} />
             ))}
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm text-white/60">Имя профиля</label>
                 <input name="displayName" defaultValue={user.display_name ?? ""} />
@@ -357,12 +359,12 @@ export function UserCard({
                 <input
                   name="nickname"
                   defaultValue={user.nickname ?? ""}
-                  placeholder="Ник в игре / на стриме"
+                  placeholder="Ник в игре или на стриме"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-white/60">Telegram / Контакт</label>
+                <label className="mb-2 block text-sm text-white/60">Telegram</label>
                 <input
                   name="telegramContact"
                   defaultValue={user.telegram_contact ?? ""}
@@ -394,7 +396,7 @@ export function UserCard({
             </div>
 
             <div>
-              <label className="mb-2 block text-sm text-white/60">Быстрая метка</label>
+              <label className="mb-2 block text-sm text-white/60">Быстрые метки</label>
               <div className="flex flex-wrap gap-2">
                 {QUICK_BADGES.map((badge) => (
                   <button
@@ -421,7 +423,7 @@ export function UserCard({
               <textarea
                 name="adminNote"
                 defaultValue={user.admin_note ?? ""}
-                placeholder="Любая внутренняя заметка по этому подписчику"
+                placeholder="Внутренняя заметка по подписчику"
               />
             </div>
 
@@ -439,7 +441,7 @@ export function UserCard({
               </select>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               <button className="rounded-2xl bg-white px-5 py-3 font-medium text-background transition hover:bg-goldSoft">
                 Сохранить изменения
               </button>
@@ -465,14 +467,14 @@ export function UserCard({
               </select>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {MONTH_NAMES.map((month, index) => (
-                <div key={`${selectedYear}-${index}`} className="rounded-2xl border border-white/10 bg-black/10 px-4 py-4">
+                <div key={`${selectedYear}-${index}`} className="rounded-2xl border border-white/10 bg-black/10 px-3 py-3">
                   <p className="text-sm text-white/45">{month}</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">{Math.round(yearMonths[index] ?? 0)}</p>
+                  <p className="mt-2 text-xl font-semibold text-white">{Math.round(yearMonths[index] ?? 0)}</p>
                   <p className="mt-1 text-sm text-white/35">EUR</p>
 
-                  <form action={addUserDonationForMonthAction} className="mt-4 flex items-center gap-2">
+                  <form action={addUserDonationForMonthAction} className="mt-3 flex items-center gap-2">
                     <input type="hidden" name="userId" value={user.id} />
                     <input type="hidden" name="year" value={selectedYear} />
                     <input type="hidden" name="month" value={index} />
@@ -484,7 +486,7 @@ export function UserCard({
                       placeholder="+ сумма"
                       className="min-w-0"
                     />
-                    <button className="h-11 w-11 shrink-0 rounded-2xl border border-cyanGlow/30 bg-cyanGlow/10 text-lg font-semibold text-cyanGlow transition hover:bg-cyanGlow/20">
+                    <button className="h-10 w-10 shrink-0 rounded-2xl border border-cyanGlow/30 bg-cyanGlow/10 text-lg font-semibold text-cyanGlow transition hover:bg-cyanGlow/20">
                       +
                     </button>
                   </form>

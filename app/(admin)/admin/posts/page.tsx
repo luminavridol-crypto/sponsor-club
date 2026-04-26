@@ -37,12 +37,12 @@ export default async function AdminPostsPage() {
 
   return (
     <PrivateShell profile={profile} admin>
-      <div className="space-y-6">
-        <section className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-glow">
+      <div className="space-y-4">
+        <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-glow">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Posts Manager</p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">Создание публикаций</h2>
+              <h2 className="mt-2 text-3xl font-semibold text-white">Создание публикаций</h2>
             </div>
             <ConfirmActionForm
               action={deleteAllPostsAction}
@@ -59,13 +59,13 @@ export default async function AdminPostsPage() {
           <PostCreateForm />
         </section>
 
-        <section className="space-y-4">
+        <section className="space-y-3">
           {posts?.map((post) => (
-            <article key={post.id} className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+            <article key={post.id} className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold text-white">{post.title}</h3>
-                  <p className="mt-2 text-sm text-white/55">
+                  <h3 className="text-lg font-semibold text-white">{post.title}</h3>
+                  <p className="mt-1 text-sm text-white/55">
                     {post.post_type} • {post.required_tier} • {post.status} • {formatDate(post.publish_at)}
                   </p>
                 </div>
@@ -83,9 +83,9 @@ export default async function AdminPostsPage() {
                 />
               </div>
 
-              <form action={updatePostAction} className="grid gap-4">
+              <form action={updatePostAction} className="grid gap-3">
                 <input type="hidden" name="postId" value={post.id} />
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   <input name="title" defaultValue={post.title} />
                   <select name="requiredTier" defaultValue={post.required_tier}>
                     <option value="tier_1">Tier 1</option>
@@ -93,7 +93,7 @@ export default async function AdminPostsPage() {
                     <option value="tier_3">Tier 3</option>
                   </select>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   <select name="postType" defaultValue={post.post_type}>
                     <option value="announcement">Объявление</option>
                     <option value="text">Текст</option>

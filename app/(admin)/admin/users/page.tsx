@@ -71,15 +71,14 @@ export default async function AdminUsersPage() {
 
   return (
     <PrivateShell profile={profile} admin>
-      <div className="space-y-4">
-        <section className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-glow">
+      <div className="space-y-3">
+        <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-glow">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Users Manager</p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">Пользователи</h2>
-              <p className="mt-3 text-sm text-white/60">
-                Список отсортирован по приоритету: сначала VIP по их VIP-уровню, потом Приближённые,
-                ниже Наблюдатели.
+              <h2 className="mt-2 text-3xl font-semibold text-white">Пользователи</h2>
+              <p className="mt-2 text-sm text-white/60">
+                Список отсортирован по приоритету: сначала VIP, потом приближённые, затем наблюдатели.
               </p>
             </div>
             <a

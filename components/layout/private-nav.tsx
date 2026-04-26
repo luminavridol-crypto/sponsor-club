@@ -27,11 +27,14 @@ const memberLinks: NavLink[] = [
 const adminLinks: NavLink[] = [
   { href: "/admin/creator", label: "Creator Studio", accent: "cyan", match: "startsWith" },
   { href: "/admin/posts", label: "Добавить пост", accent: "cyan", match: "startsWith" },
-  { href: "/dashboard", label: "Аналитика", accent: "neutral", match: "exact" },
-  { href: "/admin/users", label: "Пользователи", accent: "neutral", match: "startsWith" },
   { href: "/admin", label: "Админ-панель", accent: "accent", match: "startsWith" },
-  { href: "/admin/notifications", label: "Уведомления", accent: "accent", match: "startsWith", adminNoticeKind: "requests" },
-  { href: "/admin/requests", label: "Заявки", accent: "accent", match: "startsWith", adminNoticeKind: "requests" },
+  {
+    href: "/admin/notifications",
+    label: "Уведомления",
+    accent: "accent",
+    match: "startsWith",
+    adminNoticeKind: "requests"
+  },
   { href: "/admin/media", label: "Медиа", accent: "neutral", match: "startsWith" },
   { href: "/feed", label: "Контент", accent: "neutral", match: "startsWith", unreadKind: "content" },
   { href: "/admin/chat", label: "Чат", accent: "neutral", match: "startsWith", unreadKind: "chat" }
@@ -39,7 +42,7 @@ const adminLinks: NavLink[] = [
 
 function isLinkActive(pathname: string, link: NavLink) {
   if (link.href === "/admin") {
-    return pathname === "/admin" || pathname.startsWith("/admin/invites");
+    return pathname === "/admin";
   }
 
   if (link.match === "startsWith") {

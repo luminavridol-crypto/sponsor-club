@@ -242,11 +242,11 @@ export function PostCreateForm() {
   const mediaAccept = ".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,image/*,video/*";
 
   return (
-    <form onSubmit={handleSubmit} className="mt-5 grid gap-4" encType="multipart/form-data">
+    <form onSubmit={handleSubmit} className="mt-4 grid gap-3" encType="multipart/form-data">
       <input type="hidden" name="postType" value="announcement" />
       <input type="hidden" name="status" value="published" />
 
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
         <div>
           <label className="mb-2 block text-sm text-white/60">Название</label>
           <input name="title" defaultValue={DEFAULT_POST_TITLE} required />
@@ -267,33 +267,18 @@ export function PostCreateForm() {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm text-white/60">Короткое описание</label>
-        <textarea
-          name="description"
-          placeholder="Одна-две строки для карточки в ленте."
-          className="min-h-24"
-        />
+        <label className="mb-2 block text-sm text-white/60">Текст публикации</label>
+        <textarea name="body" placeholder="Основной текст поста." className="min-h-[180px]" />
       </div>
 
       <div>
-        <label className="mb-2 block text-sm text-white/60">Текст публикации</label>
-        <textarea name="body" placeholder="Основной текст поста." className="min-h-28" />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block text-sm text-white/60">Дата публикации</label>
-          <input name="publishAt" type="datetime-local" />
-        </div>
-        <div>
-          <label className="mb-2 block text-sm text-white/60">Автоудаление</label>
-          <select name="retentionDays" defaultValue="30">
-            <option value="30">Через 30 дней</option>
-            <option value="60">Через 60 дней</option>
-            <option value="90">Через 90 дней</option>
-            <option value="0">Не удалять автоматически</option>
-          </select>
-        </div>
+        <label className="mb-2 block text-sm text-white/60">Автоудаление</label>
+        <select name="retentionDays" defaultValue="30">
+          <option value="30">Через 30 дней</option>
+          <option value="60">Через 60 дней</option>
+          <option value="90">Через 90 дней</option>
+          <option value="0">Не удалять автоматически</option>
+        </select>
       </div>
 
       <div>
