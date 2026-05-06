@@ -1,23 +1,25 @@
 import Link from "next/link";
 import { createPurchaseRequestAction } from "@/app/actions";
 import { BrandShell } from "@/components/layout/brand-shell";
+import { getViewerKind, hasClubAccess } from "@/lib/auth/access";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { Profile } from "@/lib/types";
 
 const steps = [
   {
     number: "01",
-    title: "Выбираешь уровень доступа",
-    text: "Смотри, какой tier подходит по глубине доступа и формату контента."
+    title: "Выбираешь tier",
+    text: "Смотри, что тебе ближе."
   },
   {
     number: "02",
-    title: "Получаешь доступ по приглашению",
-    text: "После активации попадаешь внутрь закрытого клуба без лишних шагов."
+    title: "Получаешь доступ",
+    text: "После активации заходишь в клуб."
   },
   {
     number: "03",
-    title: "Открываешь закрытый контент",
-    text: "Смотри посты, фото, видео и редкие материалы, которых нет в открытых соцсетях."
+    title: "Смотришь контент",
+    text: "Фото, видео и редкие материалы."
   }
 ];
 
@@ -175,6 +177,11 @@ export default async function HomePage({
   const {
     data: { user }
   } = await supabase.auth.getUser();
+  const { data: profileData } = user
+    ? await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
+    : { data: null };
+  const profile = (profileData as Profile | null) ?? null;
+  const viewerKind = getViewerKind(profile);
   const params = (await searchParams) ?? {};
   const inviteRequestSent =
     (Array.isArray(params.inviteRequestSent)
@@ -185,27 +192,20 @@ export default async function HomePage({
       ? params.inviteRequestError[0]
       : params.inviteRequestError) === "1";
 
-  const profileHref = user ? "/dashboard" : "/login";
-  const accessHref = user ? "/dashboard" : "/invite";
-  const accessLabel = user ? "Перейти в кабинет" : "Получить доступ";
+  const hasPrivateClubAccess = hasClubAccess(profile);
+  const clubHref = hasPrivateClubAccess ? "/club" : "#invitation-request";
 
   return (
     <BrandShell
       rightSlot={
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+        viewerKind === "admin" ? (
           <Link
-            href={profileHref}
-            className="w-full rounded-2xl border border-white/10 px-4 py-2 text-center text-sm text-white/80 transition hover:border-accent/40 hover:text-white sm:w-auto"
+            href="/cabinet"
+            className="inline-flex w-full rounded-2xl border border-accent/35 bg-accent/10 px-4 py-2 text-center text-sm text-accentSoft transition hover:bg-accent/20 sm:w-auto sm:justify-center"
           >
-            {user ? "Кабинет" : "Вход"}
+            Кабинет
           </Link>
-          <Link
-            href="/invite"
-            className="w-full rounded-2xl bg-white px-4 py-2 text-center text-sm font-medium text-background transition hover:bg-goldSoft sm:w-auto"
-          >
-            Войти по invite
-          </Link>
-        </div>
+        ) : null
       }
     >
       <section className="relative overflow-hidden">
@@ -225,7 +225,7 @@ export default async function HomePage({
             <div className="relative mx-auto max-w-5xl text-center">
               <div className="inline-flex max-w-full items-center gap-3 rounded-full border border-accent/45 bg-accent/8 px-4 py-3 text-[11px] uppercase tracking-[0.24em] text-accentSoft sm:px-7 sm:text-sm sm:tracking-[0.42em]">
                 <LockBadgeIcon />
-                <span className="truncate">Private sponsor-only</span>
+                <span className="truncate">Закрытый клуб Lumina</span>
               </div>
 
               <h1
@@ -257,19 +257,13 @@ export default async function HomePage({
 
               <div className="mt-10 flex flex-col items-stretch justify-center gap-4 sm:mt-12 sm:items-center sm:flex-row">
                 <Link
-                  href={accessHref}
-                  className="inline-flex w-full items-center justify-center gap-4 rounded-[1.35rem] border border-white/12 bg-white/[0.04] px-5 py-4 text-lg font-medium text-white/92 transition hover:border-white/20 hover:bg-white/[0.07] sm:min-w-[18rem] sm:px-7 sm:py-5 sm:text-xl"
-                >
-                  <LockButtonIcon />
-                  <span>{accessLabel}</span>
-                </Link>
-
-                <Link
-                  href="#tiers"
+                  href={clubHref}
+                  target={hasPrivateClubAccess ? "_blank" : undefined}
+                  rel={hasPrivateClubAccess ? "noreferrer" : undefined}
                   className="inline-flex w-full items-center justify-center gap-4 rounded-[1.35rem] border border-accent/45 bg-gradient-to-r from-accent/80 via-[#c458f6] to-[#6f3ff4] px-5 py-4 text-lg font-medium text-white shadow-[0_10px_40px_rgba(255,79,216,0.28)] transition hover:scale-[1.01] hover:brightness-110 sm:min-w-[19rem] sm:px-7 sm:py-5 sm:text-xl"
                 >
                   <DiamondButtonIcon />
-                  <span>Уровни доступа</span>
+                  <span>Закрытый клуб</span>
                 </Link>
               </div>
 
@@ -306,14 +300,9 @@ export default async function HomePage({
               <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
                 Как это работает
               </p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">
-                Простой путь внутрь клуба
-              </h2>
+              <h2 className="mt-3 text-3xl font-semibold text-white">Как попасть в клуб</h2>
             </div>
-            <p className="max-w-xl text-sm leading-6 text-white/58">
-              Никакой сложной схемы. Всё понятно с первого взгляда: выбираешь формат,
-              получаешь доступ и открываешь закрытый контент.
-            </p>
+            <p className="max-w-xl text-sm leading-6 text-white/58">Всего 3 простых шага.</p>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -748,10 +737,12 @@ export default async function HomePage({
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
-                href={accessHref}
+                href={clubHref}
+                target="_blank"
+                rel="noreferrer"
                 className="rounded-2xl bg-white px-5 py-3 text-center font-medium text-background transition hover:bg-goldSoft"
               >
-                Войти в закрытый клуб
+                Открыть закрытый клуб
               </Link>
               <Link
                 href="#tiers"
@@ -770,25 +761,6 @@ export default async function HomePage({
 function LockBadgeIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M7.5 10V8.4A4.5 4.5 0 0 1 12 4a4.5 4.5 0 0 1 4.5 4.4V10"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M6.4 10h11.2c.9 0 1.6.7 1.6 1.6v6.8c0 .9-.7 1.6-1.6 1.6H6.4c-.9 0-1.6-.7-1.6-1.6v-6.8c0-.9.7-1.6 1.6-1.6Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <circle cx="12" cy="14.8" r="1.1" fill="currentColor" />
-    </svg>
-  );
-}
-
-function LockButtonIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M7.5 10V8.4A4.5 4.5 0 0 1 12 4a4.5 4.5 0 0 1 4.5 4.4V10"
         stroke="currentColor"

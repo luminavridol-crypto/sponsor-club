@@ -1,10 +1,13 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import type { Route } from "next";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireAdmin, requireProfile } from "@/lib/auth/guards";
+import { requireAdmin, requireAnyProfile, requireProfile } from "@/lib/auth/guards";
+import { hasClubAccess } from "@/lib/auth/access";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
 import { reactionOptions } from "@/lib/data/reactions";
 import { cleanupOrphanedStorage, getOrphanedStorageReport } from "@/lib/data/storage-cleanup";
@@ -18,8 +21,8 @@ import { deleteMedia, uploadMediaToR2 } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { AccessStatus, PostReactionType, PostStatus, PostType, Tier } from "@/lib/types";
-import { slugify } from "@/lib/utils/slug";
 import { canAccessTier } from "@/lib/utils/tier";
+import { buildContentSlug } from "@/lib/utils/content-space";
 
 export type CleanupCheckState = {
   status: "idle" | "success" | "error";
@@ -30,7 +33,8 @@ export type CleanupCheckState = {
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8)
+  password: z.string().min(8),
+  next: z.string().optional()
 });
 
 const inviteSchema = z.object({
@@ -71,6 +75,12 @@ const postReactionSchema = z.object({
   reaction: z.enum(reactionOptions.map((item) => item.key) as [PostReactionType, ...PostReactionType[]])
 });
 
+const commentReactionSchema = z.object({
+  commentId: z.string().uuid(),
+  postSlug: z.string().min(1),
+  reaction: z.enum(reactionOptions.map((item) => item.key) as [PostReactionType, ...PostReactionType[]])
+});
+
 function formValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -104,10 +114,35 @@ async function getOldPostIds(admin = createAdminSupabaseClient()) {
   return (data ?? []).map((post) => post.id);
 }
 
-function getSiteUrl() {
+async function getSiteUrl() {
+  const headerStore = await headers();
+  const forwardedHost = headerStore.get("x-forwarded-host");
+  const host = forwardedHost ?? headerStore.get("host");
+  const forwardedProto = headerStore.get("x-forwarded-proto");
+  const protocol =
+    forwardedProto ?? (host?.includes("localhost") || host?.startsWith("127.0.0.1") ? "http" : "https");
+
+  if (host) {
+    return `${protocol}://${host}`;
+  }
+
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
+function getSafeNextPath(value: string | undefined, fallback: Route = "/dashboard") {
+  if (!value) {
+    return fallback;
+  }
+
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    return fallback;
+  }
+
+  return value as Route;
+}
+
+// Kept as a ready-to-reuse mapper for storage provider errors in admin flows.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function humanizeStorageError(message: string) {
   if (message.includes("The object exceeded the maximum allowed size")) {
     return "Файл слишком большой для текущего лимита в Supabase Storage. Увеличь лимит нужного bucket.";
@@ -118,6 +153,13 @@ function humanizeStorageError(message: string) {
   }
 
   return message;
+}
+
+function revalidatePostSpace(postSlug: string) {
+  revalidatePath("/feed");
+  revalidatePath(`/feed/${postSlug}`);
+  revalidatePath("/club");
+  revalidatePath(`/club/${postSlug}`);
 }
 
 function redirectToInviteError(message: string, code?: string) {
@@ -190,7 +232,8 @@ async function removeChatStorage(paths: string[]) {
 export async function loginAction(formData: FormData) {
   const parsed = loginSchema.safeParse({
     email: formValue(formData.get("email")),
-    password: formValue(formData.get("password"))
+    password: formValue(formData.get("password")),
+    next: formValue(formData.get("next")) || undefined
   });
 
   if (!parsed.success) {
@@ -204,12 +247,12 @@ export async function loginAction(formData: FormData) {
     redirect("/login?error=1");
   }
 
-  redirect("/dashboard");
+  redirect(getSafeNextPath(parsed.data.next, "/dashboard"));
 }
 
 export async function requestPasswordResetAction(formData: FormData) {
   const parsed = passwordResetRequestSchema.safeParse({
-    email: formValue(formData.get("email"))
+    email: formValue(formData.get("email")).toLowerCase()
   });
 
   if (!parsed.success) {
@@ -217,13 +260,25 @@ export async function requestPasswordResetAction(formData: FormData) {
   }
 
   const supabase = await createServerSupabaseClient();
-  const redirectTo = `${getSiteUrl()}/api/auth/callback?next=/reset-password`;
+  const redirectTo = `${await getSiteUrl()}/api/auth/callback?next=/reset-password`;
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo
   });
 
   if (error) {
-    redirect("/forgot-password?error=1");
+    console.error("Password reset email request failed", {
+      email: parsed.data.email,
+      redirectTo,
+      message: error.message,
+      status: error.status,
+      code: error.code
+    });
+
+    const params = new URLSearchParams({
+      error: "1",
+      message: error.message
+    });
+    redirect(`/forgot-password?${params.toString()}`);
   }
 
   redirect("/forgot-password?sent=1");
@@ -504,7 +559,7 @@ export async function updateProfileAction(formData: FormData) {
 }
 
 export async function createPostCommentAction(formData: FormData) {
-  const profile = await requireProfile();
+  const profile = await requireAnyProfile();
   const parsed = commentSchema.safeParse({
     postId: formValue(formData.get("postId")),
     postSlug: formValue(formData.get("postSlug")),
@@ -512,7 +567,7 @@ export async function createPostCommentAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    revalidatePath("/feed");
+    revalidatePostSpace(formValue(formData.get("postSlug")));
     return;
   }
 
@@ -529,10 +584,11 @@ export async function createPostCommentAction(formData: FormData) {
     post.status === "published" &&
     new Date(post.publish_at) <= new Date() &&
     (!post.expires_at || new Date(post.expires_at) > new Date()) &&
+    hasClubAccess(profile) &&
     canAccessTier(profile.tier, post.required_tier);
 
   if (!postIsAvailable) {
-    revalidatePath("/feed");
+    revalidatePostSpace(parsed.data.postSlug);
     return;
   }
 
@@ -542,17 +598,16 @@ export async function createPostCommentAction(formData: FormData) {
     body: parsed.data.body
   });
 
-  revalidatePath("/feed");
-  revalidatePath(`/feed/${parsed.data.postSlug}`);
+  revalidatePostSpace(parsed.data.postSlug);
 }
 
 export async function deletePostCommentAction(formData: FormData) {
-  const profile = await requireProfile();
+  const profile = await requireAnyProfile();
   const commentId = formValue(formData.get("commentId"));
   const postSlug = formValue(formData.get("postSlug"));
 
   if (!commentId || !postSlug) {
-    revalidatePath("/feed");
+    revalidatePostSpace(postSlug);
     return;
   }
 
@@ -564,25 +619,24 @@ export async function deletePostCommentAction(formData: FormData) {
     .single();
 
   if (!comment) {
-    revalidatePath(`/feed/${postSlug}`);
+    revalidatePostSpace(postSlug);
     return;
   }
 
   const canDelete = profile.role === "admin" || comment.profile_id === profile.id;
 
   if (!canDelete) {
-    revalidatePath(`/feed/${postSlug}`);
+    revalidatePostSpace(postSlug);
     return;
   }
 
   await admin.from("post_comments").delete().eq("id", commentId);
 
-  revalidatePath("/feed");
-  revalidatePath(`/feed/${postSlug}`);
+  revalidatePostSpace(postSlug);
 }
 
 export async function togglePostReactionAction(formData: FormData) {
-  const profile = await requireProfile();
+  const profile = await requireAnyProfile();
   const parsed = postReactionSchema.safeParse({
     postId: formValue(formData.get("postId")),
     postSlug: formValue(formData.get("postSlug")),
@@ -590,7 +644,7 @@ export async function togglePostReactionAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    revalidatePath("/feed");
+    revalidatePostSpace(formValue(formData.get("postSlug")));
     return;
   }
 
@@ -607,10 +661,11 @@ export async function togglePostReactionAction(formData: FormData) {
     post.status === "published" &&
     new Date(post.publish_at) <= new Date() &&
     (!post.expires_at || new Date(post.expires_at) > new Date()) &&
+    hasClubAccess(profile) &&
     canAccessTier(profile.tier, post.required_tier);
 
   if (!postIsAvailable) {
-    revalidatePath("/feed");
+    revalidatePostSpace(parsed.data.postSlug);
     return;
   }
 
@@ -635,8 +690,97 @@ export async function togglePostReactionAction(formData: FormData) {
     );
   }
 
-  revalidatePath("/feed");
-  revalidatePath(`/feed/${parsed.data.postSlug}`);
+  revalidatePostSpace(parsed.data.postSlug);
+}
+
+export async function togglePostCommentReactionAction(formData: FormData) {
+  const profile = await requireAnyProfile();
+  const parsed = commentReactionSchema.safeParse({
+    commentId: formValue(formData.get("commentId")),
+    postSlug: formValue(formData.get("postSlug")),
+    reaction: formValue(formData.get("reaction"))
+  });
+
+  if (!parsed.success) {
+    revalidatePostSpace(formValue(formData.get("postSlug")));
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { data: comment } = await admin
+    .from("post_comments")
+    .select("id, post_id, posts!inner(slug, status, publish_at, expires_at, required_tier)")
+    .eq("id", parsed.data.commentId)
+    .single();
+
+  const post = Array.isArray(comment?.posts) ? comment?.posts[0] : comment?.posts;
+  const commentIsAvailable =
+    comment &&
+    post &&
+    post.slug === parsed.data.postSlug &&
+    post.status === "published" &&
+    new Date(post.publish_at) <= new Date() &&
+    (!post.expires_at || new Date(post.expires_at) > new Date()) &&
+    hasClubAccess(profile) &&
+    canAccessTier(profile.tier, post.required_tier as Tier);
+
+  if (!commentIsAvailable) {
+    revalidatePostSpace(parsed.data.postSlug);
+    return;
+  }
+
+  const { data: existingReaction } = await admin
+    .from("post_comment_reactions")
+    .select("id, reaction")
+    .eq("comment_id", parsed.data.commentId)
+    .eq("profile_id", profile.id)
+    .maybeSingle();
+
+  if (existingReaction?.reaction === parsed.data.reaction) {
+    await admin.from("post_comment_reactions").delete().eq("id", existingReaction.id);
+  } else {
+    await admin.from("post_comment_reactions").upsert(
+      {
+        comment_id: parsed.data.commentId,
+        profile_id: profile.id,
+        reaction: parsed.data.reaction,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: "comment_id,profile_id" }
+    );
+  }
+
+  revalidatePostSpace(parsed.data.postSlug);
+}
+
+export async function togglePostPinAction(formData: FormData) {
+  await requireAdmin();
+  const postId = formValue(formData.get("postId"));
+  const postSlug = formValue(formData.get("postSlug"));
+
+  if (!postId || !postSlug) {
+    revalidatePostSpace(postSlug);
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { data: post } = await admin.from("posts").select("id, is_pinned").eq("id", postId).maybeSingle();
+
+  if (!post) {
+    revalidatePostSpace(postSlug);
+    return;
+  }
+
+  const nextPinned = !post.is_pinned;
+  await admin
+    .from("posts")
+    .update({
+      is_pinned: nextPinned,
+      pinned_at: nextPinned ? new Date().toISOString() : null
+    })
+    .eq("id", postId);
+
+  revalidatePostSpace(postSlug);
 }
 
 export async function sendMemberChatMessageAction(formData: FormData) {
@@ -848,7 +992,7 @@ export async function createPostAction(formData: FormData) {
   const admin = createAdminSupabaseClient();
 
   const title = formValue(formData.get("title"));
-  const slug = slugify(title);
+  const slug = buildContentSlug(title);
   const thumbnailFile = formData.get("thumbnail");
   const mediaFiles = formData
     .getAll("media")
@@ -924,16 +1068,19 @@ export async function createPostAction(formData: FormData) {
 
   revalidatePath("/admin/posts");
   revalidatePath("/feed");
+  revalidatePath("/club");
 }
 
 export async function updatePostAction(formData: FormData) {
   await requireAdmin();
   const admin = createAdminSupabaseClient();
+  const title = formValue(formData.get("title"));
 
   await admin
     .from("posts")
     .update({
-      title: formValue(formData.get("title")),
+      title,
+      slug: buildContentSlug(title),
       description: formValue(formData.get("description")) || null,
       body: formValue(formData.get("body")) || null,
       post_type: formValue(formData.get("postType")) as PostType,
@@ -944,6 +1091,7 @@ export async function updatePostAction(formData: FormData) {
 
   revalidatePath("/admin/posts");
   revalidatePath("/feed");
+  revalidatePath("/club");
 }
 
 export async function deletePostAction(formData: FormData) {
@@ -951,7 +1099,7 @@ export async function deletePostAction(formData: FormData) {
   const admin = createAdminSupabaseClient();
   const postId = formValue(formData.get("postId"));
 
-  const { data: post } = await admin.from("posts").select("thumbnail_path").eq("id", postId).single();
+  const { data: post } = await admin.from("posts").select("thumbnail_path, slug").eq("id", postId).single();
   const { data: media } = await admin.from("post_media").select("storage_path").eq("post_id", postId);
 
   await removePostStorage([
@@ -963,6 +1111,11 @@ export async function deletePostAction(formData: FormData) {
 
   revalidatePath("/admin/posts");
   revalidatePath("/feed");
+  if (post?.slug) {
+    revalidatePostSpace(post.slug);
+  } else {
+    revalidatePath("/club");
+  }
 }
 
 export async function deleteAllPostsAction() {
@@ -985,12 +1138,16 @@ export async function deleteAllPostsAction() {
 
   revalidatePath("/admin/posts");
   revalidatePath("/feed");
+  revalidatePath("/club");
 }
 
 export async function checkStorageCleanupAction(
   _prevState: CleanupCheckState,
   _formData: FormData
 ): Promise<CleanupCheckState> {
+  void _prevState;
+  void _formData;
+
   try {
     await requireAdmin();
     const admin = createAdminSupabaseClient();

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Route } from "next";
 import { usePathname } from "next/navigation";
+import { hasClubAccess } from "@/lib/auth/access";
 import { Profile } from "@/lib/types";
 
 type NavAccent = "neutral" | "cyan" | "accent";
@@ -18,16 +19,10 @@ type NavLink = {
   adminNoticeKind?: AdminNoticeKind;
 };
 
-const memberLinks: NavLink[] = [
-  { href: "/profile", label: "Профиль", accent: "neutral", match: "startsWith" },
-  { href: "/feed", label: "Контент", accent: "neutral", match: "startsWith", unreadKind: "content" },
-  { href: "/chat", label: "Чат", accent: "neutral", match: "startsWith", unreadKind: "chat" }
-];
-
 const adminLinks: NavLink[] = [
   { href: "/admin/creator", label: "Creator Studio", accent: "cyan", match: "startsWith" },
   { href: "/admin/posts", label: "Добавить пост", accent: "cyan", match: "startsWith" },
-  { href: "/admin", label: "Админ-панель", accent: "accent", match: "startsWith" },
+  { href: "/cabinet", label: "Кабинет", accent: "accent", match: "startsWith" },
   {
     href: "/admin/notifications",
     label: "Уведомления",
@@ -36,13 +31,23 @@ const adminLinks: NavLink[] = [
     adminNoticeKind: "requests"
   },
   { href: "/admin/media", label: "Медиа", accent: "neutral", match: "startsWith" },
-  { href: "/feed", label: "Контент", accent: "neutral", match: "startsWith", unreadKind: "content" },
   { href: "/admin/chat", label: "Чат", accent: "neutral", match: "startsWith", unreadKind: "chat" }
 ];
 
+function getMemberLinks(profile: Profile): NavLink[] {
+  if (hasClubAccess(profile)) {
+    return [
+      { href: "/profile", label: "Профиль", accent: "neutral", match: "startsWith" },
+      { href: "/chat", label: "Чат", accent: "neutral", match: "startsWith", unreadKind: "chat" }
+    ];
+  }
+
+  return [{ href: "/profile", label: "Профиль", accent: "neutral", match: "startsWith" }];
+}
+
 function isLinkActive(pathname: string, link: NavLink) {
-  if (link.href === "/admin") {
-    return pathname === "/admin";
+  if (link.href === "/cabinet") {
+    return pathname === "/cabinet" || pathname === "/admin" || pathname.startsWith("/admin/");
   }
 
   if (link.match === "startsWith") {
@@ -92,19 +97,27 @@ export function PrivateNav({
   hasPendingRequests?: boolean;
 }) {
   const pathname = usePathname();
-  const links = admin ? adminLinks : memberLinks;
+  const clubAccess = hasClubAccess(profile);
+  const links = admin ? adminLinks : getMemberLinks(profile);
 
   return (
     <aside className="h-fit rounded-3xl border border-white/10 bg-white/5 p-4 shadow-cyan lg:sticky lg:top-0 lg:p-5">
-      <div className="mb-6 rounded-2xl border border-white/10 bg-black/10 px-4 py-4">
+      <Link
+        href="/club"
+        className="mb-6 block rounded-2xl border border-white/10 bg-black/10 px-4 py-4 transition hover:border-accent/40 hover:bg-white/5"
+      >
         <p className="text-[11px] uppercase tracking-[0.28em] text-white/40">
-          {admin ? "Приватный клуб" : "Ваш раздел"}
+          {admin ? "Кабинет" : clubAccess ? "Закрытый клуб" : "Профиль"}
         </p>
         <p className="mt-2 text-2xl font-semibold text-white">Lumina</p>
         <p className="mt-2 break-words text-sm text-white/55">
-          {admin ? "Закрытое пространство автора" : profile.display_name || profile.email}
+          {admin
+            ? "Рабочее пространство администратора"
+            : clubAccess
+              ? profile.display_name || profile.email
+              : "Аккаунт участника"}
         </p>
-      </div>
+      </Link>
 
       <nav className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
         {links.map((link) => {

@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 type ProtectedMediaProps = {
   src: string;
   alt: string;
@@ -34,9 +36,12 @@ export function ProtectedMedia({
 
   return (
     <div className={`protected-media ${className}`}>
-      <img
+      <Image
         src={src}
         alt={alt}
+        width={1600}
+        height={1200}
+        unoptimized
         draggable={false}
         className="w-full rounded-[28px] border border-white/10 object-cover select-none"
         onContextMenu={(event) => event.preventDefault()}

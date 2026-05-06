@@ -67,7 +67,7 @@ function playNotificationBeep(context: AudioContext) {
   firstOscillator.frequency.exponentialRampToValueAtTime(700, context.currentTime + 0.18);
 
   firstGain.gain.setValueAtTime(0.0001, context.currentTime);
-  firstGain.gain.exponentialRampToValueAtTime(0.24, context.currentTime + 0.02);
+  firstGain.gain.exponentialRampToValueAtTime(0.55, context.currentTime + 0.02);
   firstGain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.24);
 
   secondOscillator.type = "triangle";
@@ -75,7 +75,7 @@ function playNotificationBeep(context: AudioContext) {
   secondOscillator.frequency.exponentialRampToValueAtTime(900, context.currentTime + 0.42);
 
   secondGain.gain.setValueAtTime(0.0001, context.currentTime + 0.22);
-  secondGain.gain.exponentialRampToValueAtTime(0.2, context.currentTime + 0.27);
+  secondGain.gain.exponentialRampToValueAtTime(0.48, context.currentTime + 0.27);
   secondGain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.48);
 
   thirdOscillator.type = "sine";
@@ -83,7 +83,7 @@ function playNotificationBeep(context: AudioContext) {
   thirdOscillator.frequency.exponentialRampToValueAtTime(980, context.currentTime + 0.68);
 
   thirdGain.gain.setValueAtTime(0.0001, context.currentTime + 0.48);
-  thirdGain.gain.exponentialRampToValueAtTime(0.16, context.currentTime + 0.54);
+  thirdGain.gain.exponentialRampToValueAtTime(0.4, context.currentTime + 0.54);
   thirdGain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.74);
 
   firstOscillator.connect(firstGain);

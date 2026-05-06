@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 import { BrandShell } from "@/components/layout/brand-shell";
 import { loginAction } from "@/app/actions";
@@ -11,17 +12,27 @@ export default async function LoginPage({
   const error = typeof params.error === "string" ? params.error : "";
   const disabled = params.disabled === "1";
   const passwordUpdated = params.passwordUpdated === "1";
+  const next = typeof params.next === "string" && params.next.startsWith("/") ? params.next : "/dashboard";
+  const loginHref = `/login?next=${encodeURIComponent(next)}` as Route;
 
   return (
     <BrandShell>
       <section className="mx-auto flex min-h-[calc(100vh-88px)] max-w-md items-center px-4 py-12 sm:px-6">
         <div className="w-full rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-glow">
-          <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Member Login</p>
-          <h1 className="mt-3 text-3xl font-semibold text-white">Вход в приватный клуб</h1>
+          <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Войти</p>
+          <h1 className="mt-3 text-3xl font-semibold text-white">Я уже зарегистрирована</h1>
           <p className="mt-3 text-sm leading-6 text-white/60">
-            Регистрация открывается только через приглашение. Если у вас уже есть
-            аккаунт, войдите по email и паролю.
+            Войдите по email и паролю. После входа система направит вас в кабинет или в закрытый клуб.
           </p>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href={loginHref}
+              className="rounded-2xl border border-white/10 bg-white px-4 py-2 text-sm text-background transition"
+            >
+              Вход
+            </Link>
+          </div>
 
           {passwordUpdated ? (
             <div className="mt-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
@@ -42,6 +53,7 @@ export default async function LoginPage({
           ) : null}
 
           <form action={loginAction} className="mt-6 space-y-4">
+            <input type="hidden" name="next" value={next} />
             <div>
               <label className="mb-2 block text-sm text-white/60">Email</label>
               <input name="email" type="email" placeholder="you@example.com" required />
@@ -69,7 +81,7 @@ export default async function LoginPage({
           </form>
 
           <p className="mt-5 text-sm text-white/55">
-            Нет аккаунта?{" "}
+            Нет аккаунта для закрытого клуба?{" "}
             <Link href="/invite" className="text-accentSoft">
               Активируйте приглашение
             </Link>

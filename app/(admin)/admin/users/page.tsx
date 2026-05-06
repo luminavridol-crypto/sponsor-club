@@ -92,11 +92,10 @@ export default async function AdminUsersPage() {
 
         {users.map((user) => (
           <UserCard
-            key={user.id}
+            key={`${user.id}-${user.tier}-${user.access_expires_at ?? "none"}-${(user.admin_badges ?? []).join(",")}`}
             user={user}
             isCurrentAdmin={user.id === profile.id}
             donationEvents={donationMap.get(user.id) ?? []}
-            chatMessages={chatMap.get(user.id) ?? []}
           />
         ))}
       </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { startTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MemberChatMessage } from "@/lib/types";
@@ -110,8 +111,11 @@ export function MessageThread({
                           rel="noreferrer"
                           className="block"
                         >
-                          <img
+                          <Image
                             src={message.media_url}
+                            width={1600}
+                            height={1200}
+                            unoptimized
                             alt="Вложение в чате"
                             className="max-h-[460px] w-full cursor-zoom-in bg-black object-contain transition hover:opacity-95"
                           />

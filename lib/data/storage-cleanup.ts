@@ -108,16 +108,6 @@ export async function getBucketStorageUsage(
   };
 }
 
-async function removeSupabaseOrphans(
-  admin: SupabaseClient,
-  bucket: string,
-  usedPaths: Set<string>
-) {
-  const allPaths = await listBucketFiles(admin, bucket);
-  const orphanPaths = allPaths.filter((path) => !usedPaths.has(path));
-  return orphanPaths.length;
-}
-
 export async function getOrphanedStorageReport(admin: SupabaseClient): Promise<OrphanedStorageReport> {
   const [
     { data: posts },

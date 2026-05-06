@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Image from "next/image";
 import Link from "next/link";
 import { deleteMediaAction } from "@/app/actions";
 import { ConfirmActionForm } from "@/components/admin/confirm-action-form";
@@ -142,54 +143,67 @@ export default async function AdminMediaPage() {
       linked: false
     }));
 
-  const r2Items = [
-    ...linkedItems.filter((item) => item.provider === "r2"),
-    ...r2StorageItems
-  ];
+  const r2Items = [...linkedItems.filter((item) => item.provider === "r2"), ...r2StorageItems];
   const legacyLinkedItems = linkedItems.filter((item) => item.provider === "supabase");
-  const signedUrls = await getSignedMediaUrls([...r2Items, ...legacyLinkedItems, ...legacyItems].map((item) => item.path));
+  const signedUrls = await getSignedMediaUrls(
+    [...r2Items, ...legacyLinkedItems, ...legacyItems].map((item) => item.path)
+  );
 
   function renderItem(item: MediaItem) {
     const url = signedUrls[item.path];
 
     return (
-      <article key={item.id} className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5">
-        <div className="aspect-video bg-black/30">
+      <article
+        key={item.id}
+        className="overflow-hidden rounded-[24px] border border-white/10 bg-white/5 shadow-[0_10px_40px_rgba(6,10,20,0.18)]"
+      >
+        <div className="aspect-[4/3] bg-black/30">
           {url && item.type === "video" ? (
             <video src={url} controls preload="metadata" className="h-full w-full object-cover" />
           ) : url ? (
-            <img src={url} alt={item.title} className="h-full w-full object-cover" />
+            <Image
+              src={url}
+              alt={item.title}
+              width={1200}
+              height={900}
+              unoptimized
+              className="h-full w-full object-cover"
+            />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-white/45">
               Файл недоступен
             </div>
           )}
         </div>
-        <div className="space-y-3 p-4">
+
+        <div className="space-y-3 p-3">
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/55">
+            <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/55">
               {item.provider}
             </span>
-            <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/55">
+            <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/55">
               {item.type}
             </span>
-            <span className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-xs text-accentSoft">
+            <span className="rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-[11px] text-accentSoft">
               {item.linked ? "linked" : "orphan"}
             </span>
           </div>
-          <h3 className="break-words text-lg font-semibold text-white">{item.title}</h3>
-          <div className="space-y-1 text-xs text-white/45">
+
+          <h3 className="line-clamp-2 break-words text-base font-semibold text-white">{item.title}</h3>
+
+          <div className="space-y-1 text-[11px] text-white/45">
             <p className="break-all">key: {item.objectKey}</p>
             <p>bucket: {item.bucket}</p>
             <p>mime: {item.mimeType ?? "unknown"}</p>
             <p>size: {formatBytes(item.sizeBytes)}</p>
             <p>date: {formatDate(item.createdAt)}</p>
           </div>
+
           <div className="flex flex-wrap gap-2">
             {item.slug ? (
               <Link
                 href={`/feed/${item.slug}`}
-                className="inline-flex rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/75 transition hover:border-accent/30 hover:bg-white/5 hover:text-white"
+                className="inline-flex rounded-2xl border border-white/10 px-3 py-2 text-sm text-white/75 transition hover:border-accent/30 hover:bg-white/5 hover:text-white"
               >
                 Открыть пост
               </Link>
@@ -198,7 +212,7 @@ export default async function AdminMediaPage() {
               action={deleteMediaAction}
               confirmMessage="Удалить этот файл из хранилища и обновить базу?"
               buttonLabel="Удалить"
-              buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20"
+              buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20"
               hiddenFields={[
                 { name: "id", value: item.id },
                 {
@@ -227,14 +241,17 @@ export default async function AdminMediaPage() {
           <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Media Library</p>
           <h2 className="mt-3 text-3xl font-semibold text-white">Медиа-библиотека</h2>
           <p className="mt-3 text-sm leading-7 text-white/62">
-            R2: {r2Items.length} файлов. Legacy Supabase media: {legacyItems.length + legacyLinkedItems.length || "empty"}.
+            R2: {r2Items.length} файлов. Legacy Supabase media:{" "}
+            {legacyItems.length + legacyLinkedItems.length || "empty"}.
           </p>
         </div>
 
         <section className="space-y-4">
           <h3 className="text-xl font-semibold text-white">Cloudflare R2</h3>
           {r2Items.length ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{r2Items.map(renderItem)}</div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+              {r2Items.map(renderItem)}
+            </div>
           ) : (
             <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 text-white/55">
               R2 media: empty.
@@ -245,7 +262,7 @@ export default async function AdminMediaPage() {
         <section className="space-y-4">
           <h3 className="text-xl font-semibold text-white">Legacy Supabase media</h3>
           {legacyLinkedItems.length || legacyItems.length ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
               {[...legacyLinkedItems, ...legacyItems].map(renderItem)}
             </div>
           ) : (

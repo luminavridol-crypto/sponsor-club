@@ -1,6 +1,7 @@
-﻿import { deleteAllPostsAction, deletePostAction, updatePostAction } from "@/app/actions";
+import { deleteAllPostsAction, deletePostAction, updatePostAction } from "@/app/actions";
 import { ConfirmActionForm } from "@/components/admin/confirm-action-form";
 import { PostCreateForm } from "@/components/admin/post-create-form";
+import { PostsVisibilityToggle } from "@/components/admin/posts-visibility-toggle";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -59,7 +60,7 @@ export default async function AdminPostsPage() {
           <PostCreateForm />
         </section>
 
-        <section className="space-y-3">
+        <PostsVisibilityToggle>
           {posts?.map((post) => (
             <article key={post.id} className="rounded-[24px] border border-white/10 bg-white/5 p-4">
               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -85,7 +86,7 @@ export default async function AdminPostsPage() {
 
               <form action={updatePostAction} className="grid gap-3">
                 <input type="hidden" name="postId" value={post.id} />
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 lg:grid-cols-2">
                   <input name="title" defaultValue={post.title} />
                   <select name="requiredTier" defaultValue={post.required_tier}>
                     <option value="tier_1">Tier 1</option>
@@ -93,6 +94,7 @@ export default async function AdminPostsPage() {
                     <option value="tier_3">Tier 3</option>
                   </select>
                 </div>
+
                 <div className="grid gap-3 md:grid-cols-2">
                   <select name="postType" defaultValue={post.post_type}>
                     <option value="announcement">Объявление</option>
@@ -105,15 +107,17 @@ export default async function AdminPostsPage() {
                     <option value="published">Опубликован</option>
                   </select>
                 </div>
+
                 <textarea name="description" defaultValue={post.description ?? ""} />
                 <textarea name="body" defaultValue={post.body ?? ""} />
+
                 <button className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/85 transition hover:border-accent/35 hover:bg-white/5 sm:w-fit">
                   Сохранить изменения
                 </button>
               </form>
             </article>
           ))}
-        </section>
+        </PostsVisibilityToggle>
       </div>
     </PrivateShell>
   );

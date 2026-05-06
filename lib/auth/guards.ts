@@ -1,5 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
+import { hasClubAccess } from "@/lib/auth/access";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Profile } from "@/lib/types";
 
@@ -16,7 +17,7 @@ export async function requireSession() {
   return user;
 }
 
-export async function requireProfile() {
+export async function requireAnyProfile() {
   noStore();
   const user = await requireSession();
   const supabase = await createServerSupabaseClient();
@@ -28,19 +29,26 @@ export async function requireProfile() {
 
   const typedProfile = profile as Profile | null;
 
-  const accessExpired =
-    typedProfile?.access_expires_at ? new Date(typedProfile.access_expires_at) <= new Date() : false;
-
-  if (!typedProfile || typedProfile.access_status !== "active" || accessExpired) {
+  if (!typedProfile) {
     await supabase.auth.signOut();
-    redirect("/login?disabled=1");
+    redirect("/login?error=1");
   }
 
   return typedProfile;
 }
 
+export async function requireProfile() {
+  const profile = await requireAnyProfile();
+
+  if (!hasClubAccess(profile)) {
+    redirect("/");
+  }
+
+  return profile;
+}
+
 export async function requireAdmin() {
-  const profile = await requireProfile();
+  const profile = await requireAnyProfile();
 
   if (profile.role !== "admin") {
     redirect("/dashboard");

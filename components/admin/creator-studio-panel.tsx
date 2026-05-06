@@ -75,28 +75,30 @@ export function CreatorStudioPanel() {
   const [selectedAngles, setSelectedAngles] = useState<string[]>(["conflict", "comment-bait"]);
   const [selectedAudience, setSelectedAudience] = useState<string[]>(["broad"]);
   const [selectedEmotions, setSelectedEmotions] = useState<string[]>(["comedy", "tension"]);
-  const [savedIdeas, setSavedIdeas] = useState<SavedIdea[]>([]);
+  const [savedIdeas, setSavedIdeas] = useState<SavedIdea[]>(() => {
+    if (typeof window === "undefined") {
+      return [];
+    }
+
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+
+      if (!raw) {
+        return [];
+      }
+
+      const parsed = JSON.parse(raw) as SavedIdea[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [selectedSavedIdeaId, setSelectedSavedIdeaId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
 
   const selectedMode = modes.find((mode) => mode.id === activeMode) ?? modes[0];
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-
-      if (!raw) {
-        return;
-      }
-
-      const parsed = JSON.parse(raw) as SavedIdea[];
-      setSavedIdeas(Array.isArray(parsed) ? parsed : []);
-    } catch {
-      setSavedIdeas([]);
-    }
-  }, []);
 
   useEffect(() => {
     if (!saveMessage) {
@@ -474,33 +476,6 @@ export function CreatorStudioPanel() {
         </div>
       </section>
     </div>
-  );
-}
-
-function ModeButton({
-  active,
-  title,
-  text,
-  onClick
-}: {
-  active: boolean;
-  title: string;
-  text: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-[22px] border p-4 text-left transition ${
-        active
-          ? "border-accent/45 bg-accent/15 text-white"
-          : "border-white/10 bg-black/10 text-white/65 hover:border-accent/30 hover:text-white"
-      }`}
-    >
-      <p className="font-semibold">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-white/50">{text}</p>
-    </button>
   );
 }
 

@@ -10,20 +10,17 @@ export default async function ForgotPasswordPage({
   const params = (await searchParams) ?? {};
   const sent = params.sent === "1";
   const hasError = params.error === "1";
+  const errorMessage = typeof params.message === "string" ? params.message : "";
 
   return (
     <BrandShell>
       <section className="mx-auto flex min-h-[calc(100vh-88px)] max-w-md items-center px-4 py-12 sm:px-6">
         <div className="w-full rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-glow">
-          <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
-            Password Recovery
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold text-white">
-            Восстановление пароля
-          </h1>
+          <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Password Recovery</p>
+          <h1 className="mt-3 text-3xl font-semibold text-white">Восстановление пароля</h1>
           <p className="mt-3 text-sm leading-6 text-white/60">
-            Введите e-mail от вашего аккаунта. Мы отправим письмо со ссылкой, где
-            можно задать новый пароль.
+            Введите e-mail от вашего аккаунта. Мы отправим письмо со ссылкой, где можно задать
+            новый пароль.
           </p>
 
           {sent ? (
@@ -34,7 +31,8 @@ export default async function ForgotPasswordPage({
 
           {hasError ? (
             <div className="mt-5 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
-              Не удалось отправить письмо. Проверьте e-mail и попробуйте ещё раз.
+              {errorMessage ||
+                "Не удалось отправить письмо. Проверьте e-mail и попробуйте ещё раз."}
             </div>
           ) : null}
 

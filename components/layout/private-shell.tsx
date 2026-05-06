@@ -83,7 +83,7 @@ export async function PrivateShell({
 
     const { data: publishedPosts } = await adminClient
       .from("posts")
-      .select("publish_at, required_tier, expires_at")
+      .select("publish_at, required_tier, expires_at, slug")
       .eq("status", "published")
       .lte("publish_at", new Date().toISOString());
 
@@ -134,9 +134,12 @@ export async function PrivateShell({
 
             <div className="min-w-0">
               <p className="text-sm text-white/50">Приватный клуб Lumina</p>
-              <h1 className="break-words text-lg font-semibold text-white sm:text-xl">
+              <Link
+                href="/club"
+                className="inline-block break-words text-lg font-semibold text-white transition hover:text-accentSoft sm:text-xl"
+              >
                 {profile.display_name || "Добро пожаловать обратно"}
-              </h1>
+              </Link>
             </div>
           </div>
           <form action={signOutAction} className="w-full lg:w-auto">
@@ -156,7 +159,7 @@ export async function PrivateShell({
         />
 
         {admin ? (
-          <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)]">
             <PrivateNav
               profile={profile}
               admin
@@ -167,7 +170,7 @@ export async function PrivateShell({
             <div>{children}</div>
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
             <PrivateNav
               profile={profile}
               admin={admin}

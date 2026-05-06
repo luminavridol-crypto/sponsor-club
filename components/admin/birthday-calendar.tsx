@@ -99,16 +99,17 @@ function getBirthdayTierTextClass(tierKey: BirthdayPerson["tierKey"]) {
 
 export function BirthdayCalendar({ birthdays }: { birthdays: BirthdayPerson[] }) {
   const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonthIndex = today.getMonth();
+  const currentDay = today.getDate();
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
-  const todayDay = today.getDate();
   const isCurrentMonthView =
-    selectedYear === today.getFullYear() && selectedMonth === today.getMonth();
+    selectedYear === currentYear && selectedMonth === currentMonthIndex;
 
   const years = useMemo(() => {
-    const currentYear = today.getFullYear();
     return Array.from({ length: 9 }, (_, index) => currentYear - 2 + index);
-  }, [today]);
+  }, [currentYear]);
 
   const monthBirthdays = useMemo(() => {
     return birthdays
@@ -117,23 +118,22 @@ export function BirthdayCalendar({ birthdays }: { birthdays: BirthdayPerson[] })
   }, [birthdays, selectedMonth]);
 
   const upcomingBirthdays = useMemo(() => {
-    const currentMonth = today.getMonth() + 1;
-    const currentDay = today.getDate();
+    const currentMonth = currentMonthIndex + 1;
 
     return birthdays
       .map((person) => {
         const parsed = parseMonthDay(person.birthDate);
-        const candidate = new Date(today.getFullYear(), parsed.month - 1, parsed.day);
+        const candidate = new Date(currentYear, parsed.month - 1, parsed.day);
         const nextDate =
           parsed.month < currentMonth || (parsed.month === currentMonth && parsed.day < currentDay)
-            ? new Date(today.getFullYear() + 1, parsed.month - 1, parsed.day)
+            ? new Date(currentYear + 1, parsed.month - 1, parsed.day)
             : candidate;
 
         return { ...person, parsed, nextDate };
       })
       .sort((left, right) => left.nextDate.getTime() - right.nextDate.getTime())
       .slice(0, 3);
-  }, [birthdays, today]);
+  }, [birthdays, currentDay, currentMonthIndex, currentYear]);
 
   const calendarDays = useMemo(
     () => buildCalendarDays(selectedYear, selectedMonth, birthdays),
@@ -219,7 +219,7 @@ export function BirthdayCalendar({ birthdays }: { birthdays: BirthdayPerson[] })
                 key={`${day.day}-${day.inCurrentMonth}-${index}`}
                 className={`rounded-xl border px-1.5 py-2 text-xs transition sm:rounded-2xl sm:px-2 sm:py-3 sm:text-sm ${
                   day.inCurrentMonth
-                    ? isCurrentMonthView && day.day === todayDay
+                    ? isCurrentMonthView && day.day === currentDay
                       ? day.birthdayCount > 0
                         ? "border-cyanGlow bg-cyanGlow/20 text-white shadow-[0_0_0_1px_rgba(103,232,249,0.22),0_0_28px_rgba(34,211,238,0.16)]"
                         : "border-cyanGlow/70 bg-cyanGlow/12 text-white shadow-[0_0_0_1px_rgba(103,232,249,0.18),0_0_24px_rgba(34,211,238,0.12)]"

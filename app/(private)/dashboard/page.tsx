@@ -1,12 +1,17 @@
 import { redirect } from "next/navigation";
-import { requireProfile } from "@/lib/auth/guards";
+import { hasClubAccess } from "@/lib/auth/access";
+import { requireAnyProfile } from "@/lib/auth/guards";
 
 export default async function DashboardPage() {
-  const profile = await requireProfile();
+  const profile = await requireAnyProfile();
 
   if (profile.role === "admin") {
-    redirect("/admin");
+    redirect("/cabinet");
   }
 
-  redirect("/profile");
+  if (hasClubAccess(profile)) {
+    redirect("/club");
+  }
+
+  redirect("/");
 }

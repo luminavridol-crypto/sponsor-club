@@ -10,7 +10,7 @@ import { R2_PROVIDER, toR2ObjectKey, uploadMediaToR2 } from "@/lib/storage/media
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PostStatus, PostType, Tier } from "@/lib/types";
-import { slugify } from "@/lib/utils/slug";
+import { buildContentSlug } from "@/lib/utils/content-space";
 
 function formValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
         : 0;
     const expiresAt = retentionDays ? calculateExpirationDate(publishAt, retentionDays) : null;
 
-    const slug = slugify(title);
+    const slug = buildContentSlug(title);
     const thumbnailFile = formData.get("thumbnail");
     const uploadedThumbnailPath = formValue(formData.get("uploadedThumbnailPath")) || null;
     const uploadedThumbnailProvider = formValue(formData.get("uploadedThumbnailProvider")) || null;

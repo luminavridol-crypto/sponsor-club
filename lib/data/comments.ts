@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { PostCommentWithAuthor } from "@/lib/types";
+import { PostCommentReaction, PostCommentWithAuthor, PostReactionType } from "@/lib/types";
+import { createEmptyReactionCounts, ReactionSummary } from "@/lib/data/reactions";
 
 export type AdminPostCommentNotice = PostCommentWithAuthor & {
   posts: {
@@ -70,4 +71,46 @@ export async function getAdminLatestPostCommentAt() {
     .maybeSingle();
 
   return data?.created_at ?? null;
+}
+
+export async function getReactionSummariesForComments(commentIds: string[], profileId: string) {
+  noStore();
+
+  const summaries = new Map<string, ReactionSummary>();
+  for (const commentId of commentIds) {
+    summaries.set(commentId, {
+      counts: createEmptyReactionCounts(),
+      selectedReaction: null
+    });
+  }
+
+  if (!commentIds.length) {
+    return summaries;
+  }
+
+  const admin = createAdminSupabaseClient();
+  const [{ data: reactions }, { data: ownReactions }] = await Promise.all([
+    admin.from("post_comment_reactions").select("*").in("comment_id", commentIds),
+    admin
+      .from("post_comment_reactions")
+      .select("*")
+      .eq("profile_id", profileId)
+      .in("comment_id", commentIds)
+  ]);
+
+  for (const reaction of (reactions ?? []) as PostCommentReaction[]) {
+    const summary = summaries.get(reaction.comment_id);
+    if (summary) {
+      summary.counts[reaction.reaction as PostReactionType] += 1;
+    }
+  }
+
+  for (const reaction of (ownReactions ?? []) as PostCommentReaction[]) {
+    const summary = summaries.get(reaction.comment_id);
+    if (summary) {
+      summary.selectedReaction = reaction.reaction as PostReactionType;
+    }
+  }
+
+  return summaries;
 }

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
@@ -112,10 +113,12 @@ export function AdminChatComposer({
 
       <div className="space-y-3 rounded-3xl border border-white/10 bg-black/10 p-3 sm:p-4">
         <textarea
+          id="admin-chat-body"
           name="body"
           placeholder={`Ответить ${memberLabel}...`}
           className="min-h-[140px] sm:min-h-[160px]"
         />
+        <EmojiToolbar targetId="admin-chat-body" label="Эмодзи для ответа" />
 
         <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <button

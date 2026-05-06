@@ -75,6 +75,8 @@ export interface Post {
   publish_at: string;
   expires_at: string | null;
   retention_days: number | null;
+  is_pinned?: boolean;
+  pinned_at?: string | null;
   thumbnail_path: string | null;
   thumbnail_provider?: string | null;
   thumbnail_bucket?: string | null;
@@ -113,6 +115,15 @@ export interface PostComment {
 
 export interface PostCommentWithAuthor extends PostComment {
   profiles: Pick<Profile, "display_name" | "nickname" | "email" | "role"> | null;
+}
+
+export interface PostCommentReaction {
+  id: string;
+  comment_id: string;
+  profile_id: string;
+  reaction: PostReactionType;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PostReaction {

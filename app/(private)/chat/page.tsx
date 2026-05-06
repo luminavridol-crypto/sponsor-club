@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { sendMemberChatMessageAction } from "@/app/actions";
+import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
 import { MessageThread } from "@/components/chat/message-thread";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { requireProfile } from "@/lib/auth/guards";
@@ -49,10 +50,12 @@ export default async function MemberChatPage() {
 
           <form action={sendMemberChatMessageAction} className="mt-5 space-y-3">
             <textarea
+              id="member-chat-body"
               name="body"
               placeholder="Напиши сообщение Lumina..."
               className="min-h-[140px]"
             />
+            <EmojiToolbar targetId="member-chat-body" label="Эмодзи для сообщения" />
             <button className="rounded-2xl border border-cyanGlow/30 bg-cyanGlow/10 px-5 py-3 text-sm font-medium text-cyanGlow transition hover:bg-cyanGlow/20">
               Отправить сообщение
             </button>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { PostReactions } from "@/components/posts/post-reactions";
 import { ReactionSummary } from "@/lib/data/reactions";
@@ -24,9 +25,12 @@ export function PostCard({
   return (
     <article className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-glow">
       {post.thumbnail_url ? (
-        <img
+        <Image
           src={post.thumbnail_url}
           alt={post.title}
+          width={1600}
+          height={900}
+          unoptimized
           className="h-56 w-full border-b border-white/10 object-cover"
         />
       ) : null}
@@ -52,13 +56,13 @@ export function PostCard({
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
-            href={`/feed/${post.slug}`}
+            href={`/club/${post.slug}`}
             className="inline-flex rounded-2xl bg-white px-4 py-2 text-sm font-medium text-background transition hover:bg-goldSoft"
           >
             Открыть пост
           </Link>
           <Link
-            href={`/feed/${post.slug}#comments`}
+            href={`/club/${post.slug}#comments`}
             className="inline-flex rounded-2xl border border-white/10 px-4 py-2 text-sm font-medium text-white/75 transition hover:border-accent/30 hover:bg-white/5 hover:text-white"
           >
             Комментарии: {commentCount}

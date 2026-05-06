@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   addUserDonationAction,
   addUserDonationForMonthAction,
@@ -9,7 +9,7 @@ import {
   setUserAccessUntilAction,
   updateUserDetailsAction
 } from "@/app/actions";
-import { DonationEvent, MemberChatMessage, Profile, Tier } from "@/lib/types";
+import { DonationEvent, Profile, Tier } from "@/lib/types";
 import { TIER_LABELS } from "@/lib/utils/tier";
 import { getVipProgress } from "@/lib/utils/vip";
 
@@ -157,13 +157,11 @@ function TierQuickButton({
 export function UserCard({
   user,
   isCurrentAdmin,
-  donationEvents,
-  chatMessages: _chatMessages
+  donationEvents
 }: {
   user: Profile;
   isCurrentAdmin: boolean;
   donationEvents: DonationEvent[];
-  chatMessages: MemberChatMessage[];
 }) {
   const [open, setOpen] = useState(false);
   const [selectedTier, setSelectedTier] = useState<Tier>(user.tier);
@@ -181,25 +179,8 @@ export function UserCard({
     const years = Array.from(new Set([new Date().getFullYear(), ...donationHistory.keys()])).sort((a, b) => b - a);
     return years.length ? years : [new Date().getFullYear()];
   }, [donationHistory]);
-  const yearMonths = donationHistory.get(selectedYear) ?? new Array(12).fill(0);
-
-  useEffect(() => {
-    setSelectedTier(user.tier);
-  }, [user.tier]);
-
-  useEffect(() => {
-    setSelectedBadges(user.admin_badges ?? []);
-  }, [user.admin_badges]);
-
-  useEffect(() => {
-    if (!availableYears.includes(selectedYear)) {
-      setSelectedYear(availableYears[0]);
-    }
-  }, [availableYears, selectedYear]);
-
-  useEffect(() => {
-    setAccessUntil(formatDateTimeInput(user.access_expires_at));
-  }, [user.access_expires_at]);
+  const normalizedSelectedYear = availableYears.includes(selectedYear) ? selectedYear : availableYears[0];
+  const yearMonths = donationHistory.get(normalizedSelectedYear) ?? new Array(12).fill(0);
 
   function toggleBadge(value: string) {
     setSelectedBadges((current) =>
@@ -458,7 +439,7 @@ export function UserCard({
           <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
             <p className="text-lg font-semibold text-white">История по годам</p>
             <div className="mt-4">
-              <select value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>
+              <select value={normalizedSelectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))}>
                 {availableYears.map((year) => (
                   <option key={year} value={year}>
                     {year}
@@ -469,14 +450,14 @@ export function UserCard({
 
             <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {MONTH_NAMES.map((month, index) => (
-                <div key={`${selectedYear}-${index}`} className="rounded-2xl border border-white/10 bg-black/10 px-3 py-3">
+                <div key={`${normalizedSelectedYear}-${index}`} className="rounded-2xl border border-white/10 bg-black/10 px-3 py-3">
                   <p className="text-sm text-white/45">{month}</p>
                   <p className="mt-2 text-xl font-semibold text-white">{Math.round(yearMonths[index] ?? 0)}</p>
                   <p className="mt-1 text-sm text-white/35">EUR</p>
 
                   <form action={addUserDonationForMonthAction} className="mt-3 flex items-center gap-2">
                     <input type="hidden" name="userId" value={user.id} />
-                    <input type="hidden" name="year" value={selectedYear} />
+                    <input type="hidden" name="year" value={normalizedSelectedYear} />
                     <input type="hidden" name="month" value={index} />
                     <input
                       name="donationDelta"

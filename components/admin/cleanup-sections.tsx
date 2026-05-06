@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ConfirmActionForm } from "@/components/admin/confirm-action-form";
 
+type AdminFormAction = (formData: FormData) => void | Promise<void>;
+
 type CleanupItem = {
   id: string;
   title: string;
@@ -11,7 +13,7 @@ type CleanupItem = {
   type: string;
   sizeLabel?: string;
   href: string;
-  deleteAction: any;
+  deleteAction: AdminFormAction;
   deleteConfirmMessage: string;
   deleteFields: { name: string; value: string }[];
 };
@@ -24,7 +26,7 @@ type CleanupSectionData = {
   href: string;
   openLabel: string;
   deleteAllLabel: string;
-  deleteAllAction: any;
+  deleteAllAction: AdminFormAction;
   deleteAllConfirmMessage: string;
   items: CleanupItem[];
 };

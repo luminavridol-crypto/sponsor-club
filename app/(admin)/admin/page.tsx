@@ -20,6 +20,8 @@ import { getR2StorageUsage } from "@/lib/r2/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { TIER_LABELS } from "@/lib/utils/tier";
 
+type AdminFormAction = (formData: FormData) => void | Promise<void>;
+
 type CleanupItem = {
   id: string;
   title: string;
@@ -28,7 +30,7 @@ type CleanupItem = {
   type: string;
   sizeLabel?: string;
   href: string;
-  deleteAction: any;
+  deleteAction: AdminFormAction;
   deleteConfirmMessage: string;
   deleteFields: { name: string; value: string }[];
 };
@@ -41,7 +43,7 @@ type CleanupSectionData = {
   href: string;
   openLabel: string;
   deleteAllLabel: string;
-  deleteAllAction: any;
+  deleteAllAction: AdminFormAction;
   deleteAllConfirmMessage: string;
   items: CleanupItem[];
 };

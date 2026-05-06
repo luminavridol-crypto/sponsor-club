@@ -10,7 +10,7 @@
     "media:check-supabase": "node scripts/check-supabase-storage.mjs",
     "media:configure-r2-cors": "node scripts/configure-r2-cors.mjs",
     "media:migrate": "node scripts/migrate-supabase-storage-to-r2.mjs",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1033.0",
@@ -26,10 +26,13 @@
     "zod": "^3.24.3"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@types/node": "^22.14.1",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "autoprefixer": "^10.4.21",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.4",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3"

@@ -3,6 +3,9 @@
 import { useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { createPostCommentAction, deletePostCommentAction } from "@/app/actions";
+import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
+import { CommentReactions } from "@/components/posts/comment-reactions";
+import { ReactionSummary } from "@/lib/data/reactions";
 import { PostCommentWithAuthor } from "@/lib/types";
 
 function formatCommentTime(value: string) {
@@ -43,13 +46,15 @@ export function PostComments({
   postSlug,
   comments,
   currentProfileId,
-  admin = false
+  admin = false,
+  reactionSummaries
 }: {
   postId: string;
   postSlug: string;
   comments: PostCommentWithAuthor[];
   currentProfileId: string;
   admin?: boolean;
+  reactionSummaries: Map<string, ReactionSummary>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -94,6 +99,16 @@ export function PostComments({
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/78">
                       {comment.body}
                     </p>
+                    <CommentReactions
+                      commentId={comment.id}
+                      postSlug={postSlug}
+                      summary={
+                        reactionSummaries.get(comment.id) ?? {
+                          counts: { heart: 0, fire: 0, cry: 0, sparkles: 0, devil: 0 },
+                          selectedReaction: null
+                        }
+                      }
+                    />
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2 self-end sm:self-start">
@@ -152,12 +167,14 @@ export function PostComments({
         <input type="hidden" name="postId" value={postId} />
         <input type="hidden" name="postSlug" value={postSlug} />
         <textarea
+          id="post-comment-body"
           name="body"
           required
           maxLength={1000}
           placeholder="Написать комментарий..."
           className="min-h-[120px]"
         />
+        <EmojiToolbar targetId="post-comment-body" label="Эмодзи для комментария" />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-white/35">
             До 1000 символов. Комментарий увидят участники с доступом к посту.

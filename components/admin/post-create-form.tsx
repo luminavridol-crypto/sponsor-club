@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
 import { Tier } from "@/lib/types";
 import { TIER_ACCESS_HINTS, TIER_LABELS } from "@/lib/utils/tier";
 
@@ -21,6 +22,7 @@ type ServerUploadResponse = {
 const TARGET_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 2560;
 const DEFAULT_POST_TITLE = "Lumina Secret Drop";
+const CLUB_DESTINATION_HINT = "Материал будет опубликован только внутри закрытого клуба.";
 
 function isCompressibleImage(file: File) {
   return file.type === "image/jpeg" || file.type === "image/png" || file.type === "image/webp";
@@ -245,8 +247,7 @@ export function PostCreateForm() {
     <form onSubmit={handleSubmit} className="mt-4 grid gap-3" encType="multipart/form-data">
       <input type="hidden" name="postType" value="announcement" />
       <input type="hidden" name="status" value="published" />
-
-      <div className="grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
           <label className="mb-2 block text-sm text-white/60">Название</label>
           <input name="title" defaultValue={DEFAULT_POST_TITLE} required />
@@ -266,9 +267,21 @@ export function PostCreateForm() {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/65">
+        {CLUB_DESTINATION_HINT}
+      </div>
+
       <div>
         <label className="mb-2 block text-sm text-white/60">Текст публикации</label>
-        <textarea name="body" placeholder="Основной текст поста." className="min-h-[180px]" />
+        <textarea
+          id="admin-post-body"
+          name="body"
+          placeholder="Основной текст поста."
+          className="min-h-[180px]"
+        />
+        <div className="mt-3">
+          <EmojiToolbar targetId="admin-post-body" label="Эмодзи для текста публикации" />
+        </div>
       </div>
 
       <div>
