@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { deleteAllPostsAction, deletePostAction, updatePostAction } from "@/app/actions";
 import { ConfirmActionForm } from "@/components/admin/confirm-action-form";
 import { PostCreateForm } from "@/components/admin/post-create-form";
@@ -70,18 +71,26 @@ export default async function AdminPostsPage() {
                     {post.post_type} • {post.required_tier} • {post.status} • {formatDate(post.publish_at)}
                   </p>
                 </div>
-                <ConfirmActionForm
-                  action={deletePostAction}
-                  confirmMessage="Удалить этот пост?"
-                  buttonLabel={
-                    <span className="inline-flex items-center gap-2">
-                      <TrashIcon />
-                      Удалить
-                    </span>
-                  }
-                  buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20"
-                  hiddenFields={[{ name: "postId", value: post.id }]}
-                />
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/admin/email?post=${post.id}`}
+                    className="rounded-2xl border border-cyanGlow/30 bg-cyanGlow/10 px-4 py-2 text-sm text-cyanGlow transition hover:bg-cyanGlow/20"
+                  >
+                    Email-рассылка
+                  </Link>
+                  <ConfirmActionForm
+                    action={deletePostAction}
+                    confirmMessage="Удалить этот пост?"
+                    buttonLabel={
+                      <span className="inline-flex items-center gap-2">
+                        <TrashIcon />
+                        Удалить
+                      </span>
+                    }
+                    buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20"
+                    hiddenFields={[{ name: "postId", value: post.id }]}
+                  />
+                </div>
               </div>
 
               <form action={updatePostAction} className="grid gap-3">

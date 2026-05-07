@@ -5,6 +5,7 @@ import { PrivateNav } from "@/components/layout/private-nav";
 import { SiteSoundNotifier } from "@/components/layout/site-sound-notifier";
 import { getAdminUnreadChatProfileIds, hasUnreadMemberChat } from "@/lib/data/chat";
 import { getAdminLatestPostCommentAt } from "@/lib/data/comments";
+import { runAutomaticAccessExpiryReminders } from "@/lib/email/access-reminders";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { Profile, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
@@ -18,6 +19,7 @@ export async function PrivateShell({
   children: ReactNode;
   admin?: boolean;
 }) {
+  const brandHref = admin ? "/cabinet" : "/profile";
   const adminClient = createAdminSupabaseClient();
   let hasUnreadChat = false;
   let unreadChatCount = 0;
@@ -27,6 +29,12 @@ export async function PrivateShell({
   let pendingRequestsCount = 0;
   let initialLatestPendingRequestAt: string | null = null;
   let initialLatestContentCommentAt: string | null = null;
+
+  try {
+    await runAutomaticAccessExpiryReminders(admin ? profile.id : null);
+  } catch (error) {
+    console.error("Automatic access expiry email check failed", error);
+  }
 
   if (admin) {
     const unreadProfileIds = await getAdminUnreadChatProfileIds(adminClient);
@@ -135,7 +143,7 @@ export async function PrivateShell({
             <div className="min-w-0">
               <p className="text-sm text-white/50">Приватный клуб Lumina</p>
               <Link
-                href="/club"
+                href={brandHref}
                 className="inline-block break-words text-lg font-semibold text-white transition hover:text-accentSoft sm:text-xl"
               >
                 {profile.display_name || "Добро пожаловать обратно"}

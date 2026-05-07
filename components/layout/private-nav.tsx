@@ -22,6 +22,7 @@ type NavLink = {
 const adminLinks: NavLink[] = [
   { href: "/admin/creator", label: "Creator Studio", accent: "cyan", match: "startsWith" },
   { href: "/admin/posts", label: "Добавить пост", accent: "cyan", match: "startsWith" },
+  { href: "/club", label: "Контент", accent: "neutral", match: "startsWith" },
   { href: "/cabinet", label: "Кабинет", accent: "accent", match: "startsWith" },
   {
     href: "/admin/notifications",
@@ -30,6 +31,7 @@ const adminLinks: NavLink[] = [
     match: "startsWith",
     adminNoticeKind: "requests"
   },
+  { href: "/admin/email", label: "Email", accent: "accent", match: "startsWith" },
   { href: "/admin/media", label: "Медиа", accent: "neutral", match: "startsWith" },
   { href: "/admin/chat", label: "Чат", accent: "neutral", match: "startsWith", unreadKind: "chat" }
 ];
@@ -37,6 +39,7 @@ const adminLinks: NavLink[] = [
 function getMemberLinks(profile: Profile): NavLink[] {
   if (hasClubAccess(profile)) {
     return [
+      { href: "/club", label: "Контент", accent: "neutral", match: "startsWith" },
       { href: "/profile", label: "Профиль", accent: "neutral", match: "startsWith" },
       { href: "/chat", label: "Чат", accent: "neutral", match: "startsWith", unreadKind: "chat" }
     ];
@@ -99,11 +102,12 @@ export function PrivateNav({
   const pathname = usePathname();
   const clubAccess = hasClubAccess(profile);
   const links = admin ? adminLinks : getMemberLinks(profile);
+  const brandHref: Route = admin ? "/cabinet" : "/profile";
 
   return (
     <aside className="h-fit rounded-3xl border border-white/10 bg-white/5 p-4 shadow-cyan lg:sticky lg:top-0 lg:p-5">
       <Link
-        href="/club"
+        href={brandHref}
         className="mb-6 block rounded-2xl border border-white/10 bg-black/10 px-4 py-4 transition hover:border-accent/40 hover:bg-white/5"
       >
         <p className="text-[11px] uppercase tracking-[0.28em] text-white/40">

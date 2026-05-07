@@ -1,9 +1,11 @@
 export const dynamic = "force-dynamic";
 
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { updateProfileAction } from "@/app/actions";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { requireProfile } from "@/lib/auth/guards";
+import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { DonationEvent } from "@/lib/types";
 import { TIER_LABELS } from "@/lib/utils/tier";
@@ -101,6 +103,8 @@ function renderProfileStatus(profileTier: string, totalDonations: number | null)
 export default async function ProfilePage() {
   const profile = await requireProfile();
   const admin = createAdminSupabaseClient();
+  const avatarMap = await getSignedAvatarUrls(profile.avatar_url ? [profile.avatar_url] : []);
+  const avatarUrl = profile.avatar_url ? avatarMap[profile.avatar_url] ?? null : null;
 
   if (profile.role === "admin") {
     redirect("/admin/users");
@@ -221,6 +225,26 @@ export default async function ProfilePage() {
           <h3 className="mt-3 text-2xl font-semibold text-white">Информация о тебе</h3>
 
           <form action={updateProfileAction} className="mt-6 grid gap-4">
+            <div className="flex flex-wrap items-center gap-4">
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt={profile.display_name || profile.email}
+                  width={96}
+                  height={96}
+                  unoptimized
+                  className="h-24 w-24 rounded-full border border-white/10 object-cover"
+                />
+              ) : (
+                <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/10 bg-accent/15 text-3xl font-semibold text-white">
+                  {(profile.display_name || profile.email).slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-[260px] flex-1">
+                <label className="mb-2 block text-sm text-white/60">Аватар</label>
+                <input name="avatar" type="file" accept="image/*" />
+              </div>
+            </div>
             <div>
               <label className="mb-2 block text-sm text-white/60">Email</label>
               <input value={profile.email} disabled />

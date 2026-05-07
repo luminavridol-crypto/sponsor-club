@@ -11,6 +11,13 @@ import { hasClubAccess } from "@/lib/auth/access";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
 import { reactionOptions } from "@/lib/data/reactions";
 import { cleanupOrphanedStorage, getOrphanedStorageReport } from "@/lib/data/storage-cleanup";
+import {
+  runAutomaticAccessExpiryReminders,
+  updateAccessExpiryEmailSettings
+} from "@/lib/email/access-reminders";
+import { savePostEmailTemplate } from "@/lib/email/local-store";
+import { getManualEmailRecipients, getPostEmailRecipients, ManualEmailAudience } from "@/lib/email/recipients";
+import { sendEmailCampaign } from "@/lib/email/service";
 import { deleteR2Objects, isR2StoragePath } from "@/lib/r2/server";
 import {
   assertUploadFile,
@@ -63,6 +70,25 @@ const purchaseRequestSchema = z.object({
   website: z.string().max(0)
 });
 
+const postEmailCampaignSchema = z.object({
+  postId: z.string().uuid(),
+  subject: z.string().trim().min(3).max(180),
+  body: z.string().trim().min(10).max(20000)
+});
+
+const manualEmailCampaignSchema = z.object({
+  audience: z.enum(["all_active", "tier_1", "tier_2", "tier_3", "expiring_soon"]),
+  subject: z.string().trim().min(3).max(180),
+  body: z.string().trim().min(10).max(20000)
+});
+
+const accessExpiryEmailSettingsSchema = z.object({
+  enabled: z.boolean(),
+  daysBefore: z.array(z.number().int().positive()).min(1),
+  subject: z.string().trim().min(3).max(180),
+  body: z.string().trim().min(10).max(20000)
+});
+
 const commentSchema = z.object({
   postId: z.string().uuid(),
   postSlug: z.string().min(1),
@@ -93,6 +119,17 @@ function numberValue(value: FormDataEntryValue | null) {
   const normalized = value.trim().replace(",", ".");
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseDaysBefore(value: FormDataEntryValue | null) {
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isInteger(item) && item > 0);
 }
 
 function currentDonationPeriod() {
@@ -139,6 +176,16 @@ function getSafeNextPath(value: string | undefined, fallback: Route = "/dashboar
   }
 
   return value as Route;
+}
+
+function redirectToAdminEmail(params: Record<string, string | number>): never {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    searchParams.set(key, String(value));
+  }
+
+  return redirect(`/admin/email?${searchParams.toString()}`);
 }
 
 // Kept as a ready-to-reuse mapper for storage provider errors in admin flows.
@@ -189,6 +236,12 @@ async function uploadPostMedia(file: File, folder: string) {
   assertUploadFile(file);
   const extension = getSafeFileExtension(file);
   return uploadMediaToR2(file, `${folder}/${randomUUID()}.${extension}`, file.type);
+}
+
+async function uploadAvatarFile(file: File, profileId: string) {
+  assertUploadFile(file, { allowImages: true, allowVideos: false });
+  const extension = getSafeFileExtension(file);
+  return uploadMediaToR2(file, `avatars/${profileId}/${randomUUID()}.${extension}`, file.type);
 }
 
 async function removePostStorage(paths: string[]) {
@@ -380,6 +433,152 @@ export async function createPurchaseRequestAction(formData: FormData) {
   redirect("/?inviteRequestSent=1#invitation-request");
 }
 
+export async function sendPostEmailCampaignAction(formData: FormData) {
+  const profile = await requireAdmin();
+  const parsed = postEmailCampaignSchema.safeParse({
+    postId: formValue(formData.get("postId")),
+    subject: formValue(formData.get("subject")),
+    body: formValue(formData.get("body"))
+  });
+
+  if (!parsed.success) {
+    redirectToAdminEmail({ error: "campaign" });
+  }
+  const data = parsed.data;
+
+  const admin = createAdminSupabaseClient();
+  const { data: post } = await admin
+    .from("posts")
+    .select("id, title, slug, required_tier, status, publish_at")
+    .eq("id", data.postId)
+    .single();
+
+  if (!post || post.status !== "published") {
+    redirectToAdminEmail({ error: "post_not_ready" });
+  }
+
+  const recipients = await getPostEmailRecipients(post.required_tier as Tier);
+
+  if (!recipients.length) {
+    redirectToAdminEmail({ error: "no_recipients" });
+  }
+
+  const result = await sendEmailCampaign({
+    kind: "post",
+    title: `Пост: ${post.title}`,
+    subject: data.subject,
+    body: data.body,
+    postId: post.id,
+    targetScope: "eligible_post_members",
+    targetTiers: [post.required_tier as Tier],
+    createdBy: profile.id,
+    recipients,
+    metadata: {
+      post_slug: post.slug,
+      publish_at: post.publish_at
+    }
+  });
+
+  revalidatePath("/admin/email");
+  redirectToAdminEmail({
+    sent: result.sentCount,
+    failed: result.failedCount,
+    type: "post"
+  });
+}
+
+export async function savePostEmailTemplateAction(formData: FormData) {
+  const profile = await requireAdmin();
+  const parsed = postEmailCampaignSchema.safeParse({
+    postId: formValue(formData.get("postId")),
+    subject: formValue(formData.get("subject")),
+    body: formValue(formData.get("body"))
+  });
+
+  if (!parsed.success) {
+    redirectToAdminEmail({ error: "template" });
+  }
+
+  await savePostEmailTemplate(parsed.data.postId, {
+    subject: parsed.data.subject,
+    body: parsed.data.body,
+    updatedBy: profile.id
+  });
+
+  revalidatePath("/admin/email");
+  redirectToAdminEmail({ savedTemplate: 1, post: parsed.data.postId });
+}
+
+export async function sendManualSponsorEmailAction(formData: FormData) {
+  const profile = await requireAdmin();
+  const parsed = manualEmailCampaignSchema.safeParse({
+    audience: formValue(formData.get("audience")),
+    subject: formValue(formData.get("subject")),
+    body: formValue(formData.get("body"))
+  });
+
+  if (!parsed.success) {
+    redirectToAdminEmail({ error: "manual_campaign" });
+  }
+  const data = parsed.data;
+
+  const recipients = await getManualEmailRecipients(data.audience as ManualEmailAudience);
+
+  if (!recipients.length) {
+    redirectToAdminEmail({ error: "no_recipients" });
+  }
+
+  const result = await sendEmailCampaign({
+    kind: "manual",
+    title: `Ручная рассылка: ${data.subject}`,
+    subject: data.subject,
+    body: data.body,
+    targetScope: data.audience,
+    createdBy: profile.id,
+    recipients,
+    metadata: {
+      audience: data.audience
+    }
+  });
+
+  revalidatePath("/admin/email");
+  redirectToAdminEmail({
+    sent: result.sentCount,
+    failed: result.failedCount,
+    type: "manual"
+  });
+}
+
+export async function updateAccessExpiryEmailSettingsAction(formData: FormData) {
+  const profile = await requireAdmin();
+  const parsed = accessExpiryEmailSettingsSchema.safeParse({
+    enabled: formData.get("enabled") === "on",
+    daysBefore: parseDaysBefore(formData.get("daysBefore")),
+    subject: formValue(formData.get("subject")),
+    body: formValue(formData.get("body"))
+  });
+
+  if (!parsed.success) {
+    redirectToAdminEmail({ error: "settings" });
+  }
+
+  await updateAccessExpiryEmailSettings(parsed.data, profile.id);
+  revalidatePath("/admin/email");
+  redirectToAdminEmail({ saved: 1 });
+}
+
+export async function sendAccessExpiryEmailsNowAction() {
+  const profile = await requireAdmin();
+  const result = await runAutomaticAccessExpiryReminders(profile.id);
+
+  revalidatePath("/admin/email");
+  redirectToAdminEmail({
+    sent: result.sentCount,
+    failed: result.failedCount,
+    type: "expiry"
+  });
+}
+
 export async function updatePurchaseRequestStatusAction(formData: FormData) {
   await requireAdmin();
   const admin = createAdminSupabaseClient();
@@ -546,16 +745,37 @@ export async function redeemInviteAction(formData: FormData) {
 export async function updateProfileAction(formData: FormData) {
   const profile = await requireProfile();
   const supabase = await createServerSupabaseClient();
+  const admin = createAdminSupabaseClient();
+  const avatarFile = formData.get("avatar");
+  let nextAvatarUrl = profile.avatar_url;
+
+  if (avatarFile instanceof File && avatarFile.size > 0) {
+    const uploadedAvatar = await uploadAvatarFile(avatarFile, profile.id);
+    nextAvatarUrl = uploadedAvatar.storagePath;
+
+    if (profile.avatar_url) {
+      await deleteMedia(
+        {
+          provider: isR2StoragePath(profile.avatar_url) ? "r2" : "supabase",
+          storage_path: profile.avatar_url
+        },
+        { supabase: admin, legacyBucket: "post-media" }
+      );
+    }
+  }
 
   await supabase
     .from("profiles")
     .update({
       display_name: formValue(formData.get("displayName")) || null,
-      bio: formValue(formData.get("bio")) || null
+      bio: formValue(formData.get("bio")) || null,
+      avatar_url: nextAvatarUrl
     })
     .eq("id", profile.id);
 
   revalidatePath("/profile");
+  revalidatePath("/chat");
+  revalidatePath("/club");
 }
 
 export async function createPostCommentAction(formData: FormData) {
@@ -1067,6 +1287,7 @@ export async function createPostAction(formData: FormData) {
   }
 
   revalidatePath("/admin/posts");
+  revalidatePath("/admin/email");
   revalidatePath("/feed");
   revalidatePath("/club");
 }
@@ -1090,6 +1311,7 @@ export async function updatePostAction(formData: FormData) {
     .eq("id", formValue(formData.get("postId")));
 
   revalidatePath("/admin/posts");
+  revalidatePath("/admin/email");
   revalidatePath("/feed");
   revalidatePath("/club");
 }
@@ -1110,6 +1332,7 @@ export async function deletePostAction(formData: FormData) {
   await admin.from("posts").delete().eq("id", postId);
 
   revalidatePath("/admin/posts");
+  revalidatePath("/admin/email");
   revalidatePath("/feed");
   if (post?.slug) {
     revalidatePostSpace(post.slug);
@@ -1137,6 +1360,7 @@ export async function deleteAllPostsAction() {
   await admin.from("posts").delete().not("id", "is", null);
 
   revalidatePath("/admin/posts");
+  revalidatePath("/admin/email");
   revalidatePath("/feed");
   revalidatePath("/club");
 }
@@ -1367,6 +1591,7 @@ export async function updateUserDetailsAction(formData: FormData) {
   }
 
   const admin = createAdminSupabaseClient();
+  const avatarFile = formData.get("avatar");
   const nextTier = formValue(formData.get("tier")) as Tier;
   const nextAccessStatus = formValue(formData.get("accessStatus")) as AccessStatus;
   const nextBadges = formData
@@ -1375,11 +1600,35 @@ export async function updateUserDetailsAction(formData: FormData) {
     .map((value) => value.trim())
     .filter(Boolean);
 
+  const { data: existingUser } = await admin
+    .from("profiles")
+    .select("avatar_url")
+    .eq("id", userId)
+    .single();
+
+  let nextAvatarUrl = existingUser?.avatar_url ?? null;
+
+  if (avatarFile instanceof File && avatarFile.size > 0) {
+    const uploadedAvatar = await uploadAvatarFile(avatarFile, userId);
+    nextAvatarUrl = uploadedAvatar.storagePath;
+
+    if (existingUser?.avatar_url) {
+      await deleteMedia(
+        {
+          provider: isR2StoragePath(existingUser.avatar_url) ? "r2" : "supabase",
+          storage_path: existingUser.avatar_url
+        },
+        { supabase: admin, legacyBucket: "post-media" }
+      );
+    }
+  }
+
   const { error } = await admin
     .from("profiles")
     .update({
       display_name: formValue(formData.get("displayName")) || null,
       nickname: formValue(formData.get("nickname")) || null,
+      avatar_url: nextAvatarUrl,
       birth_date: formValue(formData.get("birthDate")) || null,
       telegram_contact: formValue(formData.get("telegramContact")) || null,
       tiktok_contact: formValue(formData.get("tiktokContact")) || null,
@@ -1398,6 +1647,7 @@ export async function updateUserDetailsAction(formData: FormData) {
   revalidatePath("/feed");
   revalidatePath("/profile");
   revalidatePath("/dashboard");
+  revalidatePath("/admin/chat");
 }
 
 export async function addUserDonationAction(formData: FormData) {
@@ -1445,6 +1695,7 @@ export async function addUserDonationAction(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
+  revalidatePath("/admin/email");
   revalidatePath("/dashboard");
   revalidatePath("/profile");
 }
@@ -1575,6 +1826,7 @@ export async function setUserAccessUntilAction(formData: FormData) {
     .eq("id", userId);
 
   revalidatePath("/admin/users");
+  revalidatePath("/admin/email");
   revalidatePath("/dashboard");
   revalidatePath("/feed");
   revalidatePath("/profile");

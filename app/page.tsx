@@ -1,6 +1,8 @@
+import Image from "next/image";
 import Link from "next/link";
 import { createPurchaseRequestAction } from "@/app/actions";
 import { BrandShell } from "@/components/layout/brand-shell";
+import { LogoMark } from "@/components/layout/logo-mark";
 import { getViewerKind, hasClubAccess } from "@/lib/auth/access";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Profile } from "@/lib/types";
@@ -67,53 +69,52 @@ const tierCards = [
   }
 ];
 
-const insideItems = [
+const sellingTierCards = [
   {
-    title: "Эксклюзивные фотосеты",
-    text: "Редкие кадры, которые не попадают в открытый доступ.",
-    number: "01",
-    icon: <PhotoIcon />
+    tier: "Tier 1",
+    name: "Наблюдатель",
+    price: "10 EUR / месяц",
+    image: "/tiers/tier-1.jpg",
+    glow: "border-accent/20 shadow-glow",
+    lockTone: "border-accent/35 bg-accent/12 text-accentSoft",
+    badge: "Лёгкий вход",
+    summary:
+      "Первый ключ в закрытый мир Lumina: ранний контент, закулисье и материалы, которые не выходят в открытый доступ.",
+    fit: "быть внутри клуба и видеть контент раньше остальных.",
+    cta: "Войти в закрытый мир",
+    note: "Идеальный вход в закрытый клуб.",
+    points: ["Ранний доступ", "Закулисье", "Редкий закрытый контент"]
   },
   {
-    title: "Закрытые видео",
-    text: "Видео, которые остаются только внутри клуба.",
-    number: "02",
-    icon: <PlayIcon />
+    tier: "Tier 2",
+    name: "Приближённый",
+    price: "25 EUR / месяц",
+    image: "/tiers/tier-2.jpg",
+    glow: "border-accent/35 shadow-glow ring-1 ring-accent/40",
+    lockTone: "border-accent/40 bg-accent/14 text-accentSoft",
+    badge: "Лучший выбор",
+    summary:
+      "Расширенный доступ к внутреннему пространству Lumina. Больше закулисья, больше бонусов и больше участия в создании контента.",
+    fit: "быть ближе к процессу, а не просто наблюдать со стороны.",
+    cta: "Стать приближённым",
+    note: "Самый сбалансированный уровень клуба.",
+    points: ["Всё из Tier 1", "Бонусные материалы", "Больше участия в процессе"],
+    featured: true
   },
   {
-    title: "Бэкстейдж и личные моменты",
-    text: "То, что происходит за кадром. Никакой постановки.",
-    number: "03",
-    icon: <LockMiniIcon />
-  },
-  {
-    title: "Ранний доступ",
-    text: "Ты видишь всё раньше остальных.",
-    number: "04",
-    icon: <ClockIcon />
-  }
-];
-
-const reasons = [
-  {
-    title: "То, что не публикуется открыто",
-    text: "Уникальный контент, которого нет ни в одной из моих соцсетей.",
-    icon: <LockMiniIcon />
-  },
-  {
-    title: "Более близкий контакт со мной",
-    text: "Личное общение, особая атмосфера и внимание к участникам клуба.",
-    icon: <HeartIcon />
-  },
-  {
-    title: "Ранний доступ ко всем проектам",
-    text: "Новости, проекты, анонсы и материалы — всё раньше остальных.",
-    icon: <StarIcon />
-  },
-  {
-    title: "Ты становишься частью истории",
-    text: "Поддержка моего творчества и возможность наблюдать, как создаётся настоящее.",
-    icon: <DiamondMiniIcon />
+    tier: "Tier 3",
+    name: "VIP",
+    price: "50 EUR / месяц",
+    image: "/tiers/tier-3.jpg",
+    glow: "border-cyanGlow/28 shadow-cyan",
+    lockTone: "border-cyanGlow/35 bg-cyanGlow/12 text-cyanGlow",
+    badge: "Максимальная глубина",
+    summary:
+      "Самый глубокий уровень доступа: редкие материалы, персональные бонусы, личное внимание и статус внутри клуба.",
+    fit: "максимум доступа и место в самом близком круге.",
+    cta: "Открыть VIP",
+    note: "Для тех, кто хочет максимум.",
+    points: ["Редчайшие материалы", "Личное внимание", "Особый статус внутри клуба"]
   }
 ];
 
@@ -205,10 +206,110 @@ export default async function HomePage({
           >
             Кабинет
           </Link>
-        ) : null
+        ) : user ? (
+          <Link
+            href={hasPrivateClubAccess ? "/club" : "/dashboard"}
+            className="inline-flex w-full rounded-2xl border border-accent/35 bg-accent/10 px-4 py-2 text-center text-sm text-accentSoft transition hover:bg-accent/20 sm:w-auto sm:justify-center"
+          >
+            {hasPrivateClubAccess ? "Войти" : "Профиль"}
+          </Link>
+        ) : (
+          <Link
+            href="/login"
+            className="inline-flex w-full rounded-2xl border border-accent/35 bg-accent/10 px-4 py-2 text-center text-sm text-accentSoft transition hover:bg-accent/20 sm:w-auto sm:justify-center"
+          >
+            Войти
+          </Link>
+        )
       }
     >
       <section className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-[4%] top-[18%] h-72 w-72 rounded-full bg-cyanGlow/8 blur-[110px]" />
+          <div className="absolute right-[6%] top-[6%] h-80 w-80 rounded-full bg-accent/12 blur-[120px]" />
+          <div className="absolute bottom-[12%] left-[8%] h-60 w-60 rounded-full bg-accent/10 blur-[110px]" />
+          <div className="absolute bottom-0 right-[10%] h-72 w-72 rounded-full bg-cyanGlow/6 blur-[120px]" />
+        </div>
+
+        <div className="relative mx-auto max-w-[96rem] px-4 pb-14 pt-8 sm:px-6 sm:pb-20 sm:pt-12">
+          <div className="relative overflow-hidden rounded-[2.2rem] border border-accent/18 bg-[#060711]/92 px-5 py-8 shadow-glow sm:px-8 sm:py-10 lg:px-12 lg:py-12">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,79,216,0.18),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(109,223,255,0.08),transparent_18%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent)]" />
+            <div className="pointer-events-none absolute -right-12 top-14 h-80 w-80 rounded-full border border-accent/15" />
+            <div className="pointer-events-none absolute -left-24 bottom-[-7rem] h-64 w-64 rounded-full border border-accent/10" />
+
+            <div className="relative mx-auto max-w-4xl text-center">
+              <div className="inline-flex max-w-full items-center gap-3 rounded-full border border-accent/45 bg-accent/8 px-4 py-2.5 text-[10px] uppercase tracking-[0.28em] text-accentSoft sm:px-5 sm:text-[11px]">
+                <LockBadgeIcon />
+                <span className="truncate">Закрытый клуб Lumina</span>
+              </div>
+
+              <div className="mt-7 flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[1.5rem] border border-white/12 bg-white/[0.04] shadow-[0_0_44px_rgba(255,79,216,0.2)]">
+                  <LogoMark className="h-11 w-11" />
+                </div>
+              </div>
+
+              <h1 className="font-display mx-auto mt-7 max-w-3xl text-[1.9rem] leading-[1.08] tracking-[-0.03em] text-white sm:text-[2.45rem] lg:text-[3.15rem]">
+                Пространство, где
+                <br />
+                <span className="bg-gradient-to-r from-white via-accentSoft to-cyanGlow bg-clip-text text-transparent">
+                  Lumina становится ближе
+                </span>
+              </h1>
+
+              <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/62 sm:text-[15px] sm:leading-8">
+                Закрытый клуб для тех, кто хочет видеть больше обычных соцсетей:
+                камерные материалы, атмосферные фото, личные видео и ощущение
+                настоящего присутствия рядом.
+              </p>
+
+              <div className="mx-auto mt-7 flex max-w-3xl items-center">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-accent/30 to-accent/10" />
+                <div className="mx-3 h-[3px] w-14 rounded-full bg-accent shadow-[0_0_20px_rgba(255,79,216,0.95)]" />
+                <div className="h-px flex-1 bg-gradient-to-l from-transparent via-accent/30 to-accent/10" />
+              </div>
+
+              <div className="mt-8 flex flex-col items-stretch gap-4 sm:items-center">
+                <Link
+                  href={clubHref}
+                  target={hasPrivateClubAccess ? "_blank" : undefined}
+                  rel={hasPrivateClubAccess ? "noreferrer" : undefined}
+                  className="inline-flex w-full items-center justify-center gap-3 rounded-[1.25rem] border border-accent/45 bg-gradient-to-r from-accent/80 via-[#c458f6] to-[#6f3ff4] px-5 py-3.5 text-base font-medium text-white shadow-[0_10px_40px_rgba(255,79,216,0.28)] transition hover:scale-[1.01] hover:brightness-110 sm:w-auto sm:min-w-[19rem]"
+                >
+                  <DiamondButtonIcon />
+                  <span>Перейти в закрытый клуб</span>
+                </Link>
+              </div>
+
+              <div className="mx-auto mt-8 max-w-4xl">
+                <p className="text-sm font-semibold uppercase tracking-[0.34em] text-accentSoft [text-shadow:0_0_18px_rgba(255,79,216,0.62)] sm:text-base">
+                  Мои соцсети
+                </p>
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-center">
+                  {socials.map((social) => (
+                    <a
+                      key={social.name}
+                      href={social.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group flex min-w-0 items-center gap-3 rounded-[1.1rem] border border-accent/40 bg-[linear-gradient(180deg,rgba(255,79,216,0.12),rgba(255,255,255,0.04))] px-3 py-3 text-white/92 shadow-[0_0_0_1px_rgba(255,79,216,0.08),0_0_26px_rgba(255,79,216,0.16)] transition hover:border-accent/65 hover:bg-[linear-gradient(180deg,rgba(255,79,216,0.18),rgba(109,223,255,0.08))] hover:shadow-[0_0_0_1px_rgba(255,79,216,0.15),0_0_34px_rgba(255,79,216,0.28)] sm:px-4"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-accent/45 bg-accent/14 text-accentSoft shadow-[0_0_24px_rgba(255,79,216,0.28)] sm:h-10 sm:w-10">
+                        {social.icon}
+                      </span>
+                      <span className="truncate text-sm font-medium [text-shadow:0_0_12px_rgba(255,79,216,0.15)]">
+                        {social.name}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative hidden overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-[4%] top-[18%] h-72 w-72 rounded-full bg-cyanGlow/8 blur-[110px]" />
           <div className="absolute right-[6%] top-[6%] h-80 w-80 rounded-full bg-accent/12 blur-[120px]" />
@@ -293,14 +394,14 @@ export default async function HomePage({
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <section className="hidden mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <div className="glass-card rounded-[30px] p-6 sm:p-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
                 Как это работает
               </p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">Как попасть в клуб</h2>
+              <h2 className="mt-3 text-2xl font-semibold text-white sm:text-[2rem]">Как попасть в клуб</h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-white/58">Всего 3 простых шага.</p>
           </div>
@@ -314,7 +415,7 @@ export default async function HomePage({
                 <p className="text-sm uppercase tracking-[0.24em] text-white/35">
                   {step.number}
                 </p>
-                <h3 className="mt-4 text-xl font-semibold text-white">{step.title}</h3>
+                <h3 className="mt-4 text-lg font-semibold text-white sm:text-[1.15rem]">{step.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-white/60">{step.text}</p>
               </div>
             ))}
@@ -328,10 +429,10 @@ export default async function HomePage({
             <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
               Уровни доступа
             </p>
-            <h2 className="mt-3 text-3xl font-semibold text-white sm:text-5xl">
+            <h2 className="mt-3 text-2xl font-semibold text-white sm:text-[2.8rem]">
               Выбери <span className="text-accentSoft">глубину</span> доступа
             </h2>
-            <p className="mt-5 text-base leading-8 text-white/58 sm:text-lg sm:leading-9">
+            <p className="mt-5 text-sm leading-7 text-white/58 sm:text-base sm:leading-8">
               Каждый уровень открывает больше редкого контента.
               <br />
               Доступ выдаётся вручную и только после личного подтверждения.
@@ -343,7 +444,7 @@ export default async function HomePage({
               <LockBadgeIcon />
             </div>
             <div>
-              <p className="text-lg font-medium text-accentSoft">
+              <p className="text-base font-medium text-accentSoft sm:text-lg">
                 Только для участников клуба
               </p>
               <p className="mt-1 text-base leading-7 text-white/48">
@@ -353,16 +454,126 @@ export default async function HomePage({
           </div>
         </div>
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-3">
+        <div className="mt-10 grid gap-6 lg:grid-cols-3 lg:items-stretch">
+          {sellingTierCards.map((tier) => (
+            <article
+              key={tier.tier}
+              className={`relative flex h-full flex-col overflow-hidden rounded-[30px] border bg-[#0a0b14] ${tier.glow} ${
+                tier.featured ? "lg:-translate-y-3 lg:scale-[1.02]" : ""
+              }`}
+            >
+              <div className="relative h-[230px] overflow-hidden border-b border-white/10 sm:h-[280px]">
+                <Image
+                  src={tier.image}
+                  alt={tier.name}
+                  fill
+                  priority={tier.tier === "Tier 1"}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-black/10 to-[#0a0b14]" />
+                <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-5 sm:p-6">
+                  <p className="text-[11px] uppercase tracking-[0.32em] text-white/78">{tier.tier}</p>
+                  <span
+                    className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] ${
+                      tier.featured
+                        ? "border-accent/45 bg-accent/18 text-accentSoft shadow-[0_0_22px_rgba(255,79,216,0.22)]"
+                        : tier.tier === "Tier 3"
+                          ? "border-cyanGlow/35 bg-cyanGlow/12 text-cyanGlow"
+                          : "border-white/15 bg-black/25 text-white/72"
+                    }`}
+                  >
+                    {tier.badge}
+                  </span>
+                </div>
+                <div className="absolute bottom-5 left-5 sm:left-6">
+                  <div
+                    className={`flex h-14 w-14 items-center justify-center rounded-full border backdrop-blur-md ${tier.lockTone}`}
+                  >
+                    <LockBadgeIcon />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-1 flex-col px-5 pb-6 pt-5 sm:px-6 sm:pb-7">
+                <div className="border-b border-white/10 pb-5">
+                  <div className="flex items-end justify-between gap-4">
+                    <h3 className="text-[1.5rem] font-semibold leading-tight text-white sm:text-[1.8rem]">
+                      {tier.name}
+                    </h3>
+                    {tier.featured ? (
+                      <span className="rounded-full border border-accent/35 bg-accent/12 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-accentSoft">
+                        Рекомендуем
+                      </span>
+                    ) : null}
+                  </div>
+                  <p
+                    className={`mt-3 text-lg font-medium ${
+                      tier.tier === "Tier 3" ? "text-cyanGlow" : "text-accentSoft"
+                    }`}
+                  >
+                    {tier.price}
+                  </p>
+                  <p className="mt-4 text-[15px] leading-7 text-white/78">{tier.summary}</p>
+                </div>
+
+                <div className="mt-5 rounded-[22px] border border-white/10 bg-white/[0.03] px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-white/38">Подходит, если ты хочешь</p>
+                  <p className="mt-3 text-sm leading-7 text-white/86 sm:text-[15px]">{tier.fit}</p>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-2.5">
+                  {tier.points.map((point) => (
+                    <span
+                      key={point}
+                      className={`inline-flex items-center rounded-full border px-3 py-2 text-sm ${
+                        tier.tier === "Tier 3"
+                          ? "border-cyanGlow/20 bg-cyanGlow/8 text-cyanGlow"
+                          : tier.featured
+                            ? "border-accent/30 bg-accent/10 text-accentSoft"
+                            : "border-white/12 bg-white/[0.03] text-white/70"
+                      }`}
+                    >
+                      {point}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-6 flex flex-1 flex-col justify-end gap-4">
+                  <Link
+                    href="#invitation-request"
+                    className={`inline-flex min-h-[56px] items-center justify-center rounded-[1.1rem] px-5 text-center text-base font-semibold text-white transition hover:brightness-110 ${
+                      tier.tier === "Tier 3"
+                        ? "border border-cyanGlow/35 bg-gradient-to-r from-[#4e77ff] via-[#8b6cff] to-[#f05ed2] shadow-[0_0_28px_rgba(109,223,255,0.18)]"
+                        : tier.featured
+                          ? "border border-accent/45 bg-gradient-to-r from-accent via-[#d355f6] to-[#8a52ff] shadow-[0_0_34px_rgba(255,79,216,0.28)]"
+                          : "border border-accent/30 bg-white/[0.05] shadow-[0_0_22px_rgba(255,79,216,0.12)]"
+                    }`}
+                  >
+                    {tier.cta}
+                  </Link>
+                  <p className="text-center text-sm leading-6 text-white/48">{tier.note}</p>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="hidden mt-10 grid gap-6 lg:grid-cols-3">
           {tierCards.map((tier) => (
             <div
               key={tier.tier}
               className={`relative overflow-hidden rounded-[30px] border bg-[#0a0b14] ${tier.glow}`}
             >
-              <div
-                className="relative h-[260px] overflow-hidden border-b border-white/10 bg-cover bg-center sm:h-[320px]"
-                style={{ backgroundImage: `url('${tier.image}')` }}
-              >
+              <div className="relative h-[260px] overflow-hidden border-b border-white/10 sm:h-[320px]">
+                <Image
+                  src={tier.image}
+                  alt={tier.name}
+                  fill
+                  priority={tier.tier === "Tier 1"}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="object-cover"
+                />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#0a0b14]" />
                 <div className="absolute inset-x-0 top-0 flex items-start justify-between p-6">
                   <p className="text-sm uppercase tracking-[0.32em] text-white/82">
@@ -380,7 +591,7 @@ export default async function HomePage({
 
               <div className="px-5 pb-6 pt-5 sm:px-7 sm:pb-7">
                 <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
-                  <h3 className="text-[1.7rem] font-semibold leading-tight text-white sm:text-[2rem]">
+                  <h3 className="text-[1.45rem] font-semibold leading-tight text-white sm:text-[1.75rem]">
                     {tier.name}
                   </h3>
                   <p
@@ -394,7 +605,7 @@ export default async function HomePage({
 
                 <div className="mt-5 space-y-4">
                   {tier.points.map((point, index) => (
-                    <div key={point} className="flex items-start gap-3 text-base text-white/84 sm:text-lg">
+                    <div key={point} className="flex items-start gap-3 text-sm text-white/84 sm:text-base">
                       <span
                         className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
                           tier.tier === "Tier 3"
@@ -463,8 +674,8 @@ export default async function HomePage({
                   {item.icon}
                 </div>
                 <div>
-                  <p className="text-lg font-medium text-accentSoft">{item.title}</p>
-                  <p className="mt-1 text-lg leading-8 text-white/55">{item.text}</p>
+                  <p className="text-base font-medium text-accentSoft sm:text-lg">{item.title}</p>
+                  <p className="mt-1 text-base leading-7 text-white/55 sm:text-[1.05rem]">{item.text}</p>
                 </div>
               </div>
             ))}
@@ -478,12 +689,12 @@ export default async function HomePage({
                 Закрытый вход
               </p>
               <h3
-                className="mt-3 text-[1.9rem] leading-[1.08] text-white sm:text-[2.6rem]"
+                className="mt-3 text-[1.65rem] leading-[1.08] text-white sm:text-[2.2rem]"
                 style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
               >
                 Хочешь попасть внутрь?
               </h3>
-              <p className="mt-4 text-base leading-7 text-white/62 sm:text-lg sm:leading-8">
+              <p className="mt-4 text-sm leading-7 text-white/62 sm:text-base sm:leading-8">
                 Оставь короткий запрос, и я сама свяжусь с тобой удобным способом.
               </p>
             </div>
@@ -507,20 +718,37 @@ export default async function HomePage({
                 Запрос на приглашение
               </p>
               <h3
-                className="mt-4 text-[1.9rem] leading-[1.08] text-white sm:text-[2.6rem]"
+                className="mt-4 text-[1.65rem] leading-[1.08] text-white sm:text-[2.2rem]"
                 style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
               >
                 Расскажи, как
                 <br />
                 с тобой связаться
               </h3>
-              <p className="mt-4 max-w-xl text-lg leading-8 text-white/62">
+              <p className="mt-4 max-w-xl text-base leading-7 text-white/62 sm:text-[1.05rem]">
                 Эти данные попадут только в мой рабочий кабинет. После этого я смогу
                 написать тебе лично и обсудить детали доступа.
               </p>
+              <div className="mt-7 grid max-w-xl gap-3">
+                {steps.map((step) => (
+                  <div
+                    key={step.number}
+                    className="flex items-start gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.03] px-4 py-3"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/35 bg-accent/10 text-[11px] font-semibold tracking-[0.22em] text-accentSoft">
+                      {step.number}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">{step.title}</p>
+                      <p className="mt-1 text-sm leading-6 text-white/55">{step.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="rounded-[26px] border border-white/10 bg-black/20 p-5 sm:p-6">
+            <div className="space-y-6">
+              <div className="rounded-[26px] border border-white/10 bg-black/20 p-5 sm:p-6">
               {inviteRequestSent ? (
                 <div className="mb-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
                   Запрос отправлен. Я увижу его в админке и свяжусь с тобой по указанным данным.
@@ -628,96 +856,8 @@ export default async function HomePage({
             </div>
           </div>
         </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-          <div className="glass-card rounded-[30px] border-accent/20 p-6 sm:p-8">
-            <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
-              Что внутри
-            </p>
-            <h2
-              className="mt-4 max-w-3xl text-[2rem] leading-[1.08] text-white sm:text-[3.25rem]"
-              style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-            >
-              Не просто посты,
-              <br />а <span className="text-accentSoft">закрытая атмосфера</span>
-            </h2>
-
-            <div className="mt-8 space-y-4">
-              {insideItems.map((item) => (
-                <div
-                  key={item.number}
-                  className="flex flex-col items-start gap-4 rounded-[26px] border border-accent/30 bg-[linear-gradient(180deg,rgba(255,79,216,0.04),rgba(255,255,255,0.01))] px-4 py-4 sm:flex-row sm:items-center sm:gap-5 sm:px-5 sm:py-5"
-                >
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-accent/45 bg-accent/10 text-accentSoft shadow-[0_0_30px_rgba(255,79,216,0.16)] sm:h-28 sm:w-28">
-                    <span className="scale-125">{item.icon}</span>
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <h3
-                      className="text-[1.5rem] leading-tight text-white sm:text-[2rem]"
-                      style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-                    >
-                      {item.title}
-                    </h3>
-                    <p className="mt-3 max-w-xl text-base leading-7 text-white/58 sm:text-lg sm:leading-9">
-                      {item.text}
-                    </p>
-                  </div>
-
-                  <div className="shrink-0 text-[2.7rem] leading-none text-accent/20 sm:pl-2 sm:text-[4.8rem]">
-                    {item.number}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="glass-card rounded-[30px] border-accent/20 p-6 sm:p-8">
-            <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
-              Почему это интересно
-            </p>
-            <h2
-              className="mt-4 max-w-2xl text-[2rem] leading-[1.08] text-white sm:text-[3.1rem]"
-              style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-            >
-              Ценность, которая
-              <br />
-              остаётся <span className="text-accentSoft">внутри клуба</span>
-            </h2>
-
-            <div className="mt-8">
-              {reasons.map((reason, index) => (
-                <div
-                  key={reason.title}
-                  className={`flex flex-col gap-4 py-5 sm:flex-row sm:gap-6 sm:py-6 ${
-                    index < reasons.length - 1 ? "border-b border-white/10" : ""
-                  }`}
-                >
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-accent/45 bg-accent/10 text-accentSoft shadow-[0_0_30px_rgba(255,79,216,0.14)] sm:h-28 sm:w-28">
-                    <span className="scale-[1.35]">{reason.icon}</span>
-                  </div>
-
-                  <div className="relative min-w-0 flex-1 border-t border-white/10 pt-4 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0">
-                    <div className="absolute left-1 top-[-5px] h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_16px_rgba(255,79,216,0.95)] sm:left-[-5px] sm:top-1/2 sm:-translate-y-1/2" />
-                    <h3
-                      className="max-w-xl text-[1.45rem] leading-tight text-white sm:text-[1.9rem]"
-                      style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-                    >
-                      {reason.title}
-                    </h3>
-                    <p className="mt-3 max-w-xl text-base leading-7 text-white/58 sm:text-lg sm:leading-9">
-                      {reason.text}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
-
       <section className="mx-auto max-w-6xl px-4 pb-24 pt-10 sm:px-6">
         <div className="glass-card relative overflow-hidden rounded-[34px] p-8 shadow-glow sm:p-10">
           <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-accent/10 to-transparent" />
@@ -726,7 +866,7 @@ export default async function HomePage({
               <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
                 Final CTA
               </p>
-              <h2 className="mt-3 text-2xl font-semibold text-white sm:text-4xl">
+              <h2 className="mt-3 text-xl font-semibold text-white sm:text-[2rem]">
                 Если тебе нравится мой контент — ты точно захочешь увидеть больше
               </h2>
               <p className="mt-4 text-base leading-7 text-white/65">
@@ -897,15 +1037,6 @@ function PhotoIcon() {
       <rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.8" />
       <path d="m7 15 3-3 2.5 2.5L15 12l2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <circle cx="9" cy="9.5" r="1.2" fill="currentColor" />
-    </svg>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="4.5" y="4.5" width="15" height="15" rx="3" stroke="currentColor" strokeWidth="1.8" />
-      <path d="m10 9 5 3-5 3V9Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
     </svg>
   );
 }

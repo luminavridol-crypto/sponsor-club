@@ -8,6 +8,7 @@ import { AdminChatComposer } from "@/components/chat/admin-chat-composer";
 import { MessageThread } from "@/components/chat/message-thread";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { requireAdmin } from "@/lib/auth/guards";
+import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import {
   cleanupOldChatMessages,
   getAdminUnreadChatProfileIds,
@@ -86,6 +87,13 @@ export default async function AdminChatPage({
   ]);
 
   const users = (usersData ?? []) as Profile[];
+  const avatarMap = await getSignedAvatarUrls(
+    users.map((user) => user.avatar_url).filter((path): path is string => Boolean(path))
+  );
+  const usersWithAvatars = users.map((user) => ({
+    ...user,
+    avatar_url: user.avatar_url ? avatarMap[user.avatar_url] ?? user.avatar_url : null
+  }));
   const latestMessageByProfile = new Map<string, MemberChatMessage>();
 
   for (const row of (chatIndexRows ?? []) as MemberChatMessage[]) {
@@ -94,7 +102,7 @@ export default async function AdminChatPage({
     }
   }
 
-  const usersSorted = [...users].sort((left, right) => {
+  const usersSorted = [...usersWithAvatars].sort((left, right) => {
     const leftMessage = latestMessageByProfile.get(left.id);
     const rightMessage = latestMessageByProfile.get(right.id);
 

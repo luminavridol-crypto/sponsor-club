@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { UserCard } from "@/components/admin/user-card";
 import { requireAdmin } from "@/lib/auth/guards";
+import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { DonationEvent, MemberChatMessage, Profile } from "@/lib/types";
 import { getVipProgress } from "@/lib/utils/vip";
@@ -52,6 +53,13 @@ export default async function AdminUsersPage() {
   ]);
 
   const users = sortUsers(((profilesData ?? []) as Profile[]).filter((user) => user.role !== "admin"));
+  const avatarMap = await getSignedAvatarUrls(
+    users.map((user) => user.avatar_url).filter((path): path is string => Boolean(path))
+  );
+  const usersWithAvatars = users.map((user) => ({
+    ...user,
+    avatar_url: user.avatar_url ? avatarMap[user.avatar_url] ?? user.avatar_url : null
+  }));
   const donationEvents = (donationEventsData ?? []) as DonationEvent[];
   const chatMessages = (chatMessagesData ?? []) as MemberChatMessage[];
   const donationMap = new Map<string, DonationEvent[]>();
@@ -90,7 +98,7 @@ export default async function AdminUsersPage() {
           </div>
         </section>
 
-        {users.map((user) => (
+        {usersWithAvatars.map((user) => (
           <UserCard
             key={`${user.id}-${user.tier}-${user.access_expires_at ?? "none"}-${(user.admin_badges ?? []).join(",")}`}
             user={user}

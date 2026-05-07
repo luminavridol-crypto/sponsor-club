@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   deleteAllChatAction,
   deleteAllInvitesAction,
@@ -8,13 +9,15 @@ import {
   deleteOrphanMediaAction,
   deletePostAction,
   deletePurchaseRequestAction,
-  deleteUserChatAction
+  deleteUserChatAction,
+  updateProfileAction
 } from "@/app/actions";
 import { BirthdayCalendar } from "@/components/admin/birthday-calendar";
 import { CleanupCheckForm } from "@/components/admin/cleanup-check-form";
 import { CleanupSections } from "@/components/admin/cleanup-sections";
 import { PrivateShell } from "@/components/layout/private-shell";
 import { requireAdmin } from "@/lib/auth/guards";
+import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import { getBucketStorageUsage, getOrphanedStorageReport } from "@/lib/data/storage-cleanup";
 import { getR2StorageUsage } from "@/lib/r2/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -116,6 +119,8 @@ function CompactAnalyticsRow({
 export default async function AdminDashboardPage() {
   const profile = await requireAdmin();
   const admin = createAdminSupabaseClient();
+  const avatarMap = await getSignedAvatarUrls(profile.avatar_url ? [profile.avatar_url] : []);
+  const avatarUrl = profile.avatar_url ? avatarMap[profile.avatar_url] ?? null : null;
   const nowIso = new Date().toISOString();
   const monthStart = startOfCurrentMonthUtc();
   const { donationYear, donationMonth } = currentDonationPeriod();
@@ -451,6 +456,36 @@ export default async function AdminDashboardPage() {
             </div>
           </div>
         </div>
+
+        <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+          <p className="text-xs uppercase tracking-[0.28em] text-cyanGlow">Admin Profile</p>
+          <h3 className="mt-2 text-2xl font-semibold text-white">Твой аватар и имя</h3>
+          <form action={updateProfileAction} className="mt-5 grid gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center">
+            <div>
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt={profile.display_name || profile.email}
+                  width={96}
+                  height={96}
+                  unoptimized
+                  className="h-24 w-24 rounded-full border border-white/10 object-cover"
+                />
+              ) : (
+                <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/10 bg-accent/15 text-3xl font-semibold text-white">
+                  {(profile.display_name || profile.email).slice(0, 1).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-4">
+              <input name="displayName" defaultValue={profile.display_name ?? ""} placeholder="Отображаемое имя" />
+              <input name="avatar" type="file" accept="image/*" />
+              <button className="w-full rounded-2xl bg-white px-5 py-3 text-sm font-medium text-background transition hover:bg-goldSoft sm:w-fit">
+                Сохранить профиль
+              </button>
+            </div>
+          </form>
+        </section>
 
         <BirthdayCalendar birthdays={birthdayPeople} />
 

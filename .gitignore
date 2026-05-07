@@ -6,3 +6,5 @@ coverage
 dist
 dev-server.log
 start-server.log
+start-server.err.log
+.local

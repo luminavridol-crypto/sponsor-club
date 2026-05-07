@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import {
   addUserDonationAction,
@@ -192,19 +193,35 @@ export function UserCard({
     <article className="rounded-[24px] border border-white/10 bg-white/5 p-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0 space-y-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-white">
-              {user.display_name || "Без имени"}
-              {user.role === "admin" ? " • admin" : ""}
-            </h3>
-            <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accentSoft">
-              {TIER_LABELS[user.tier]}
-            </span>
-            {isVipMember ? (
-              <span className="rounded-full border border-cyanGlow/30 bg-cyanGlow/10 px-3 py-1 text-xs font-medium text-cyanGlow">
-                VIP {vip.current.level}
+          <div className="flex flex-wrap items-center gap-4">
+            {user.avatar_url ? (
+              <Image
+                src={user.avatar_url}
+                alt={user.display_name || user.email}
+                width={64}
+                height={64}
+                unoptimized
+                className="h-16 w-16 rounded-full border border-white/10 object-cover"
+              />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-accent/15 text-2xl font-semibold text-white">
+                {(user.display_name || user.email).slice(0, 1).toUpperCase()}
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg font-semibold text-white">
+                {user.display_name || "Без имени"}
+                {user.role === "admin" ? " • admin" : ""}
+              </h3>
+              <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accentSoft">
+                {TIER_LABELS[user.tier]}
               </span>
-            ) : null}
+              {isVipMember ? (
+                <span className="rounded-full border border-cyanGlow/30 bg-cyanGlow/10 px-3 py-1 text-xs font-medium text-cyanGlow">
+                  VIP {vip.current.level}
+                </span>
+              ) : null}
+            </div>
           </div>
 
           <p className="text-sm text-white/55">{user.email}</p>
@@ -360,6 +377,11 @@ export function UserCard({
                   defaultValue={user.tiktok_contact ?? ""}
                   placeholder="Ссылка или ник"
                 />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-white/60">Аватар</label>
+                <input name="avatar" type="file" accept="image/*" />
               </div>
 
               <div>
