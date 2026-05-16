@@ -22,6 +22,8 @@ function buildPreviewSrc() {
 }
 
 export function ViewModeShell({ children }: { children: ReactNode }) {
+  const isProduction = process.env.NODE_ENV === "production";
+
   const hostRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") {
@@ -49,15 +51,15 @@ export function ViewModeShell({ children }: { children: ReactNode }) {
   const [iframeSrc, setIframeSrc] = useState(() => buildPreviewSrc());
 
   useEffect(() => {
-    if (isEmbed) {
+    if (isProduction || isEmbed) {
       return;
     }
 
     window.localStorage.setItem(STORAGE_KEY, mode);
-  }, [isEmbed, mode]);
+  }, [isEmbed, isProduction, mode]);
 
   useEffect(() => {
-    if (isEmbed || !hostRef.current) {
+    if (isProduction || isEmbed || !hostRef.current) {
       return;
     }
 
@@ -91,9 +93,9 @@ export function ViewModeShell({ children }: { children: ReactNode }) {
       resizeObserver.disconnect();
       window.removeEventListener("resize", updateMetrics);
     };
-  }, [isEmbed, mode]);
+  }, [isEmbed, isProduction, mode]);
 
-  if (isEmbed) {
+  if (isProduction || isEmbed) {
     return <>{children}</>;
   }
 

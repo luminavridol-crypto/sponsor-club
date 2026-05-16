@@ -25,56 +25,12 @@ const steps = [
   }
 ];
 
-const tierCards = [
-  {
-    tier: "Tier 1",
-    name: "Наблюдатель",
-    image: "/tiers/tier-1.jpg",
-    glow: "border-accent/25 shadow-glow",
-    lockTone: "border-accent/35 bg-accent/12 text-accentSoft",
-    points: [
-      "Первый уровень закрытого клуба",
-      "Материалы с ограниченным доступом",
-      "Более камерная атмосфера",
-      "Мягкое знакомство с внутренним пространством"
-    ]
-  },
-  {
-    tier: "Tier 2",
-    name: "Приближённый",
-    image: "/tiers/tier-2.jpg",
-    glow: "border-accent/35 shadow-glow",
-    lockTone: "border-accent/40 bg-accent/14 text-accentSoft",
-    points: [
-      "Более глубокий уровень клуба",
-      "Расширенный доступ к внутренним материалам",
-      "Больше закрытого пространства",
-      "Формат для тех, кто хочет быть ближе",
-      "Дополнительные клубные возможности"
-    ]
-  },
-  {
-    tier: "Tier 3",
-    name: "VIP",
-    image: "/tiers/tier-3.jpg",
-    glow: "border-cyanGlow/30 shadow-cyan",
-    lockTone: "border-cyanGlow/35 bg-cyanGlow/12 text-cyanGlow",
-    points: [
-      "Самый высокий уровень доступа",
-      "Особый статус внутри клуба",
-      "Максимальная глубина закрытого пространства",
-      "Отдельные клубные возможности",
-      "Формат для самых близких участников"
-    ]
-  }
-];
-
 const sellingTierCards = [
   {
     tier: "Tier 1",
     name: "Наблюдатель",
     price: "10 EUR / месяц",
-    image: "/tiers/tier-1.jpg",
+    image: "/tiers/tier-1-small.jpg",
     glow: "border-accent/20 shadow-glow",
     lockTone: "border-accent/35 bg-accent/12 text-accentSoft",
     badge: "Лёгкий вход",
@@ -89,7 +45,7 @@ const sellingTierCards = [
     tier: "Tier 2",
     name: "Приближённый",
     price: "25 EUR / месяц",
-    image: "/tiers/tier-2.jpg",
+    image: "/tiers/tier-2-small.jpg",
     glow: "border-accent/35 shadow-glow ring-1 ring-accent/40",
     lockTone: "border-accent/40 bg-accent/14 text-accentSoft",
     badge: "Лучший выбор",
@@ -105,7 +61,7 @@ const sellingTierCards = [
     tier: "Tier 3",
     name: "VIP",
     price: "50 EUR / месяц",
-    image: "/tiers/tier-3.jpg",
+    image: "/tiers/tier-3-small.jpg",
     glow: "border-cyanGlow/28 shadow-cyan",
     lockTone: "border-cyanGlow/35 bg-cyanGlow/12 text-cyanGlow",
     badge: "Максимальная глубина",
@@ -309,120 +265,6 @@ export default async function HomePage({
         </div>
       </section>
 
-      <section className="relative hidden overflow-hidden">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-[4%] top-[18%] h-72 w-72 rounded-full bg-cyanGlow/8 blur-[110px]" />
-          <div className="absolute right-[6%] top-[6%] h-80 w-80 rounded-full bg-accent/12 blur-[120px]" />
-          <div className="absolute bottom-[12%] left-[8%] h-60 w-60 rounded-full bg-accent/10 blur-[110px]" />
-          <div className="absolute bottom-0 right-[10%] h-72 w-72 rounded-full bg-cyanGlow/6 blur-[120px]" />
-        </div>
-
-        <div className="relative mx-auto max-w-[96rem] px-4 pb-16 pt-10 sm:px-6 sm:pb-20 sm:pt-14">
-          <div className="relative overflow-hidden rounded-[2.2rem] border border-accent/18 bg-[#060711]/92 px-6 py-12 shadow-glow sm:px-10 sm:py-16 lg:px-16 lg:py-20">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,79,216,0.13),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,79,216,0.08),transparent_20%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
-            <div className="pointer-events-none absolute -right-12 top-14 h-80 w-80 rounded-full border border-accent/15" />
-            <div className="pointer-events-none absolute -left-24 bottom-[-7rem] h-64 w-64 rounded-full border border-accent/10" />
-
-            <div className="relative mx-auto max-w-5xl text-center">
-              <div className="inline-flex max-w-full items-center gap-3 rounded-full border border-accent/45 bg-accent/8 px-4 py-3 text-[11px] uppercase tracking-[0.24em] text-accentSoft sm:px-7 sm:text-sm sm:tracking-[0.42em]">
-                <LockBadgeIcon />
-                <span className="truncate">Закрытый клуб Lumina</span>
-              </div>
-
-              <h1
-                className="mt-8 text-[2.15rem] leading-[1.04] tracking-[-0.03em] text-white sm:mt-10 sm:text-[3.3rem] lg:text-[5rem]"
-                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-              >
-                Закрытый клуб
-                <br />
-                с{" "}
-                <span className="bg-gradient-to-r from-accentSoft via-accent to-white bg-clip-text text-transparent">
-                  эксклюзивным контентом
-                </span>
-              </h1>
-
-              <p className="mt-6 text-[11px] uppercase tracking-[0.22em] text-white/50 sm:mt-7 sm:text-base sm:tracking-[0.42em]">
-                недоступным в открытых соцсетях
-              </p>
-
-              <div className="mx-auto mt-10 flex max-w-4xl items-center">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-accent/30 to-accent/10" />
-                <div className="mx-3 h-[3px] w-14 rounded-full bg-accent shadow-[0_0_20px_rgba(255,79,216,0.95)]" />
-                <div className="h-px flex-1 bg-gradient-to-l from-transparent via-accent/30 to-accent/10" />
-              </div>
-
-              <div className="mx-auto mt-8 max-w-3xl space-y-2 text-base leading-8 text-white/68 sm:mt-10 sm:text-[2rem] sm:leading-[1.5]">
-                <p>Доступ по приглашению.</p>
-                <p>Редкие фото, видео и личные материалы.</p>
-              </div>
-
-              <div className="mt-10 flex flex-col items-stretch justify-center gap-4 sm:mt-12 sm:items-center sm:flex-row">
-                <Link
-                  href={clubHref}
-                  target={hasPrivateClubAccess ? "_blank" : undefined}
-                  rel={hasPrivateClubAccess ? "noreferrer" : undefined}
-                  className="inline-flex w-full items-center justify-center gap-4 rounded-[1.35rem] border border-accent/45 bg-gradient-to-r from-accent/80 via-[#c458f6] to-[#6f3ff4] px-5 py-4 text-lg font-medium text-white shadow-[0_10px_40px_rgba(255,79,216,0.28)] transition hover:scale-[1.01] hover:brightness-110 sm:min-w-[19rem] sm:px-7 sm:py-5 sm:text-xl"
-                >
-                  <DiamondButtonIcon />
-                  <span>Закрытый клуб</span>
-                </Link>
-              </div>
-
-              <div className="mx-auto mt-10 max-w-4xl">
-                <p className="text-xs uppercase tracking-[0.32em] text-white/38">
-                  Мои соцсети
-                </p>
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-center">
-                  {socials.map((social) => (
-                    <a
-                      key={social.name}
-                      href={social.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="group flex min-w-0 items-center gap-3 rounded-[1.15rem] border border-accent/20 bg-white/[0.03] px-3 py-3 text-white/82 transition hover:border-accent/45 hover:bg-white/[0.05] sm:rounded-[1.35rem] sm:px-4"
-                    >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 text-accentSoft shadow-[0_0_22px_rgba(255,79,216,0.15)] sm:h-11 sm:w-11">
-                        {social.icon}
-                      </span>
-                      <span className="truncate text-sm sm:text-base">{social.name}</span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="hidden mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <div className="glass-card rounded-[30px] p-6 sm:p-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">
-                Как это работает
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold text-white sm:text-[2rem]">Как попасть в клуб</h2>
-            </div>
-            <p className="max-w-xl text-sm leading-6 text-white/58">Всего 3 простых шага.</p>
-          </div>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {steps.map((step) => (
-              <div
-                key={step.number}
-                className="rounded-[26px] border border-white/10 bg-white/[0.03] p-5"
-              >
-                <p className="text-sm uppercase tracking-[0.24em] text-white/35">
-                  {step.number}
-                </p>
-                <h3 className="mt-4 text-lg font-semibold text-white sm:text-[1.15rem]">{step.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-white/60">{step.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section id="tiers" className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-2xl">
@@ -556,108 +398,6 @@ export default async function HomePage({
                 </div>
               </div>
             </article>
-          ))}
-        </div>
-
-        <div className="hidden mt-10 grid gap-6 lg:grid-cols-3">
-          {tierCards.map((tier) => (
-            <div
-              key={tier.tier}
-              className={`relative overflow-hidden rounded-[30px] border bg-[#0a0b14] ${tier.glow}`}
-            >
-              <div className="relative h-[260px] overflow-hidden border-b border-white/10 sm:h-[320px]">
-                <Image
-                  src={tier.image}
-                  alt={tier.name}
-                  fill
-                  priority={tier.tier === "Tier 1"}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-[#0a0b14]" />
-                <div className="absolute inset-x-0 top-0 flex items-start justify-between p-6">
-                  <p className="text-sm uppercase tracking-[0.32em] text-white/82">
-                    {tier.tier}
-                  </p>
-                </div>
-                <div className="absolute bottom-5 left-1/2 -translate-x-1/2">
-                  <div
-                    className={`flex h-16 w-16 items-center justify-center rounded-full border backdrop-blur-md ${tier.lockTone}`}
-                  >
-                    <LockBadgeIcon />
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-5 pb-6 pt-5 sm:px-7 sm:pb-7">
-                <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
-                  <h3 className="text-[1.45rem] font-semibold leading-tight text-white sm:text-[1.75rem]">
-                    {tier.name}
-                  </h3>
-                  <p
-                    className={`text-sm uppercase tracking-[0.24em] ${
-                      tier.tier === "Tier 3" ? "text-cyanGlow" : "text-accentSoft"
-                    }`}
-                  >
-                    закрытый уровень
-                  </p>
-                </div>
-
-                <div className="mt-5 space-y-4">
-                  {tier.points.map((point, index) => (
-                    <div key={point} className="flex items-start gap-3 text-sm text-white/84 sm:text-base">
-                      <span
-                        className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
-                          tier.tier === "Tier 3"
-                            ? "border-cyanGlow/35 text-cyanGlow"
-                            : "border-accent/35 text-accentSoft"
-                        }`}
-                      >
-                        {tier.tier === "Tier 1" ? (
-                          index === 0 ? (
-                            <ClockIcon />
-                          ) : index === 1 ? (
-                            <LockMiniIcon />
-                          ) : index === 2 ? (
-                            <CameraIcon />
-                          ) : (
-                            <StoryIcon />
-                          )
-                        ) : tier.tier === "Tier 2" ? (
-                          index === 0 ? (
-                            <ClockIcon />
-                          ) : index === 1 ? (
-                            <PhotoIcon />
-                          ) : index === 2 ? (
-                            <LockMiniIcon />
-                          ) : index === 3 ? (
-                            <StarIcon />
-                          ) : (
-                            <ChatIcon />
-                          )
-                        ) : index === 0 ? (
-                          <CrownIcon />
-                        ) : index === 1 ? (
-                          <DiamondMiniIcon />
-                        ) : index === 2 ? (
-                          <InfinityIcon />
-                        ) : index === 3 ? (
-                          <HeartIcon />
-                        ) : (
-                          <PhoneIcon />
-                        )}
-                      </span>
-                      <span>{point}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-8 flex items-center justify-center gap-2 text-base text-white/38">
-                  <LockMiniIcon />
-                  <span>И многое, что не публикуется открыто</span>
-                </div>
-              </div>
-            </div>
           ))}
         </div>
 
@@ -981,101 +721,6 @@ function DiamondMiniIcon() {
         strokeLinejoin="round"
       />
       <path d="M4 8h16M9.4 5 12 8l2.6-3" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M12 7.5v5l3.2 1.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function LockMiniIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M8.5 10V8.7A3.5 3.5 0 0 1 12 5.2a3.5 3.5 0 0 1 3.5 3.5V10"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <rect x="6.5" y="10" width="11" height="8.8" rx="1.8" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function CameraIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M4 8.5h3l1.3-2h7.4l1.3 2h3v10H4v-10Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="13.5" r="3" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function StoryIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 5.5h10v13H7z" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M10 9h4M10 13h4M10 17h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function PhotoIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="m7 15 3-3 2.5 2.5L15 12l2 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="9" cy="9.5" r="1.2" fill="currentColor" />
-    </svg>
-  );
-}
-
-function ChatIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M6 17.5V19l2.4-1.5H17a3 3 0 0 0 3-3v-5a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v5a3 3 0 0 0 2 2.8Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function InfinityIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M9 15.5c-1.8 0-3.5-1.4-3.5-3.5S7.2 8.5 9 8.5c3.7 0 3.3 7 6 7 1.8 0 3.5-1.4 3.5-3.5S16.8 8.5 15 8.5c-2.7 0-2.3 7-6 7Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function PhoneIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M7.5 5.5c.6-.4 2.4-.6 3 .2l1 2c.4.7.2 1.5-.4 2l-1 1c1 2 2.6 3.6 4.6 4.6l1-1c.5-.6 1.3-.8 2-.4l2 1c.8.6.6 2.4.2 3-.5 1-1.6 1.6-2.7 1.5-7.3-.7-13.1-6.5-13.8-13.8-.1-1.1.5-2.2 1.5-2.7Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
     </svg>
   );
 }
