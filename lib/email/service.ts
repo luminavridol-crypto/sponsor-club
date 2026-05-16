@@ -79,14 +79,23 @@ function formatDate(value?: string | null) {
   });
 }
 
-function replaceTemplateTokens(template: string, recipient: EmailRecipient) {
+function replaceTemplateTokens(
+  template: string,
+  recipient: EmailRecipient,
+  metadata?: Record<string, unknown>
+) {
+  const postUrl = typeof metadata?.post_url === "string" ? metadata.post_url : `${getEmailConfig().siteUrl}/club`;
+  const postTitle = typeof metadata?.post_title === "string" ? metadata.post_title : "новый пост";
+
   return template
     .replaceAll("{{name}}", recipient.displayName?.trim() || recipient.email)
     .replaceAll("{{email}}", recipient.email)
     .replaceAll("{{tier}}", tierLabel(recipient.tier))
     .replaceAll("{{expires_at}}", formatDate(recipient.accessExpiresAt) || "скоро")
     .replaceAll("{{days_left}}", String(recipient.daysLeft ?? "несколько"))
-    .replaceAll("{{club_url}}", `${getEmailConfig().siteUrl}/club`);
+    .replaceAll("{{club_url}}", `${getEmailConfig().siteUrl}/club`)
+    .replaceAll("{{post_url}}", postUrl)
+    .replaceAll("{{post_title}}", postTitle);
 }
 
 function renderHtml(subject: string, text: string) {
@@ -184,8 +193,8 @@ export async function sendEmailCampaign(input: SendEmailCampaignInput) {
   const deliveries: CampaignDeliveryResult[] = [];
 
   for (const recipient of uniqueRecipients) {
-    const subject = replaceTemplateTokens(input.subject, recipient);
-    const text = replaceTemplateTokens(input.body, recipient);
+      const subject = replaceTemplateTokens(input.subject, recipient, input.metadata);
+      const text = replaceTemplateTokens(input.body, recipient, input.metadata);
     const html = renderHtml(subject, text);
 
     let result: DeliveryAttemptResult;

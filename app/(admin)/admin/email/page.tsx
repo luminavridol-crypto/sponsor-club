@@ -72,7 +72,6 @@ export default async function AdminEmailPage({
     typeof params.post === "string" && params.post.length > 0 ? params.post : "";
 
   const settings = await getAccessExpiryEmailSettings();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const emailConfig = getEmailConfig();
   const emailState = await readEmailLocalState();
   const nowIso = new Date().toISOString();
@@ -113,7 +112,7 @@ export default async function AdminEmailPage({
     ?? (selectedPost
     ? `Привет, {{name}}!\n\nВ клубе вышел новый пост: ${selectedPost.title}.\n${
         selectedPost.description ? `${selectedPost.description}\n\n` : "\n"
-      }Открыть пост: ${siteUrl}/club/${selectedPost.slug}\n\nДо встречи внутри клуба.`
+      }Открыть пост: {{post_url}}\n\nДо встречи внутри клуба.`
     : "Привет, {{name}}!\n\nВ клубе появился новый материал.\n\nОткрыть клуб: {{club_url}}");
 
   const defaultManualBody =

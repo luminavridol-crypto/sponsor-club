@@ -475,6 +475,8 @@ export async function sendPostEmailCampaignAction(formData: FormData) {
     recipients,
     metadata: {
       post_slug: post.slug,
+      post_title: post.title,
+      post_url: `${process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? "http://localhost:3000"}/club/${post.slug}`,
       publish_at: post.publish_at
     }
   });

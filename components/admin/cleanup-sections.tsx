@@ -45,7 +45,7 @@ export function CleanupSections({
         onClick={() => setExpanded((value) => !value)}
         className="rounded-2xl border border-white/10 px-4 py-2.5 text-sm text-white/80 transition hover:border-accent/35 hover:bg-white/5 hover:text-white"
       >
-        {expanded ? "Скрыть разделы очистки" : "Показать разделы очистки"}
+        {expanded ? "Скрыть разделы" : "Разделы очистки"}
       </button>
 
       {expanded ? (

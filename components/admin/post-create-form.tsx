@@ -150,6 +150,14 @@ export function PostCreateForm() {
   const [message, setMessage] = useState("Файлы пока не загружаются.");
   const [selectedTier, setSelectedTier] = useState<Tier>("tier_1");
   const [mediaNames, setMediaNames] = useState<string[]>([]);
+  const [title, setTitle] = useState(DEFAULT_POST_TITLE);
+  const [sendEmail, setSendEmail] = useState(false);
+  const [emailSubject, setEmailSubject] = useState(`Новый пост в Lumina: ${DEFAULT_POST_TITLE}`);
+  const [emailBody, setEmailBody] = useState(
+    `Привет, {{name}}!\n\nВ клубе вышел новый пост: ${DEFAULT_POST_TITLE}.\n\nОткрыть пост: {{post_url}}\n\nДо встречи внутри клуба.`
+  );
+  const [subjectEdited, setSubjectEdited] = useState(false);
+  const [bodyEdited, setBodyEdited] = useState(false);
 
   useEffect(() => {
     if (status !== "success") return;
@@ -220,6 +228,12 @@ export function PostCreateForm() {
       const payload = (await response.json().catch(() => ({}))) as {
         error?: string;
         success?: boolean;
+        emailCampaign?: {
+          enabled: boolean;
+          sentCount: number;
+          failedCount: number;
+          skippedReason?: string | null;
+        };
       };
 
       if (!response.ok || !payload.success) {
@@ -228,10 +242,28 @@ export function PostCreateForm() {
 
       setStatus("success");
       setProgress(100);
-      setMessage("Публикация создана.");
+      if (payload.emailCampaign?.enabled) {
+        if (payload.emailCampaign.skippedReason) {
+          setMessage(`Публикация создана. Рассылка пропущена: ${payload.emailCampaign.skippedReason}`);
+        } else {
+          setMessage(
+            `Публикация создана. Email: отправлено ${payload.emailCampaign.sentCount}, ошибок ${payload.emailCampaign.failedCount}.`
+          );
+        }
+      } else {
+        setMessage("Публикация создана.");
+      }
       form.reset();
       setSelectedTier("tier_1");
       setMediaNames([]);
+      setTitle(DEFAULT_POST_TITLE);
+      setSendEmail(false);
+      setEmailSubject(`Новый пост в Lumina: ${DEFAULT_POST_TITLE}`);
+      setEmailBody(
+        `Привет, {{name}}!\n\nВ клубе вышел новый пост: ${DEFAULT_POST_TITLE}.\n\nОткрыть пост: {{post_url}}\n\nДо встречи внутри клуба.`
+      );
+      setSubjectEdited(false);
+      setBodyEdited(false);
       router.refresh();
     } catch (error) {
       setStatus("error");
@@ -250,7 +282,27 @@ export function PostCreateForm() {
       <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
           <label className="mb-2 block text-sm text-white/60">Название</label>
-          <input name="title" defaultValue={DEFAULT_POST_TITLE} required />
+          <input
+            name="title"
+            value={title}
+            onChange={(event) => {
+              const nextTitle = event.target.value;
+              setTitle(nextTitle);
+
+              if (!subjectEdited) {
+                setEmailSubject(`Новый пост в Lumina: ${nextTitle || DEFAULT_POST_TITLE}`);
+              }
+
+              if (!bodyEdited) {
+                setEmailBody(
+                  `Привет, {{name}}!\n\nВ клубе вышел новый пост: ${
+                    nextTitle || DEFAULT_POST_TITLE
+                  }.\n\nОткрыть пост: {{post_url}}\n\nДо встречи внутри клуба.`
+                );
+              }
+            }}
+            required
+          />
         </div>
         <div>
           <label className="mb-2 block text-sm text-white/60">Кому показать</label>
@@ -269,6 +321,46 @@ export function PostCreateForm() {
 
       <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/65">
         {CLUB_DESTINATION_HINT}
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+        <label className="flex items-center gap-3 text-sm text-white/85">
+          <input
+            type="checkbox"
+            name="sendEmailCampaign"
+            checked={sendEmail}
+            onChange={(event) => setSendEmail(event.target.checked)}
+            className="h-4 w-4 rounded border-white/20 bg-transparent p-0"
+          />
+          <span>Сразу отправить email-рассылку по этому посту</span>
+        </label>
+        <p className="mt-2 text-sm leading-6 text-white/55">
+          Письмо уйдёт только тем участникам, которым доступен этот пост. Можно использовать{" "}
+          <code>{"{{name}}"}</code>, <code>{"{{club_url}}"}</code> и <code>{"{{post_url}}"}</code>.
+        </p>
+        <div className={`mt-4 grid gap-3 ${sendEmail ? "" : "opacity-60"}`}>
+          <input
+            name="emailSubject"
+            value={emailSubject}
+            onChange={(event) => {
+              setSubjectEdited(true);
+              setEmailSubject(event.target.value);
+            }}
+            placeholder="Тема письма"
+            disabled={!sendEmail}
+          />
+          <textarea
+            name="emailBody"
+            value={emailBody}
+            onChange={(event) => {
+              setBodyEdited(true);
+              setEmailBody(event.target.value);
+            }}
+            placeholder="Текст письма"
+            className="min-h-[180px]"
+            disabled={!sendEmail}
+          />
+        </div>
       </div>
 
       <div>

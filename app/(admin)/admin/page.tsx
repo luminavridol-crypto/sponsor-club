@@ -495,27 +495,21 @@ export default async function AdminDashboardPage() {
             className="rounded-[24px] border border-accent/25 bg-accent/10 p-5 transition hover:bg-accent/15"
           >
             <h3 className="text-xl font-semibold text-white">Заявки</h3>
-            <p className="mt-2 text-sm leading-6 text-white/68">
-              Новые и текущие обращения: {pendingRequestsCount}. Полный список и обработка внутри раздела.
-            </p>
+            <p className="mt-2 text-sm leading-6 text-white/68">Новых и активных: {pendingRequestsCount}.</p>
           </a>
           <a
             href="/admin/invites"
             className="rounded-[24px] border border-accent/25 bg-accent/10 p-5 transition hover:bg-accent/15"
           >
             <h3 className="text-xl font-semibold text-white">Приглашения пользователей</h3>
-            <p className="mt-2 text-sm leading-6 text-white/68">
-              Активные, использованные и отключённые приглашения: {(invites ?? []).length}.
-            </p>
+            <p className="mt-2 text-sm leading-6 text-white/68">Всего приглашений: {(invites ?? []).length}.</p>
           </a>
           <a
             href="/admin/users"
             className="rounded-[24px] border border-cyanGlow/25 bg-cyanGlow/10 p-5 transition hover:bg-cyanGlow/15"
           >
             <h3 className="text-xl font-semibold text-white">Пользователи и подписчики</h3>
-            <p className="mt-2 text-sm leading-6 text-white/68">
-              Всего участников без администратора: {(users ?? []).length}. Управление доступом, заметками и экспортом.
-            </p>
+            <p className="mt-2 text-sm leading-6 text-white/68">Участников: {(users ?? []).length}.</p>
           </a>
         </div>
 
@@ -525,7 +519,7 @@ export default async function AdminDashboardPage() {
               <p className="text-xs uppercase tracking-[0.28em] text-accentSoft">Storage cleanup</p>
               <h3 className="mt-2 text-2xl font-semibold text-white">Чистка файлов</h3>
               <p className="mt-2 text-sm leading-6 text-white/60">
-                Проверка показывает результат отдельно. Разделы ручной очистки открываются только по кнопке и не отвлекают по умолчанию.
+                Проверка покажет лишние файлы. Подробности открываются по кнопке.
               </p>
             </div>
 

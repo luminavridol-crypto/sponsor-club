@@ -1,6 +1,8 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
+import { getPostEmailRecipients } from "@/lib/email/recipients";
+import { sendEmailCampaign } from "@/lib/email/service";
 import {
   assertUploadFile,
   getSafeFileExtension,
@@ -44,6 +46,13 @@ function humanizeStorageError(message: string) {
 
   return message;
 }
+
+type EmailCampaignResultPayload = {
+  enabled: boolean;
+  sentCount: number;
+  failedCount: number;
+  skippedReason?: string | null;
+};
 
 async function uploadFile(file: File, folder: string) {
   assertUploadFile(file, { allowImages: true, allowVideos: false });
@@ -96,6 +105,9 @@ export async function POST(request: Request) {
         ? retentionDaysRaw
         : 0;
     const expiresAt = retentionDays ? calculateExpirationDate(publishAt, retentionDays) : null;
+    const sendEmailCampaignNow = formData.get("sendEmailCampaign") === "on";
+    const emailSubject = formValue(formData.get("emailSubject"));
+    const emailBody = formValue(formData.get("emailBody"));
 
     const slug = buildContentSlug(title);
     const thumbnailFile = formData.get("thumbnail");
@@ -222,7 +234,53 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true });
+    const emailCampaign: EmailCampaignResultPayload = {
+      enabled: false,
+      sentCount: 0,
+      failedCount: 0
+    };
+
+    if (sendEmailCampaignNow) {
+      emailCampaign.enabled = true;
+
+      if (formValue(formData.get("status")) !== "published") {
+        emailCampaign.skippedReason = "пост ещё не опубликован";
+      } else if (!emailSubject || !emailBody) {
+        emailCampaign.skippedReason = "не заполнены тема или текст письма";
+      } else {
+        const requiredTier = formValue(formData.get("requiredTier")) as Tier;
+        const recipients = await getPostEmailRecipients(requiredTier);
+
+        if (!recipients.length) {
+          emailCampaign.skippedReason = "не найдено получателей";
+        } else {
+          const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? "http://localhost:3000";
+          const result = await sendEmailCampaign({
+            kind: "post",
+            title: `Пост: ${title}`,
+            subject: emailSubject,
+            body: emailBody,
+            postId: post.id,
+            targetScope: "eligible_post_members",
+            targetTiers: [requiredTier],
+            createdBy: profile.id,
+            recipients,
+            metadata: {
+              post_slug: slug,
+              post_title: title,
+              post_url: `${siteUrl}/club/${slug}`,
+              publish_at: publishAt,
+              automatic_from_post_create: true
+            }
+          });
+
+          emailCampaign.sentCount = result.sentCount;
+          emailCampaign.failedCount = result.failedCount;
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, emailCampaign });
   } catch (error) {
     return NextResponse.json(
       {
