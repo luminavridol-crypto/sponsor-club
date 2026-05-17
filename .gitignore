@@ -4,6 +4,8 @@ node_modules
 .env
 coverage
 dist
+*.tsbuildinfo
+dev-server.err.log
 dev-server.log
 start-server.log
 start-server.err.log

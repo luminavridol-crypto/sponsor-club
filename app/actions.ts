@@ -27,7 +27,9 @@ import {
 import { deleteMedia, uploadMediaToR2 } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { AccessStatus, PostReactionType, PostStatus, PostType, Tier } from "@/lib/types";
+import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
+import { clearTelegramSession } from "@/lib/telegram/session";
+import { AccessStatus, DonationClaimStatus, PostReactionType, PostStatus, PostType, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
 import { buildContentSlug } from "@/lib/utils/content-space";
 
@@ -68,6 +70,12 @@ const purchaseRequestSchema = z.object({
   contactMethod: z.enum(["Telegram", "Instagram", "Email", "Other"]),
   contactHandle: z.string().min(2).max(160),
   website: z.string().max(0)
+});
+
+const donationClaimSchema = z.object({
+  tier: z.enum(["tier_1", "tier_2", "tier_3"]),
+  amount: z.number().min(0).max(100000).optional(),
+  note: z.string().trim().min(2).max(1000)
 });
 
 const postEmailCampaignSchema = z.object({
@@ -207,6 +215,15 @@ function revalidatePostSpace(postSlug: string) {
   revalidatePath(`/feed/${postSlug}`);
   revalidatePath("/club");
   revalidatePath(`/club/${postSlug}`);
+  revalidatePath("/tg/content");
+  revalidatePath(`/tg/content/${postSlug}`);
+}
+
+function addDays(base: string | null, days: number) {
+  const now = new Date();
+  const start = base && new Date(base) > now ? new Date(base) : now;
+  start.setDate(start.getDate() + days);
+  return start.toISOString();
 }
 
 function redirectToInviteError(message: string, code?: string) {
@@ -433,6 +450,32 @@ export async function createPurchaseRequestAction(formData: FormData) {
   redirect("/?inviteRequestSent=1#invitation-request");
 }
 
+export async function createDonationClaimAction(formData: FormData) {
+  const profile = await requireAnyProfile();
+  const parsed = donationClaimSchema.safeParse({
+    tier: formValue(formData.get("tier")),
+    amount: formValue(formData.get("amount")) ? numberValue(formData.get("amount")) : undefined,
+    note: formValue(formData.get("note"))
+  });
+
+  if (!parsed.success) {
+    redirect("/tg/support?error=1");
+  }
+
+  const admin = createAdminSupabaseClient();
+  await admin.from("donation_claims").insert({
+    profile_id: profile.id,
+    suggested_tier: parsed.data.tier,
+    amount: typeof parsed.data.amount === "number" ? Number(parsed.data.amount.toFixed(2)) : null,
+    note: parsed.data.note,
+    status: "new"
+  });
+
+  revalidatePath("/tg/support");
+  revalidatePath("/tg/admin/donations");
+  redirect("/tg/support?sent=1");
+}
+
 export async function sendPostEmailCampaignAction(formData: FormData) {
   const profile = await requireAdmin();
   const parsed = postEmailCampaignSchema.safeParse({
@@ -629,7 +672,116 @@ export async function deletePurchaseRequestAction(formData: FormData) {
   revalidatePath("/admin/requests");
 }
 
+export async function updateDonationClaimStatusAction(formData: FormData) {
+  const adminProfile = await requireAdmin();
+  const claimId = formValue(formData.get("claimId"));
+  const status = formValue(formData.get("status")) as DonationClaimStatus;
+
+  if (!claimId || !["new", "in_review", "approved", "rejected"].includes(status)) {
+    revalidatePath("/tg/admin/donations");
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  await admin
+    .from("donation_claims")
+    .update({
+      status,
+      reviewed_at: ["approved", "rejected"].includes(status) ? new Date().toISOString() : null,
+      reviewed_by: ["approved", "rejected"].includes(status) ? adminProfile.id : null
+    })
+    .eq("id", claimId);
+
+  revalidatePath("/tg/admin/donations");
+}
+
+export async function approveDonationClaimAction(formData: FormData) {
+  const adminProfile = await requireAdmin();
+  const claimId = formValue(formData.get("claimId"));
+  const tier = formValue(formData.get("tier")) as Tier;
+  const accessDays = Number(formValue(formData.get("accessDays")) || "30");
+
+  if (
+    !claimId ||
+    !["tier_1", "tier_2", "tier_3"].includes(tier) ||
+    !Number.isFinite(accessDays) ||
+    accessDays <= 0
+  ) {
+    revalidatePath("/tg/admin/donations");
+    return;
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { data: claim } = await admin
+    .from("donation_claims")
+    .select("id, profile_id, amount, status")
+    .eq("id", claimId)
+    .maybeSingle();
+
+  if (!claim || claim.status === "approved") {
+    revalidatePath("/tg/admin/donations");
+    return;
+  }
+
+  const { data: targetProfile } = await admin
+    .from("profiles")
+    .select("id, total_donations, access_expires_at")
+    .eq("id", claim.profile_id)
+    .single();
+
+  if (!targetProfile) {
+    revalidatePath("/tg/admin/donations");
+    return;
+  }
+
+  const amount = typeof claim.amount === "number" ? Number(claim.amount) : 0;
+  const currentTotal =
+    typeof targetProfile.total_donations === "number" ? Number(targetProfile.total_donations) : 0;
+
+  await admin
+    .from("profiles")
+    .update({
+      tier,
+      access_status: "active",
+      access_expires_at: addDays(targetProfile.access_expires_at, accessDays),
+      total_donations: amount > 0 ? Number((currentTotal + amount).toFixed(2)) : currentTotal
+    })
+    .eq("id", claim.profile_id);
+
+  if (amount > 0) {
+    const { donationYear, donationMonth } = currentDonationPeriod();
+    await admin.from("donation_events").insert({
+      profile_id: claim.profile_id,
+      amount: Number(amount.toFixed(2)),
+      created_by: adminProfile.id,
+      donation_year: donationYear,
+      donation_month: donationMonth
+    });
+  }
+
+  await admin
+    .from("donation_claims")
+    .update({
+      status: "approved",
+      suggested_tier: tier,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: adminProfile.id
+    })
+    .eq("id", claimId);
+
+  revalidatePath("/tg/admin/donations");
+  revalidatePath("/tg/support");
+  revalidatePath("/admin/users");
+}
+
 export async function signOutAction() {
+  const telegramProfile = await getTelegramProfileFromSession();
+
+  if (telegramProfile) {
+    await clearTelegramSession();
+    redirect("/tg");
+  }
+
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
   redirect("/login");
@@ -746,6 +898,7 @@ export async function redeemInviteAction(formData: FormData) {
 
 export async function updateProfileAction(formData: FormData) {
   const profile = await requireProfile();
+  const telegramProfile = await getTelegramProfileFromSession();
   const supabase = await createServerSupabaseClient();
   const admin = createAdminSupabaseClient();
   const avatarFile = formData.get("avatar");
@@ -766,14 +919,18 @@ export async function updateProfileAction(formData: FormData) {
     }
   }
 
-  await supabase
-    .from("profiles")
-    .update({
-      display_name: formValue(formData.get("displayName")) || null,
-      bio: formValue(formData.get("bio")) || null,
-      avatar_url: nextAvatarUrl
-    })
-    .eq("id", profile.id);
+  const payload = {
+    display_name: formValue(formData.get("displayName")) || null,
+    bio: formValue(formData.get("bio")) || null,
+    avatar_url: nextAvatarUrl
+  };
+
+  if (telegramProfile) {
+    await admin.from("profiles").update(payload).eq("id", profile.id);
+    revalidatePath("/tg/profile");
+  } else {
+    await supabase.from("profiles").update(payload).eq("id", profile.id);
+  }
 
   revalidatePath("/profile");
   revalidatePath("/chat");

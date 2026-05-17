@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Route } from "next";
 import { PostReactions } from "@/components/posts/post-reactions";
 import { ReactionSummary } from "@/lib/data/reactions";
 import { PostWithMedia } from "@/lib/types";
@@ -16,11 +17,13 @@ const POST_TYPE_LABELS: Record<string, string> = {
 export function PostCard({
   post,
   commentCount = 0,
-  reactionSummary
+  reactionSummary,
+  routeBase = "/club"
 }: {
   post: PostWithMedia;
   commentCount?: number;
   reactionSummary: ReactionSummary;
+  routeBase?: string;
 }) {
   return (
     <article className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-glow">
@@ -56,13 +59,13 @@ export function PostCard({
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
-            href={`/club/${post.slug}`}
+            href={`${routeBase}/${post.slug}` as Route}
             className="inline-flex rounded-2xl bg-white px-4 py-2 text-sm font-medium text-background transition hover:bg-goldSoft"
           >
             Открыть пост
           </Link>
           <Link
-            href={`/club/${post.slug}#comments`}
+            href={`${routeBase}/${post.slug}#comments` as Route}
             className="inline-flex rounded-2xl border border-white/10 px-4 py-2 text-sm font-medium text-white/75 transition hover:border-accent/30 hover:bg-white/5 hover:text-white"
           >
             Комментарии: {commentCount}

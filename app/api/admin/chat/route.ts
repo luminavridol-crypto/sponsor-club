@@ -1,15 +1,11 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { requireActiveAdminSession } from "@/lib/auth/admin-session";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
 import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
-import {
-  assertUploadFile,
-  getSafeFileExtension,
-  getUploadMediaType
-} from "@/lib/security/file-uploads";
+import { assertUploadFile, getSafeFileExtension, getUploadMediaType } from "@/lib/security/file-uploads";
 import { deleteMedia, uploadMediaToR2 } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 function formValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
@@ -23,23 +19,10 @@ async function uploadChatFile(file: File, profileId: string) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
+    const profile = await requireActiveAdminSession();
 
-    if (!user) {
+    if (!profile) {
       return NextResponse.json({ error: "Нужно войти в аккаунт." }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, role, access_status")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || profile.role !== "admin" || profile.access_status !== "active") {
-      return NextResponse.json({ error: "Нет доступа." }, { status: 403 });
     }
 
     const formData = await request.formData();
@@ -47,8 +30,7 @@ export async function POST(request: Request) {
     const profileId = formValue(formData.get("profileId"));
     const body = formValue(formData.get("body"));
     const mediaEntry = formData.get("media");
-    const mediaFile =
-      mediaEntry instanceof File && mediaEntry.size > 0 ? mediaEntry : null;
+    const mediaFile = mediaEntry instanceof File && mediaEntry.size > 0 ? mediaEntry : null;
 
     await cleanupOldChatMessages(admin);
     await cleanupOrphanedStorage(admin);
@@ -74,9 +56,7 @@ export async function POST(request: Request) {
 
     let mediaPath: string | null = null;
     let mediaType: "image" | "video" | "file" | null = null;
-    let uploadedMedia:
-      | Awaited<ReturnType<typeof uploadChatFile>>
-      | null = null;
+    let uploadedMedia: Awaited<ReturnType<typeof uploadChatFile>> | null = null;
 
     if (mediaFile) {
       if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("video/")) {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireActiveAdminSession } from "@/lib/auth/admin-session";
 
 export const runtime = "nodejs";
 
@@ -10,22 +10,7 @@ function formValue(value: FormDataEntryValue | null) {
 }
 
 async function requireActiveAdmin() {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return false;
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, role, access_status")
-    .eq("id", user.id)
-    .single();
-
-  return profile?.role === "admin" && profile.access_status === "active";
+  return Boolean(await requireActiveAdminSession());
 }
 
 async function fileToDataUrl(file: File) {

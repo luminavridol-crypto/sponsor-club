@@ -5,11 +5,18 @@ import { getSupabaseEnv } from "@/lib/supabase/env";
 const privateRoutes = ["/dashboard", "/feed", "/profile", "/chat", "/admin"];
 
 export async function middleware(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-current-pathname", request.nextUrl.pathname);
+
   const response = NextResponse.next({
     request: {
-      headers: request.headers
+      headers: requestHeaders
     }
   });
+
+  if (request.nextUrl.pathname.startsWith("/tg")) {
+    return response;
+  }
 
   const { url, anonKey } = getSupabaseEnv();
   const supabase = createServerClient(url, anonKey, {
@@ -45,5 +52,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/feed/:path*", "/profile/:path*", "/chat/:path*", "/admin/:path*"]
+  matcher: ["/dashboard/:path*", "/feed/:path*", "/profile/:path*", "/chat/:path*", "/admin/:path*", "/tg/:path*"]
 };

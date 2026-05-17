@@ -15,9 +15,15 @@ export interface Profile {
   role: Role;
   tier: Tier;
   access_status: AccessStatus;
+  auth_source?: "web" | "telegram";
   bio: string | null;
   avatar_url: string | null;
   birth_date: string | null;
+  telegram_id?: string | null;
+  telegram_username?: string | null;
+  telegram_photo_url?: string | null;
+  telegram_first_name?: string | null;
+  telegram_last_name?: string | null;
   telegram_contact: string | null;
   tiktok_contact: string | null;
   admin_note: string | null;
@@ -143,6 +149,21 @@ export interface PurchaseRequest {
   country: string;
   contact: string;
   status: PurchaseRequestStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DonationClaimStatus = "new" | "in_review" | "approved" | "rejected";
+
+export interface DonationClaim {
+  id: string;
+  profile_id: string;
+  suggested_tier: Tier;
+  amount: number | null;
+  note: string | null;
+  status: DonationClaimStatus;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   created_at: string;
   updated_at: string;
 }

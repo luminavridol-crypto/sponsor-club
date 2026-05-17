@@ -1,16 +1,12 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { requireActiveAdminSession } from "@/lib/auth/admin-session";
 import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
 import { getPostEmailRecipients } from "@/lib/email/recipients";
 import { sendEmailCampaign } from "@/lib/email/service";
-import {
-  assertUploadFile,
-  getSafeFileExtension,
-  getUploadMediaType
-} from "@/lib/security/file-uploads";
+import { assertUploadFile, getSafeFileExtension, getUploadMediaType } from "@/lib/security/file-uploads";
 import { R2_PROVIDER, toR2ObjectKey, uploadMediaToR2 } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PostStatus, PostType, Tier } from "@/lib/types";
 import { buildContentSlug } from "@/lib/utils/content-space";
 
@@ -68,28 +64,16 @@ async function uploadPostMedia(file: File, folder: string) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
+    const profile = await requireActiveAdminSession();
 
-    if (!user) {
+    if (!profile) {
       return NextResponse.json({ error: "Нужно войти в аккаунт." }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, role, access_status")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || profile.role !== "admin" || profile.access_status !== "active") {
-      return NextResponse.json({ error: "Нет доступа." }, { status: 403 });
     }
 
     const formData = await request.formData();
     const admin = createAdminSupabaseClient();
     await cleanupOrphanedStorage(admin);
+
     const title = formValue(formData.get("title"));
     const retentionDaysRaw = Number(formValue(formData.get("retentionDays")) || 0);
 
@@ -108,6 +92,8 @@ export async function POST(request: Request) {
     const sendEmailCampaignNow = formData.get("sendEmailCampaign") === "on";
     const emailSubject = formValue(formData.get("emailSubject"));
     const emailBody = formValue(formData.get("emailBody"));
+    const status = formValue(formData.get("status")) as PostStatus;
+    const requiredTier = formValue(formData.get("requiredTier")) as Tier;
 
     const slug = buildContentSlug(title);
     const thumbnailFile = formData.get("thumbnail");
@@ -153,8 +139,8 @@ export async function POST(request: Request) {
         description: formValue(formData.get("description")) || null,
         body: formValue(formData.get("body")) || null,
         post_type: formValue(formData.get("postType")) as PostType,
-        required_tier: formValue(formData.get("requiredTier")) as Tier,
-        status: formValue(formData.get("status")) as PostStatus,
+        required_tier: requiredTier,
+        status,
         publish_at: publishAt,
         retention_days: retentionDays || null,
         expires_at: expiresAt,
@@ -202,10 +188,7 @@ export async function POST(request: Request) {
 
       if (mediaError) {
         await cleanupOrphanedStorage(admin);
-        return NextResponse.json(
-          { error: humanizeStorageError(mediaError.message) },
-          { status: 500 }
-        );
+        return NextResponse.json({ error: humanizeStorageError(mediaError.message) }, { status: 500 });
       }
     }
 
@@ -227,10 +210,7 @@ export async function POST(request: Request) {
 
       if (mediaError) {
         await cleanupOrphanedStorage(admin);
-        return NextResponse.json(
-          { error: humanizeStorageError(mediaError.message) },
-          { status: 500 }
-        );
+        return NextResponse.json({ error: humanizeStorageError(mediaError.message) }, { status: 500 });
       }
     }
 
@@ -243,12 +223,11 @@ export async function POST(request: Request) {
     if (sendEmailCampaignNow) {
       emailCampaign.enabled = true;
 
-      if (formValue(formData.get("status")) !== "published") {
+      if (status !== "published") {
         emailCampaign.skippedReason = "пост ещё не опубликован";
       } else if (!emailSubject || !emailBody) {
         emailCampaign.skippedReason = "не заполнены тема или текст письма";
       } else {
-        const requiredTier = formValue(formData.get("requiredTier")) as Tier;
         const recipients = await getPostEmailRecipients(requiredTier);
 
         if (!recipients.length) {
@@ -284,8 +263,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? humanizeStorageError(error.message) : "Ошибка загрузки."
+        error: error instanceof Error ? humanizeStorageError(error.message) : "Ошибка загрузки."
       },
       { status: 500 }
     );

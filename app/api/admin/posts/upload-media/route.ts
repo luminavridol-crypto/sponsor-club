@@ -1,12 +1,9 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { requireActiveAdminSession } from "@/lib/auth/admin-session";
 import { getR2Env } from "@/lib/r2/env";
-import {
-  assertUploadFile,
-  getSafeFileExtension
-} from "@/lib/security/file-uploads";
+import { assertUploadFile, getSafeFileExtension } from "@/lib/security/file-uploads";
 import { toR2StoragePath, uploadMediaToR2 } from "@/lib/storage/media";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,23 +14,10 @@ function formValue(value: FormDataEntryValue | null) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
+    const profile = await requireActiveAdminSession();
 
-    if (!user) {
+    if (!profile) {
       return NextResponse.json({ error: "Нужно войти в аккаунт." }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, role, access_status")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || profile.role !== "admin" || profile.access_status !== "active") {
-      return NextResponse.json({ error: "Нет доступа." }, { status: 403 });
     }
 
     const formData = await request.formData();
