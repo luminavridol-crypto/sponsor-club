@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 const privateRoutes = ["/dashboard", "/feed", "/profile", "/chat", "/admin"];
+const TELEGRAM_SESSION_COOKIE = "tg_club_session";
 
 export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
@@ -41,8 +42,9 @@ export async function middleware(request: NextRequest) {
   const isPrivateRoute = privateRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
+  const hasTelegramSession = Boolean(request.cookies.get(TELEGRAM_SESSION_COOKIE)?.value);
 
-  if (isPrivateRoute && !user) {
+  if (isPrivateRoute && !user && !hasTelegramSession) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     return NextResponse.redirect(redirectUrl);

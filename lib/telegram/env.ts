@@ -18,6 +18,41 @@ export function getTelegramInitDataMaxAgeSeconds() {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 86400;
 }
 
+function parseCsvEnv(value: string | undefined) {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeTelegramUsername(value: string) {
+  return value.replace(/^@/, "").trim().toLowerCase();
+}
+
+export function getTelegramAdminIds() {
+  return new Set(parseCsvEnv(process.env.TELEGRAM_ADMIN_IDS).map((value) => String(value)));
+}
+
+export function getTelegramAdminUsernames() {
+  return new Set(
+    parseCsvEnv(process.env.TELEGRAM_ADMIN_USERNAMES).map((value) => normalizeTelegramUsername(value))
+  );
+}
+
+export function isTelegramAdminUser({
+  telegramId,
+  username
+}: {
+  telegramId: string;
+  username?: string | null;
+}) {
+  const adminIds = getTelegramAdminIds();
+  const adminUsernames = getTelegramAdminUsernames();
+  const normalizedUsername = username ? normalizeTelegramUsername(username) : "";
+
+  return adminIds.has(String(telegramId)) || (normalizedUsername ? adminUsernames.has(normalizedUsername) : false);
+}
+
 export function getSupportDetails() {
   return {
     cardLabel: process.env.NEXT_PUBLIC_SUPPORT_CARD_LABEL?.trim() || "Карта",

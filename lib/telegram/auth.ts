@@ -1,6 +1,10 @@
 import { createHmac, randomUUID } from "crypto";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { getTelegramBotToken, getTelegramInitDataMaxAgeSeconds } from "@/lib/telegram/env";
+import {
+  getTelegramBotToken,
+  getTelegramInitDataMaxAgeSeconds,
+  isTelegramAdminUser
+} from "@/lib/telegram/env";
 import { readTelegramSession } from "@/lib/telegram/session";
 import { Profile } from "@/lib/types";
 
@@ -15,6 +19,7 @@ type TelegramInitUser = {
 export type TelegramAuthResult = {
   profile: Profile;
   telegramId: string;
+  isAdmin: boolean;
 };
 
 function buildDataCheckString(params: URLSearchParams) {
@@ -92,6 +97,11 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
   const user = validateInitDataHash(initData);
   const telegramId = String(user.id);
   const admin = createAdminSupabaseClient();
+  const username = user.username ?? null;
+  const shouldBeAdmin = isTelegramAdminUser({
+    telegramId,
+    username
+  });
 
   const { data: existingProfile } = await admin
     .from("profiles")
@@ -100,10 +110,20 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
     .maybeSingle();
 
   if (existingProfile) {
+    const nextRole = existingProfile.role === "admin" || shouldBeAdmin ? "admin" : existingProfile.role;
+    const nextAccessStatus = nextRole === "admin" ? "active" : existingProfile.access_status;
+    const fallbackDisplayName =
+      existingProfile.display_name ||
+      [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
+      user.username ||
+      "Telegram user";
     const { data: updatedProfile, error } = await admin
       .from("profiles")
       .update({
-        telegram_username: user.username ?? null,
+        display_name: fallbackDisplayName,
+        role: nextRole,
+        access_status: nextAccessStatus,
+        telegram_username: username,
         telegram_photo_url: user.photo_url ?? null,
         telegram_first_name: user.first_name ?? null,
         telegram_last_name: user.last_name ?? null,
@@ -119,25 +139,27 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
 
     return {
       profile: updatedProfile as Profile,
-      telegramId
+      telegramId,
+      isAdmin: nextRole === "admin"
     };
   }
 
   const authUserId = await findOrCreateAuthUserId(telegramId);
   const fallbackDisplayName = [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || user.username || "Telegram user";
   const email = buildTelegramEmail(telegramId);
+  const nextRole = shouldBeAdmin ? "admin" : "member";
   const { data: insertedProfile, error } = await admin
     .from("profiles")
     .insert({
       id: authUserId,
       email,
       display_name: fallbackDisplayName,
-      role: "member",
+      role: nextRole,
       tier: "tier_1",
-      access_status: "disabled",
+      access_status: nextRole === "admin" ? "active" : "disabled",
       auth_source: "telegram",
       telegram_id: telegramId,
-      telegram_username: user.username ?? null,
+      telegram_username: username,
       telegram_photo_url: user.photo_url ?? null,
       telegram_first_name: user.first_name ?? null,
       telegram_last_name: user.last_name ?? null
@@ -151,7 +173,8 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
 
   return {
     profile: insertedProfile as Profile,
-    telegramId
+    telegramId,
+    isAdmin: nextRole === "admin"
   };
 }
 
