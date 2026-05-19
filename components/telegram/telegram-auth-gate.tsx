@@ -51,6 +51,8 @@ type SessionPayload = {
 
 const AUTH_TIMEOUT_MS = 12000;
 const SESSION_TIMEOUT_MS = 8000;
+const SESSION_RETRY_LIMIT = 6;
+const SESSION_RETRY_MS = 350;
 const TELEGRAM_INIT_RETRY_LIMIT = 10;
 const TELEGRAM_INIT_RETRY_MS = 250;
 
@@ -104,6 +106,10 @@ function normalizePath(pathname: string, fallbackPath?: string) {
   return pathname;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 export function TelegramAuthGate({ pathname }: { pathname: string }) {
   const router = useRouter();
   const runIdRef = useRef(0);
@@ -147,7 +153,7 @@ export function TelegramAuthGate({ pathname }: { pathname: string }) {
           return webApp;
         }
 
-        await new Promise((resolve) => window.setTimeout(resolve, TELEGRAM_INIT_RETRY_MS));
+        await sleep(TELEGRAM_INIT_RETRY_MS);
       }
 
       return window.Telegram?.WebApp;
@@ -202,27 +208,54 @@ export function TelegramAuthGate({ pathname }: { pathname: string }) {
           message: "Проверяю сессию Telegram..."
         });
 
-        const sessionResponse = await fetchWithTimeout(
-          "/api/telegram/session",
-          {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-            headers: {
-              "cache-control": "no-store"
-            }
-          },
-          SESSION_TIMEOUT_MS
-        );
+        let sessionPayload: SessionPayload | null = null;
+        let sessionStatus = 0;
 
-        const sessionPayload = await parseJsonSafe<SessionPayload>(sessionResponse);
-        log("cookie/session/profile result", {
-          status: sessionResponse.status,
-          sessionPayload
-        });
+        for (let attempt = 0; attempt < SESSION_RETRY_LIMIT; attempt += 1) {
+          const sessionResponse = await fetchWithTimeout(
+            "/api/telegram/session",
+            {
+              method: "GET",
+              credentials: "include",
+              cache: "no-store",
+              headers: {
+                "cache-control": "no-store"
+              }
+            },
+            SESSION_TIMEOUT_MS
+          );
 
-        if (!sessionResponse.ok || !sessionPayload?.ok || !sessionPayload.profile) {
-          throw new Error("Telegram-сессия не подтвердилась после авторизации.");
+          sessionStatus = sessionResponse.status;
+          sessionPayload = await parseJsonSafe<SessionPayload>(sessionResponse);
+          log("cookie/session/profile result", {
+            attempt,
+            status: sessionStatus,
+            sessionPayload
+          });
+
+          if (sessionResponse.ok && sessionPayload?.ok && sessionPayload.profile) {
+            break;
+          }
+
+          if (attempt < SESSION_RETRY_LIMIT - 1) {
+            await sleep(SESSION_RETRY_MS);
+          }
+        }
+
+        if (!sessionPayload?.ok || !sessionPayload.profile) {
+          const nextPath = normalizePath(pathname, payload?.nextPath);
+          log("session not confirmed after retries, forcing document navigation", {
+            nextPath,
+            sessionStatus,
+            sessionPayload
+          });
+
+          setLoadingState({
+            loading: false,
+            message: "Открываю клуб..."
+          });
+          window.location.assign(nextPath);
+          return;
         }
 
         if (cancelled || runIdRef.current !== runId) {
