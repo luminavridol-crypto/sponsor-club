@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { signOutAction } from "@/app/actions";
+import { MiniAppClickSound } from "@/components/telegram/mini-app-click-sound";
 import { MiniAppNav } from "@/components/telegram/mini-app-nav";
 import { TelegramMiniAppBridge } from "@/components/telegram/telegram-mini-app-bridge";
 import { hasClubAccess } from "@/lib/auth/access";
@@ -25,6 +26,7 @@ export function MiniAppShell({
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(255,79,216,0.16),transparent_28%),radial-gradient(circle_at_bottom,rgba(101,191,255,0.12),transparent_26%),#05060d] pb-28 text-white">
       <TelegramMiniAppBridge />
+      <MiniAppClickSound />
       <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 pb-6 pt-4">
         <header className="rounded-[28px] border border-white/10 bg-white/5 px-4 py-4 shadow-glow">
           <div className="flex items-start justify-between gap-3">

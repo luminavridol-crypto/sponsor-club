@@ -16,7 +16,8 @@ export default async function TelegramContentPostPage({
 }) {
   const profile = await requireProfile();
   const { slug } = await params;
-  const post = await getPostBySlugForTier(slug, profile.tier);
+  const visibleTier = profile.role === "admin" ? "tier_3" : profile.tier;
+  const post = await getPostBySlugForTier(slug, visibleTier);
 
   if (!post) {
     notFound();

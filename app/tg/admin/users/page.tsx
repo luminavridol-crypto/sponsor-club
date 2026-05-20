@@ -5,7 +5,7 @@ import { UserCard } from "@/components/admin/user-card";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { DonationEvent, MemberChatMessage, Profile } from "@/lib/types";
+import { DonationEvent, Profile } from "@/lib/types";
 import { getVipProgress } from "@/lib/utils/vip";
 
 function getTierSortWeight(user: Profile) {
@@ -46,10 +46,9 @@ export default async function TelegramAdminUsersPage() {
   const profile = await requireAdmin();
   const admin = createAdminSupabaseClient();
 
-  const [{ data: profilesData }, { data: donationEventsData }, { data: chatMessagesData }] = await Promise.all([
+  const [{ data: profilesData }, { data: donationEventsData }] = await Promise.all([
     admin.from("profiles").select("*"),
-    admin.from("donation_events").select("*").order("created_at", { ascending: false }),
-    admin.from("member_chat_messages").select("*").order("created_at", { ascending: true })
+    admin.from("donation_events").select("*").order("created_at", { ascending: false })
   ]);
 
   const users = sortUsers(((profilesData ?? []) as Profile[]).filter((user) => user.role !== "admin"));
@@ -61,23 +60,13 @@ export default async function TelegramAdminUsersPage() {
     avatar_url: user.avatar_url ? avatarMap[user.avatar_url] ?? user.avatar_url : null
   }));
   const donationEvents = (donationEventsData ?? []) as DonationEvent[];
-  const chatMessages = (chatMessagesData ?? []) as MemberChatMessage[];
   const donationMap = new Map<string, DonationEvent[]>();
-  const chatMap = new Map<string, MemberChatMessage[]>();
 
   donationEvents.forEach((event) => {
     const existing = donationMap.get(event.profile_id) ?? [];
     existing.push(event);
     donationMap.set(event.profile_id, existing);
   });
-
-  chatMessages.forEach((message) => {
-    const existing = chatMap.get(message.profile_id) ?? [];
-    existing.push(message);
-    chatMap.set(message.profile_id, existing);
-  });
-
-  void chatMap;
 
   return (
     <MiniAppShell

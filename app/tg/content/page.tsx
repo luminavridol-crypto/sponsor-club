@@ -12,10 +12,11 @@ export default async function TelegramContentPage() {
   const profile = await requireProfile();
   const admin = createAdminSupabaseClient();
   const seenAt = new Date().toISOString();
+  const visibleTier = profile.role === "admin" ? "tier_3" : profile.tier;
 
   await admin.from("profiles").update({ last_content_seen_at: seenAt }).eq("id", profile.id);
 
-  const posts = await getVisiblePostsForTier(profile.tier);
+  const posts = await getVisiblePostsForTier(visibleTier);
   const commentCounts = await getCommentCountsForPosts(posts.map((post) => post.id));
   const reactionSummaries = await getReactionSummariesForPosts(
     posts.map((post) => post.id),
