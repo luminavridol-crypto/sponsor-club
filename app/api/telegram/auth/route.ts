@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
     const nextPath =
       profile.role === "admin"
-        ? "/tg/admin"
+        ? "/tg/admin/posts"
         : hasClubAccess(profile)
           ? "/tg/content"
           : "/tg/support";

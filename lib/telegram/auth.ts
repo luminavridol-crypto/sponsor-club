@@ -66,6 +66,24 @@ function buildTelegramEmail(telegramId: string) {
   return `tg-${telegramId}@telegram.local`;
 }
 
+async function findApprovedPurchaseRequest(username: string | null) {
+  if (!username) {
+    return null;
+  }
+
+  const admin = createAdminSupabaseClient();
+  const { data } = await admin
+    .from("purchase_requests")
+    .select("tier, approved_for_club, contact")
+    .eq("approved_for_club", true)
+    .ilike("contact", `%${username}%`)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data;
+}
+
 async function findOrCreateAuthUserId(telegramId: string) {
   const admin = createAdminSupabaseClient();
   const email = buildTelegramEmail(telegramId);
@@ -98,6 +116,7 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
   const telegramId = String(user.id);
   const admin = createAdminSupabaseClient();
   const username = user.username ?? null;
+  const approvedRequest = await findApprovedPurchaseRequest(username);
   const shouldBeAdmin = isTelegramAdminUser({
     telegramId,
     username
@@ -111,7 +130,9 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
 
   if (existingProfile) {
     const nextRole = existingProfile.role === "admin" || shouldBeAdmin ? "admin" : existingProfile.role;
-    const nextAccessStatus = nextRole === "admin" ? "active" : existingProfile.access_status;
+    const nextAccessStatus =
+      nextRole === "admin" || approvedRequest ? "active" : existingProfile.access_status;
+    const nextTier = approvedRequest?.tier ?? existingProfile.tier;
     const fallbackDisplayName =
       existingProfile.display_name ||
       [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
@@ -122,6 +143,7 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
       .update({
         display_name: fallbackDisplayName,
         role: nextRole,
+        tier: nextTier,
         access_status: nextAccessStatus,
         telegram_username: username,
         telegram_photo_url: user.photo_url ?? null,
@@ -148,6 +170,8 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
   const fallbackDisplayName = [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || user.username || "Telegram user";
   const email = buildTelegramEmail(telegramId);
   const nextRole = shouldBeAdmin ? "admin" : "member";
+  const nextTier = approvedRequest?.tier ?? "tier_1";
+  const nextAccessStatus = nextRole === "admin" || approvedRequest ? "active" : "disabled";
   const { data: insertedProfile, error } = await admin
     .from("profiles")
     .insert({
@@ -155,8 +179,8 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
       email,
       display_name: fallbackDisplayName,
       role: nextRole,
-      tier: "tier_1",
-      access_status: nextRole === "admin" ? "active" : "disabled",
+      tier: nextTier,
+      access_status: nextAccessStatus,
       auth_source: "telegram",
       telegram_id: telegramId,
       telegram_username: username,

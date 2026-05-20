@@ -10,7 +10,7 @@ export default async function TelegramEntryPage() {
   }
 
   if (profile.role === "admin") {
-    redirect("/tg/admin");
+    redirect("/tg/admin/posts");
   }
 
   redirect(hasClubAccess(profile) ? "/tg/content" : "/tg/support");

@@ -625,10 +625,11 @@ export async function sendAccessExpiryEmailsNowAction() {
 }
 
 export async function updatePurchaseRequestStatusAction(formData: FormData) {
-  await requireAdmin();
+  const adminProfile = await requireAdmin();
   const admin = createAdminSupabaseClient();
   const requestId = formValue(formData.get("requestId"));
   const status = formValue(formData.get("status"));
+  const allowClubAccess = formValue(formData.get("allowClubAccess")) === "on";
 
   if (!requestId || !["new", "in_progress", "completed"].includes(status)) {
     revalidatePath("/admin");
@@ -636,13 +637,77 @@ export async function updatePurchaseRequestStatusAction(formData: FormData) {
     return;
   }
 
+  if (allowClubAccess) {
+    const { data: request } = await admin
+      .from("purchase_requests")
+      .select("id, tier, email, display_name, country, contact")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (request?.email) {
+      const { data: existingProfile } = await admin
+        .from("profiles")
+        .select("id, role")
+        .eq("email", request.email)
+        .maybeSingle();
+
+      if (existingProfile && existingProfile.role !== "admin") {
+        await admin
+          .from("profiles")
+          .update({
+            tier: request.tier,
+            access_status: "active"
+          })
+          .eq("id", existingProfile.id);
+      } else {
+        const defaultExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        const note = `Заявка: ${request.display_name || "без имени"} • ${request.country} • ${request.contact}`;
+        const { data: activeInvite } = await admin
+          .from("invites")
+          .select("id")
+          .eq("email", request.email)
+          .is("used_at", null)
+          .is("disabled_at", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (activeInvite) {
+          await admin
+            .from("invites")
+            .update({
+              assigned_tier: request.tier,
+              note,
+              expires_at: defaultExpiresAt
+            })
+            .eq("id", activeInvite.id);
+        } else {
+          await admin.from("invites").insert({
+            code: `VIP-${randomUUID().slice(0, 8).toUpperCase()}`,
+            email: request.email,
+            assigned_tier: request.tier,
+            expires_at: defaultExpiresAt,
+            note,
+            created_by: adminProfile.id
+          });
+        }
+      }
+    }
+  }
+
   await admin
     .from("purchase_requests")
-    .update({ status })
+    .update({
+      status,
+      approved_for_club: allowClubAccess
+    })
     .eq("id", requestId);
 
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
+  revalidatePath("/admin/invites");
+  revalidatePath("/tg/admin/invites");
+  revalidatePath("/tg/admin/users");
 }
 
 export async function deleteAllPurchaseRequestsAction() {
@@ -1324,6 +1389,7 @@ export async function createInviteAction(formData: FormData) {
   });
 
   revalidatePath("/admin/invites");
+  revalidatePath("/tg/admin/invites");
 }
 
 export async function disableInviteAction(formData: FormData) {
@@ -1337,6 +1403,7 @@ export async function disableInviteAction(formData: FormData) {
     .eq("id", inviteId);
 
   revalidatePath("/admin/invites");
+  revalidatePath("/tg/admin/invites");
 }
 
 export async function deleteInviteAction(formData: FormData) {
@@ -1354,6 +1421,7 @@ export async function deleteInviteAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/invites");
+  revalidatePath("/tg/admin/invites");
 }
 
 export async function deleteAllInvitesAction() {
@@ -1364,6 +1432,7 @@ export async function deleteAllInvitesAction() {
 
   revalidatePath("/admin");
   revalidatePath("/admin/invites");
+  revalidatePath("/tg/admin/invites");
 }
 
 export async function createPostAction(formData: FormData) {
@@ -1446,6 +1515,7 @@ export async function createPostAction(formData: FormData) {
   }
 
   revalidatePath("/admin/posts");
+  revalidatePath("/tg/admin/posts");
   revalidatePath("/admin/email");
   revalidatePath("/feed");
   revalidatePath("/club");
@@ -1470,6 +1540,7 @@ export async function updatePostAction(formData: FormData) {
     .eq("id", formValue(formData.get("postId")));
 
   revalidatePath("/admin/posts");
+  revalidatePath("/tg/admin/posts");
   revalidatePath("/admin/email");
   revalidatePath("/feed");
   revalidatePath("/club");
@@ -1491,6 +1562,7 @@ export async function deletePostAction(formData: FormData) {
   await admin.from("posts").delete().eq("id", postId);
 
   revalidatePath("/admin/posts");
+  revalidatePath("/tg/admin/posts");
   revalidatePath("/admin/email");
   revalidatePath("/feed");
   if (post?.slug) {
@@ -1519,6 +1591,7 @@ export async function deleteAllPostsAction() {
   await admin.from("posts").delete().not("id", "is", null);
 
   revalidatePath("/admin/posts");
+  revalidatePath("/tg/admin/posts");
   revalidatePath("/admin/email");
   revalidatePath("/feed");
   revalidatePath("/club");
@@ -1735,6 +1808,7 @@ export async function updateUserAccessAction(formData: FormData) {
     .eq("id", userId);
 
   revalidatePath("/admin/users");
+  revalidatePath("/tg/admin/users");
   revalidatePath("/feed");
   revalidatePath("/profile");
   revalidatePath("/dashboard");
@@ -1803,6 +1877,7 @@ export async function updateUserDetailsAction(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
+  revalidatePath("/tg/admin/users");
   revalidatePath("/feed");
   revalidatePath("/profile");
   revalidatePath("/dashboard");
@@ -1854,6 +1929,7 @@ export async function addUserDonationAction(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
+  revalidatePath("/tg/admin/users");
   revalidatePath("/admin/email");
   revalidatePath("/dashboard");
   revalidatePath("/profile");
@@ -1918,6 +1994,7 @@ export async function addUserDonationForMonthAction(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
+  revalidatePath("/tg/admin/users");
   revalidatePath("/dashboard");
   revalidatePath("/profile");
 }
@@ -1955,6 +2032,7 @@ export async function extendUserAccessAction(formData: FormData) {
     .eq("id", userId);
 
   revalidatePath("/admin/users");
+  revalidatePath("/tg/admin/users");
   revalidatePath("/dashboard");
 }
 
@@ -1985,6 +2063,7 @@ export async function setUserAccessUntilAction(formData: FormData) {
     .eq("id", userId);
 
   revalidatePath("/admin/users");
+  revalidatePath("/tg/admin/users");
   revalidatePath("/admin/email");
   revalidatePath("/dashboard");
   revalidatePath("/feed");
@@ -2005,5 +2084,6 @@ export async function deleteUserAction(formData: FormData) {
   await admin.auth.admin.deleteUser(userId);
 
   revalidatePath("/admin/users");
+  revalidatePath("/tg/admin/users");
   revalidatePath("/dashboard");
 }

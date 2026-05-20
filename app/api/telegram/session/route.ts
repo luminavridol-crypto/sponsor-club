@@ -22,7 +22,7 @@ export async function GET() {
         : null,
       nextPath: profile
         ? profile.role === "admin"
-          ? "/tg/admin"
+          ? "/tg/admin/posts"
           : hasClubAccess(profile)
             ? "/tg/content"
             : "/tg/support"

@@ -15,15 +15,18 @@ function isActive(pathname: string, href: string) {
 
 export function MiniAppNav({ admin = false }: { admin?: boolean }) {
   const pathname = usePathname();
-  const items: NavItem[] = [
-    { href: "/tg/content", label: "Контент" },
-    { href: "/tg/support", label: "Поддержать" },
-    { href: "/tg/profile", label: "Профиль" }
-  ];
-
-  if (admin) {
-    items.push({ href: "/tg/admin", label: "Админ" });
-  }
+  const items: NavItem[] = admin
+    ? [
+        { href: "/tg/admin/posts", label: "Добавить" },
+        { href: "/tg/admin/users", label: "Пользователи" },
+        { href: "/tg/content", label: "Лента" },
+        { href: "/tg/admin/invites", label: "Приглашение" }
+      ]
+    : [
+        { href: "/tg/content", label: "Контент" },
+        { href: "/tg/profile", label: "Профиль" },
+        { href: "/tg/support", label: "Задонатить" }
+      ];
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#090b14]/96 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-3 backdrop-blur-xl">

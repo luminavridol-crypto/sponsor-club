@@ -149,6 +149,7 @@ export interface PurchaseRequest {
   country: string;
   contact: string;
   status: PurchaseRequestStatus;
+   approved_for_club?: boolean;
   created_at: string;
   updated_at: string;
 }

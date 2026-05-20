@@ -14,6 +14,18 @@ function formatMoney(value: number | null | undefined) {
   return `${amount.toFixed(2)} EUR`;
 }
 
+function formatAccessDate(value: string | null) {
+  if (!value) {
+    return "Без ограничения";
+  }
+
+  return new Date(value).toLocaleString("ru-RU");
+}
+
+function accessLabel(status: "active" | "disabled") {
+  return status === "active" ? "Доступ открыт" : "Ожидает доступа";
+}
+
 export default async function TelegramProfilePage() {
   const profile = await requireAnyProfile();
   const admin = createAdminSupabaseClient();
@@ -30,7 +42,7 @@ export default async function TelegramProfilePage() {
   const recentDonations = (donations ?? []) as DonationEvent[];
 
   return (
-    <MiniAppShell profile={profile} title="Профиль" subtitle="Telegram-профиль без отдельного логина.">
+    <MiniAppShell profile={profile} title="Профиль" subtitle="Видно донаты, статус доступа и срок клуба.">
       <section className="grid grid-cols-2 gap-3">
         <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
           <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Уровень</p>
@@ -39,6 +51,14 @@ export default async function TelegramProfilePage() {
         <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
           <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Всего донатов</p>
           <p className="mt-2 text-lg font-semibold text-white">{formatMoney(profile.total_donations)}</p>
+        </div>
+        <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Статус</p>
+          <p className="mt-2 text-lg font-semibold text-white">{accessLabel(profile.access_status)}</p>
+        </div>
+        <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Доступ до</p>
+          <p className="mt-2 text-sm font-medium text-white">{formatAccessDate(profile.access_expires_at)}</p>
         </div>
       </section>
 
@@ -61,7 +81,9 @@ export default async function TelegramProfilePage() {
             )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-white">{profile.display_name || "Участник"}</p>
-              <p className="mt-1 text-xs text-white/45">{profile.telegram_username ? `@${profile.telegram_username}` : profile.email}</p>
+              <p className="mt-1 text-xs text-white/45">
+                {profile.telegram_username ? `@${profile.telegram_username}` : profile.email}
+              </p>
             </div>
           </div>
 
@@ -101,9 +123,7 @@ export default async function TelegramProfilePage() {
             recentDonations.map((event) => (
               <div key={event.id} className="rounded-2xl border border-white/10 bg-black/15 px-4 py-3">
                 <p className="text-sm font-medium text-white">{formatMoney(event.amount)}</p>
-                <p className="mt-1 text-xs text-white/45">
-                  {new Date(event.created_at).toLocaleString("ru-RU")}
-                </p>
+                <p className="mt-1 text-xs text-white/45">{new Date(event.created_at).toLocaleString("ru-RU")}</p>
               </div>
             ))
           ) : (

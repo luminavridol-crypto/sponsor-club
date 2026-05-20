@@ -54,8 +54,8 @@ export default async function AdminPurchaseRequestsPage() {
               <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Invite Requests</p>
               <h2 className="mt-3 text-3xl font-semibold text-white">Заявки на приглашение</h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-white/60 sm:leading-7">
-                Здесь появляются все запросы с главной страницы. Можно быстро увидеть уровень,
-                имя, почту, страну и контакт, а потом отметить заявку как обработанную.
+                Здесь появляются запросы с главной страницы. Можно посмотреть данные человека, отметить заявку и при
+                необходимости сразу разрешить вход в клуб.
               </p>
             </div>
 
@@ -97,6 +97,11 @@ export default async function AdminPurchaseRequestsPage() {
                     <span className={`rounded-full border px-3 py-1 text-sm ${statusTone(request.status)}`}>
                       {STATUS_LABELS[request.status]}
                     </span>
+                    {request.approved_for_club ? (
+                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-sm text-emerald-200">
+                        Вход разрешён
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -104,14 +109,11 @@ export default async function AdminPurchaseRequestsPage() {
                     <InfoCard label="Email" value={request.email} />
                     <InfoCard label="Страна" value={request.country} />
                     <InfoCard label="Контакт" value={request.contact} />
-                    <InfoCard
-                      label="Дата"
-                      value={new Date(request.created_at).toLocaleString("ru-RU")}
-                    />
+                    <InfoCard label="Дата" value={new Date(request.created_at).toLocaleString("ru-RU")} />
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row lg:w-[220px] lg:flex-col">
+                <div className="flex flex-col gap-3 sm:flex-row lg:w-[260px] lg:flex-col">
                   <form action={updatePurchaseRequestStatusAction}>
                     <input type="hidden" name="requestId" value={request.id} />
                     <input type="hidden" name="status" value="in_progress" />
@@ -122,6 +124,10 @@ export default async function AdminPurchaseRequestsPage() {
                   <form action={updatePurchaseRequestStatusAction}>
                     <input type="hidden" name="requestId" value={request.id} />
                     <input type="hidden" name="status" value="completed" />
+                    <label className="mb-3 flex items-center gap-2 rounded-2xl border border-white/10 bg-black/10 px-3 py-3 text-sm text-white/75">
+                      <input type="checkbox" name="allowClubAccess" className="h-4 w-4" />
+                      <span>Разрешить войти в клуб</span>
+                    </label>
                     <button className="w-full rounded-2xl border border-accent/35 bg-accent/10 px-4 py-3 text-sm text-accentSoft transition hover:bg-accent/20">
                       Отметить: завершена
                     </button>
