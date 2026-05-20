@@ -4,19 +4,10 @@ import { createInviteAction, disableInviteAction } from "@/app/actions";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { buildTelegramInviteLink, buildTelegramMiniAppLink } from "@/lib/telegram/links";
 import { Invite } from "@/lib/types";
 import { formatDate } from "@/lib/utils/format";
 import { buildInviteLink, TIER_LABELS } from "@/lib/utils/tier";
-
-function buildTelegramMiniAppLink() {
-  const username = process.env.TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, "");
-
-  if (!username) {
-    return null;
-  }
-
-  return `https://t.me/${username}?startapp=club`;
-}
 
 async function cleanupInvites() {
   const admin = createAdminSupabaseClient();
@@ -114,6 +105,9 @@ export default async function TelegramAdminInvitesPage() {
                   <p className="mt-2 text-sm text-white/55">
                     {invite.email || "Без привязки к email"} • {TIER_LABELS[invite.assigned_tier]} • создано{" "}
                     {formatDate(invite.created_at)}
+                  </p>
+                  <p className="mt-2 break-all text-sm text-accentSoft">
+                    {buildTelegramInviteLink(invite.code) || "Добавь TELEGRAM_BOT_USERNAME, чтобы отправлять Telegram invite."}
                   </p>
                   <p className="mt-2 break-all text-sm text-accentSoft">{buildInviteLink(invite.code)}</p>
                   <p className="mt-2 text-sm text-white/45">

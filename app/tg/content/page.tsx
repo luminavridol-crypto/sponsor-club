@@ -32,8 +32,8 @@ export default async function TelegramContentPage() {
   return (
     <MiniAppShell
       profile={{ ...profile, last_content_seen_at: seenAt }}
-      title="Контент"
-      subtitle="Сразу открываем закрытую часть клуба без лендинга."
+      title="Лента"
+      subtitle="Материалы клуба по твоему уровню доступа."
     >
       {postsWithThumbnails.length ? (
         postsWithThumbnails.map((post) => (
@@ -47,7 +47,7 @@ export default async function TelegramContentPage() {
         ))
       ) : (
         <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 text-sm text-white/60">
-          Пока здесь нет опубликованных материалов.
+          В ленте пока нет опубликованных материалов.
         </section>
       )}
     </MiniAppShell>

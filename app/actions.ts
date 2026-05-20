@@ -450,6 +450,68 @@ export async function createPurchaseRequestAction(formData: FormData) {
   redirect("/?inviteRequestSent=1#invitation-request");
 }
 
+export async function createTelegramPurchaseRequestAction(formData: FormData) {
+  const profile = await requireAnyProfile();
+  const tier = formValue(formData.get("tier")) as Tier;
+
+  if (!["tier_1", "tier_2", "tier_3"].includes(tier)) {
+    redirect("/tg/support?error=1");
+  }
+
+  const admin = createAdminSupabaseClient();
+  const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { data: recentRequest } = await admin
+    .from("purchase_requests")
+    .select("id")
+    .eq("email", profile.email)
+    .gte("created_at", recentCutoff)
+    .limit(1)
+    .maybeSingle();
+
+  if (recentRequest) {
+    redirect("/tg/support?sent=1");
+  }
+
+  const displayName =
+    profile.display_name ||
+    profile.telegram_first_name ||
+    profile.telegram_username ||
+    "Telegram user";
+  const telegramHandle = profile.telegram_username
+    ? `@${profile.telegram_username.replace(/^@/, "")}`
+    : "без username";
+  const telegramId = profile.telegram_id || "unknown";
+  const requestPayload = {
+    tier,
+    display_name: displayName,
+    email: profile.email,
+    country: "Telegram Mini App",
+    contact: `Telegram ID: ${telegramId} | Username: ${telegramHandle}`
+  };
+
+  const { error } = await admin.from("purchase_requests").insert(requestPayload);
+
+  if (error?.message.includes("display_name")) {
+    const { error: fallbackError } = await admin.from("purchase_requests").insert({
+      tier,
+      email: profile.email,
+      country: "Telegram Mini App",
+      contact: `Имя: ${displayName}\nСвязь: Telegram ID: ${telegramId} | Username: ${telegramHandle}`
+    });
+
+    if (fallbackError) {
+      redirect("/tg/support?error=1");
+    }
+  } else if (error) {
+    redirect("/tg/support?error=1");
+  }
+
+  revalidatePath("/tg/support");
+  revalidatePath("/tg/admin/users");
+  revalidatePath("/admin/requests");
+  redirect("/tg/support?sent=1");
+}
+
 export async function createDonationClaimAction(formData: FormData) {
   const profile = await requireAnyProfile();
   const parsed = donationClaimSchema.safeParse({

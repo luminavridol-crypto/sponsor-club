@@ -39,6 +39,10 @@ export function getTelegramAdminUsernames() {
   );
 }
 
+export function getTelegramBotUsername() {
+  return process.env.TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, "") || "";
+}
+
 export function isTelegramAdminUser({
   telegramId,
   username

@@ -16,6 +16,11 @@ type TelegramInitUser = {
   photo_url?: string;
 };
 
+type ValidatedTelegramInitData = {
+  user: TelegramInitUser;
+  startParam: string | null;
+};
+
 export type TelegramAuthResult = {
   profile: Profile;
   telegramId: string;
@@ -30,7 +35,7 @@ function buildDataCheckString(params: URLSearchParams) {
     .join("\n");
 }
 
-function validateInitDataHash(initData: string) {
+function validateInitDataHash(initData: string): ValidatedTelegramInitData {
   const params = new URLSearchParams(initData);
   const hash = params.get("hash");
 
@@ -59,15 +64,18 @@ function validateInitDataHash(initData: string) {
     throw new Error("Telegram initData is missing user.");
   }
 
-  return JSON.parse(rawUser) as TelegramInitUser;
+  return {
+    user: JSON.parse(rawUser) as TelegramInitUser,
+    startParam: params.get("start_param")
+  };
 }
 
 function buildTelegramEmail(telegramId: string) {
   return `tg-${telegramId}@telegram.local`;
 }
 
-async function findApprovedPurchaseRequest(username: string | null) {
-  if (!username) {
+async function findApprovedPurchaseRequest(telegramId: string) {
+  if (!telegramId) {
     return null;
   }
 
@@ -76,12 +84,30 @@ async function findApprovedPurchaseRequest(username: string | null) {
     .from("purchase_requests")
     .select("tier, approved_for_club, contact")
     .eq("approved_for_club", true)
-    .ilike("contact", `%${username}%`)
+    .ilike("contact", `%Telegram ID: ${telegramId}%`)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   return data;
+}
+
+function parseInviteCodeFromStartParam(startParam: string | null) {
+  if (!startParam) {
+    return null;
+  }
+
+  const trimmed = startParam.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const prefixed = trimmed.match(/^invite[-_:]?(.+)$/i);
+  const rawCode = prefixed?.[1] ?? trimmed;
+  const normalized = rawCode.trim().toUpperCase();
+
+  return normalized.startsWith("VIP-") ? normalized : null;
 }
 
 async function findOrCreateAuthUserId(telegramId: string) {
@@ -111,12 +137,74 @@ async function findOrCreateAuthUserId(telegramId: string) {
   return existing.id;
 }
 
+async function activateInviteForTelegramProfile(profile: Profile, inviteCode: string) {
+  const admin = createAdminSupabaseClient();
+  const { data: invite } = await admin
+    .from("invites")
+    .select("id, code, assigned_tier, used_at, used_by, disabled_at, expires_at")
+    .eq("code", inviteCode)
+    .maybeSingle();
+
+  if (!invite) {
+    return profile;
+  }
+
+  if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+    return profile;
+  }
+
+  const inviteAlreadyClaimedByCurrentProfile = invite.used_by === profile.id;
+
+  if ((invite.used_at || invite.disabled_at) && !inviteAlreadyClaimedByCurrentProfile) {
+    return profile;
+  }
+
+  if (!inviteAlreadyClaimedByCurrentProfile) {
+    const claimedAt = new Date().toISOString();
+    const { data: claimedInvite } = await admin
+      .from("invites")
+      .update({
+        used_at: claimedAt,
+        disabled_at: claimedAt,
+        used_by: profile.id
+      })
+      .eq("id", invite.id)
+      .is("used_at", null)
+      .is("disabled_at", null)
+      .select("id")
+      .maybeSingle();
+
+    if (!claimedInvite) {
+      return profile;
+    }
+  }
+
+  const nextRole = profile.role === "admin" ? "admin" : profile.role;
+  const { data: updatedProfile, error } = await admin
+    .from("profiles")
+    .update({
+      role: nextRole,
+      tier: invite.assigned_tier,
+      access_status: "active"
+    })
+    .eq("id", profile.id)
+    .select("*")
+    .single();
+
+  if (error || !updatedProfile) {
+    return profile;
+  }
+
+  return updatedProfile as Profile;
+}
+
 export async function upsertTelegramProfile(initData: string): Promise<TelegramAuthResult> {
-  const user = validateInitDataHash(initData);
+  const { user, startParam } = validateInitDataHash(initData);
   const telegramId = String(user.id);
   const admin = createAdminSupabaseClient();
   const username = user.username ?? null;
-  const approvedRequest = await findApprovedPurchaseRequest(username);
+  const approvedRequest = await findApprovedPurchaseRequest(telegramId);
+  const inviteCode = parseInviteCodeFromStartParam(startParam);
   const shouldBeAdmin = isTelegramAdminUser({
     telegramId,
     username
@@ -159,10 +247,14 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
       throw new Error(error?.message || "Unable to update Telegram profile.");
     }
 
+    const nextProfile = inviteCode
+      ? await activateInviteForTelegramProfile(updatedProfile as Profile, inviteCode)
+      : (updatedProfile as Profile);
+
     return {
-      profile: updatedProfile as Profile,
+      profile: nextProfile,
       telegramId,
-      isAdmin: nextRole === "admin"
+      isAdmin: nextProfile.role === "admin"
     };
   }
 
@@ -195,10 +287,14 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
     throw new Error(error?.message || "Unable to create Telegram profile.");
   }
 
+  const nextProfile = inviteCode
+    ? await activateInviteForTelegramProfile(insertedProfile as Profile, inviteCode)
+    : (insertedProfile as Profile);
+
   return {
-    profile: insertedProfile as Profile,
+    profile: nextProfile,
     telegramId,
-    isAdmin: nextRole === "admin"
+    isAdmin: nextProfile.role === "admin"
   };
 }
 

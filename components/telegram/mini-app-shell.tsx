@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { signOutAction } from "@/app/actions";
 import { MiniAppNav } from "@/components/telegram/mini-app-nav";
 import { TelegramMiniAppBridge } from "@/components/telegram/telegram-mini-app-bridge";
+import { hasClubAccess } from "@/lib/auth/access";
 import { Profile } from "@/lib/types";
 
 export function MiniAppShell({
@@ -47,7 +48,7 @@ export function MiniAppShell({
         <main className="mt-4 flex-1 space-y-4">{children}</main>
       </div>
 
-      <MiniAppNav admin={profile.role === "admin"} />
+      <MiniAppNav admin={profile.role === "admin"} hasAccess={hasClubAccess(profile)} />
     </div>
   );
 }

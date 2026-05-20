@@ -1,6 +1,7 @@
 import { redeemInviteAction } from "@/app/actions";
 import { BrandShell } from "@/components/layout/brand-shell";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { buildTelegramInviteLink, buildTelegramMiniAppLink } from "@/lib/telegram/links";
 
 async function getInviteStatus(code: string) {
   if (!code) {
@@ -50,6 +51,7 @@ export default async function InvitePage({
 
   const pageError = error || statusError;
   const canRedeem = inviteStatus.state === "active" || inviteStatus.state === "empty";
+  const telegramInviteLink = inviteCode ? buildTelegramInviteLink(inviteCode) : buildTelegramMiniAppLink();
 
   return (
     <BrandShell>
@@ -67,6 +69,26 @@ export default async function InvitePage({
               {decodeURIComponent(pageError)}
             </div>
           ) : null}
+
+          <div className="mt-6 rounded-[28px] border border-accent/20 bg-accent/10 p-5">
+            <p className="text-xs uppercase tracking-[0.24em] text-accentSoft">Telegram Mini App</p>
+            <h2 className="mt-3 text-xl font-semibold text-white">Войти через Telegram</h2>
+            <p className="mt-3 text-sm leading-6 text-white/70">
+              Открой бота по кнопке ниже. Если invite-код уже подставлен, доступ активируется автоматически внутри Telegram.
+            </p>
+            {telegramInviteLink ? (
+              <a
+                href={telegramInviteLink}
+                className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-3 font-medium text-background transition hover:bg-goldSoft"
+              >
+                Открыть в Telegram
+              </a>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60">
+                Добавь TELEGRAM_BOT_USERNAME в Vercel, чтобы здесь появилась Telegram-ссылка.
+              </div>
+            )}
+          </div>
 
           {canRedeem ? (
             <form action={redeemInviteAction} className="mt-6 grid gap-4">

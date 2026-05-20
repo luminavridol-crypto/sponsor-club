@@ -13,7 +13,13 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function MiniAppNav({ admin = false }: { admin?: boolean }) {
+export function MiniAppNav({
+  admin = false,
+  hasAccess = false
+}: {
+  admin?: boolean;
+  hasAccess?: boolean;
+}) {
   const pathname = usePathname();
   const items: NavItem[] = admin
     ? [
@@ -22,15 +28,24 @@ export function MiniAppNav({ admin = false }: { admin?: boolean }) {
         { href: "/tg/content", label: "Лента" },
         { href: "/tg/admin/invites", label: "Приглашение" }
       ]
-    : [
-        { href: "/tg/content", label: "Контент" },
-        { href: "/tg/profile", label: "Профиль" },
-        { href: "/tg/support", label: "Задонатить" }
-      ];
+    : hasAccess
+      ? [
+          { href: "/tg/content", label: "Лента" },
+          { href: "/tg/profile", label: "Профиль" },
+          { href: "/tg/support", label: "Поддержать" }
+        ]
+      : [
+          { href: "/tg/support", label: "Доступ" },
+          { href: "/tg/profile", label: "Профиль" }
+        ];
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#090b14]/96 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-3 backdrop-blur-xl">
-      <div className={`mx-auto grid max-w-xl gap-2 ${admin ? "grid-cols-4" : "grid-cols-3"}`}>
+      <div
+        className={`mx-auto grid max-w-xl gap-2 ${
+          admin ? "grid-cols-4" : hasAccess ? "grid-cols-3" : "grid-cols-2"
+        }`}
+      >
         {items.map((item) => {
           const active = isActive(pathname, item.href);
 
