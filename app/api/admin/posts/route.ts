@@ -7,6 +7,7 @@ import { sendEmailCampaign } from "@/lib/email/service";
 import { assertUploadFile, getSafeFileExtension, getUploadMediaType } from "@/lib/security/file-uploads";
 import { R2_PROVIDER, toR2ObjectKey, uploadMediaToR2 } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { notifyTelegramUsersAboutNewPost } from "@/lib/telegram/notifications";
 import { PostStatus, PostType, Tier } from "@/lib/types";
 import { buildContentSlug } from "@/lib/utils/content-space";
 
@@ -44,6 +45,13 @@ function humanizeStorageError(message: string) {
 }
 
 type EmailCampaignResultPayload = {
+  enabled: boolean;
+  sentCount: number;
+  failedCount: number;
+  skippedReason?: string | null;
+};
+
+type TelegramCampaignResultPayload = {
   enabled: boolean;
   sentCount: number;
   failedCount: number;
@@ -219,6 +227,11 @@ export async function POST(request: Request) {
       sentCount: 0,
       failedCount: 0
     };
+    const telegramCampaign: TelegramCampaignResultPayload = {
+      enabled: false,
+      sentCount: 0,
+      failedCount: 0
+    };
 
     if (sendEmailCampaignNow) {
       emailCampaign.enabled = true;
@@ -259,7 +272,20 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, emailCampaign });
+    if (status === "published") {
+      telegramCampaign.enabled = true;
+      const result = await notifyTelegramUsersAboutNewPost({
+        postTitle: title,
+        postSlug: slug,
+        requiredTier
+      });
+      telegramCampaign.sentCount = result.sentCount;
+      telegramCampaign.failedCount = result.failedCount;
+    } else {
+      telegramCampaign.skippedReason = "пост ещё не опубликован";
+    }
+
+    return NextResponse.json({ success: true, emailCampaign, telegramCampaign });
   } catch (error) {
     return NextResponse.json(
       {
