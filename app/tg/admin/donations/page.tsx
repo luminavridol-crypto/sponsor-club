@@ -21,7 +21,7 @@ export default async function TelegramAdminDonationsPage() {
   const claims = (data ?? []) as ClaimWithProfile[];
 
   return (
-    <MiniAppShell profile={profile} title="Донаты" subtitle="Ручное подтверждение переводов без Telegram Payments.">
+    <MiniAppShell profile={profile} title="Донаты">
       {claims.length ? (
         claims.map((claim) => (
           <section key={claim.id} className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-glow">

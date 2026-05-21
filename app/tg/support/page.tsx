@@ -52,15 +52,7 @@ export default async function TelegramSupportPage({
   const error = (Array.isArray(params.error) ? params.error[0] : params.error) === "1";
 
   return (
-    <MiniAppShell
-      profile={profile}
-      title={accessOpen ? "Поддержать" : "Доступ"}
-      subtitle={
-        accessOpen
-          ? "Здесь позже появится удобная поддержка внутри Telegram Mini App."
-          : "Выбери уровень клуба. Я получу заявку в админке и открою доступ вручную."
-      }
-    >
+    <MiniAppShell profile={profile} title={accessOpen ? "Поддержать" : "Доступ"}>
       {accessOpen ? (
         <section className="rounded-[28px] border border-accent/25 bg-accent/10 p-5 shadow-glow">
           <p className="text-xs uppercase tracking-[0.24em] text-accentSoft">Скоро появится</p>

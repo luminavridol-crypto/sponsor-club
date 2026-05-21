@@ -159,11 +159,13 @@ function TierQuickButton({
 export function UserCard({
   user,
   isCurrentAdmin,
-  donationEvents
+  donationEvents,
+  hideUnlimitedButton = false
 }: {
   user: Profile;
   isCurrentAdmin: boolean;
   donationEvents: DonationEvent[];
+  hideUnlimitedButton?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [selectedTier, setSelectedTier] = useState<Tier>(user.tier);
@@ -283,16 +285,18 @@ export function UserCard({
                 </button>
               </form>
 
-              <form action={setUserAccessUntilAction}>
-                <input type="hidden" name="userId" value={user.id} />
+              {!hideUnlimitedButton ? (
+                <form action={setUserAccessUntilAction}>
+                  <input type="hidden" name="userId" value={user.id} />
                 <button
                   type="submit"
                   onClick={() => setAccessUntil("")}
                   className="rounded-2xl border border-white/10 px-3 py-1.5 text-sm text-white/70 transition hover:border-accent/30 hover:bg-white/5 hover:text-white"
                 >
                   Без ограничения
-                </button>
-              </form>
+                  </button>
+                </form>
+              ) : null}
               <form action={stopUserAccessAction}>
                 <input type="hidden" name="userId" value={user.id} />
                 <button className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-3 py-1.5 text-sm text-rose-100 transition hover:bg-rose-400/20">

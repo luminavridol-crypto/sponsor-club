@@ -42,7 +42,7 @@ export default async function TelegramProfilePage() {
   const recentDonations = (donations ?? []) as DonationEvent[];
 
   return (
-    <MiniAppShell profile={profile} title="Профиль" subtitle="Видно донаты, статус доступа и срок клуба.">
+    <MiniAppShell profile={profile} title="Профиль">
       <section className="grid grid-cols-2 gap-3">
         <div className="rounded-[24px] border border-white/10 bg-white/5 p-4">
           <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Уровень</p>

@@ -143,7 +143,7 @@ async function uploadFileThroughServer(file: File) {
   return payload;
 }
 
-export function PostCreateForm() {
+export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
   const router = useRouter();
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<UploadState>("idle");
@@ -319,11 +319,13 @@ export function PostCreateForm() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/65">
+      {!miniApp ? (
+        <>
+          <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/65">
         {CLUB_DESTINATION_HINT}
-      </div>
+          </div>
 
-      <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+          <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
         <label className="flex items-center gap-3 text-sm text-white/85">
           <input
             type="checkbox"
@@ -361,7 +363,9 @@ export function PostCreateForm() {
             disabled={!sendEmail}
           />
         </div>
-      </div>
+          </div>
+        </>
+      ) : null}
 
       <div>
         <label className="mb-2 block text-sm text-white/60">Текст публикации</label>

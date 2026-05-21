@@ -7,7 +7,6 @@ import { requireProfile } from "@/lib/auth/guards";
 import { getCommentsForPost, getReactionSummariesForComments } from "@/lib/data/comments";
 import { getPostBySlugForTier, getSignedMediaUrls } from "@/lib/data/posts";
 import { getReactionSummaryForPost } from "@/lib/data/reactions";
-import { formatDate } from "@/lib/utils/format";
 
 export default async function TelegramContentPostPage({
   params
@@ -36,7 +35,7 @@ export default async function TelegramContentPostPage({
   );
 
   return (
-    <MiniAppShell profile={profile} title={post.title} subtitle={`Опубликовано ${formatDate(post.publish_at)}`}>
+    <MiniAppShell profile={profile} title={post.title}>
       <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
         <p className="text-xs uppercase tracking-[0.24em] text-accentSoft">{post.post_type}</p>
         {post.description ? <p className="mt-3 text-sm leading-6 text-white/65">{post.description}</p> : null}

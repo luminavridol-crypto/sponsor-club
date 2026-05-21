@@ -37,11 +37,7 @@ export default async function TelegramAdminInvitesPage() {
   const invites = (data ?? []) as Invite[];
 
   return (
-    <MiniAppShell
-      profile={profile}
-      title="Приглашение"
-      subtitle="Ссылка для Telegram Mini App и обычные invite-коды для доступа."
-    >
+    <MiniAppShell profile={profile} title="Приглашение">
       <section className="rounded-[28px] border border-accent/20 bg-accent/10 p-5 shadow-glow">
         <p className="text-xs uppercase tracking-[0.24em] text-accentSoft">Telegram Mini App</p>
         <h2 className="mt-3 text-xl font-semibold text-white">Ссылка для входа через Telegram</h2>
@@ -56,8 +52,7 @@ export default async function TelegramAdminInvitesPage() {
       </section>
 
       <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-glow">
-        <p className="text-sm uppercase tracking-[0.28em] text-cyanGlow">Invite Control</p>
-        <h2 className="mt-3 text-2xl font-semibold text-white">Invite-коды</h2>
+        <h2 className="text-2xl font-semibold text-white">Invite-коды</h2>
         <p className="mt-3 text-sm text-white/60">
           Если нужен отдельный код, создай его здесь. Он пригодится для web-входа или ручного доступа.
         </p>

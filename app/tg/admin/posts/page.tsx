@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { deleteAllPostsAction, deletePostAction, updatePostAction } from "@/app/actions";
 import { ConfirmActionForm } from "@/components/admin/confirm-action-form";
 import { PostCreateForm } from "@/components/admin/post-create-form";
@@ -40,13 +39,10 @@ export default async function TelegramAdminPostsPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <MiniAppShell profile={profile} title="Добавить контент" subtitle="Публикации для клуба прямо из Telegram.">
+    <MiniAppShell profile={profile} title="Добавить">
       <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-glow">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm uppercase tracking-[0.28em] text-accentSoft">Posts Manager</p>
-            <h2 className="mt-2 text-3xl font-semibold text-white">Создание публикаций</h2>
-          </div>
+          <h2 className="text-2xl font-semibold text-white">Новый пост</h2>
           <ConfirmActionForm
             action={deleteAllPostsAction}
             confirmMessage="Удалить все посты? Это действие нельзя отменить."
@@ -59,7 +55,7 @@ export default async function TelegramAdminPostsPage() {
             buttonClassName="rounded-2xl border border-rose-400/35 bg-rose-400/10 px-4 py-3 text-sm font-medium text-rose-100 transition hover:bg-rose-400/15"
           />
         </div>
-        <PostCreateForm />
+        <PostCreateForm miniApp />
       </section>
 
       <PostsVisibilityToggle>
@@ -72,26 +68,18 @@ export default async function TelegramAdminPostsPage() {
                   {post.post_type} • {post.required_tier} • {post.status} • {formatDate(post.publish_at)}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href={`/admin/email?post=${post.id}`}
-                  className="rounded-2xl border border-cyanGlow/30 bg-cyanGlow/10 px-4 py-2 text-sm text-cyanGlow transition hover:bg-cyanGlow/20"
-                >
-                  Email-рассылка
-                </Link>
-                <ConfirmActionForm
-                  action={deletePostAction}
-                  confirmMessage="Удалить этот пост?"
-                  buttonLabel={
-                    <span className="inline-flex items-center gap-2">
-                      <TrashIcon />
-                      Удалить
-                    </span>
-                  }
-                  buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20"
-                  hiddenFields={[{ name: "postId", value: post.id }]}
-                />
-              </div>
+              <ConfirmActionForm
+                action={deletePostAction}
+                confirmMessage="Удалить этот пост?"
+                buttonLabel={
+                  <span className="inline-flex items-center gap-2">
+                    <TrashIcon />
+                    Удалить
+                  </span>
+                }
+                buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20"
+                hiddenFields={[{ name: "postId", value: post.id }]}
+              />
             </div>
 
             <form action={updatePostAction} className="grid gap-3">

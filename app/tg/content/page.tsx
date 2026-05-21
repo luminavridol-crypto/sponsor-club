@@ -31,11 +31,7 @@ export default async function TelegramContentPage() {
   }));
 
   return (
-    <MiniAppShell
-      profile={{ ...profile, last_content_seen_at: seenAt }}
-      title="Лента"
-      subtitle="Материалы клуба по твоему уровню доступа."
-    >
+    <MiniAppShell profile={{ ...profile, last_content_seen_at: seenAt }} title="Лента">
       {postsWithThumbnails.length ? (
         postsWithThumbnails.map((post) => (
           <PostCard
