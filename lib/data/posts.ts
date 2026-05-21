@@ -4,8 +4,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { PostWithMedia, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
 
-export async function getVisiblePostsForTier(tier: Tier) {
-  noStore();
+async function getPublishedPosts() {
   const admin = createAdminSupabaseClient();
   const { data } = await admin
     .from("posts")
@@ -15,13 +14,23 @@ export async function getVisiblePostsForTier(tier: Tier) {
     .order("publish_at", { ascending: false });
 
   const posts = (data ?? []) as PostWithMedia[];
-  return posts.filter((post) => {
-    if (post.expires_at && new Date(post.expires_at) <= new Date()) {
-      return false;
-    }
+  return posts.filter((post) => !(post.expires_at && new Date(post.expires_at) <= new Date()));
+}
 
-    return canAccessTier(tier, post.required_tier);
-  });
+export async function getVisiblePostsForTier(tier: Tier) {
+  noStore();
+  const posts = await getPublishedPosts();
+  return posts.filter((post) => canAccessTier(tier, post.required_tier));
+}
+
+export async function getFeedPostsForTier(tier: Tier) {
+  noStore();
+  const posts = await getPublishedPosts();
+
+  return posts.map((post) => ({
+    ...post,
+    is_locked: !canAccessTier(tier, post.required_tier)
+  }));
 }
 
 export async function getPostBySlugForTier(slug: string, tier: Tier) {
@@ -41,6 +50,28 @@ export async function getPostBySlugForTier(slug: string, tier: Tier) {
   if (post.expires_at && new Date(post.expires_at) <= new Date()) return null;
   if (!canAccessTier(tier, post.required_tier)) return null;
   return post;
+}
+
+export async function getPostBySlugForViewer(slug: string, tier: Tier) {
+  noStore();
+  const admin = createAdminSupabaseClient();
+  const normalizedSlug = decodeURIComponent(slug);
+  const { data } = await admin
+    .from("posts")
+    .select("*, post_media(*)")
+    .eq("slug", normalizedSlug)
+    .single();
+
+  const post = data as PostWithMedia | null;
+  if (!post) return null;
+  if (post.status !== "published") return null;
+  if (new Date(post.publish_at) > new Date()) return null;
+  if (post.expires_at && new Date(post.expires_at) <= new Date()) return null;
+
+  return {
+    ...post,
+    is_locked: !canAccessTier(tier, post.required_tier)
+  };
 }
 
 export async function getSignedMediaUrls(paths: string[]) {

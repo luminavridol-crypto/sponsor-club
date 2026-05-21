@@ -109,6 +109,7 @@ export interface PostMedia {
 export interface PostWithMedia extends Post {
   post_media: PostMedia[];
   thumbnail_url?: string | null;
+  is_locked?: boolean;
 }
 
 export interface PostComment {

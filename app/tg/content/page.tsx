@@ -4,7 +4,7 @@ import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { PostCard } from "@/components/posts/post-card";
 import { requireProfile } from "@/lib/auth/guards";
 import { getCommentCountsForPosts } from "@/lib/data/comments";
-import { getVisiblePostsForTier, getSignedMediaUrls } from "@/lib/data/posts";
+import { getFeedPostsForTier, getSignedMediaUrls } from "@/lib/data/posts";
 import { getReactionSummariesForPosts } from "@/lib/data/reactions";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
@@ -16,7 +16,7 @@ export default async function TelegramContentPage() {
 
   await admin.from("profiles").update({ last_content_seen_at: seenAt }).eq("id", profile.id);
 
-  const posts = await getVisiblePostsForTier(visibleTier);
+  const posts = await getFeedPostsForTier(visibleTier);
   const commentCounts = await getCommentCountsForPosts(posts.map((post) => post.id));
   const reactionSummaries = await getReactionSummariesForPosts(
     posts.map((post) => post.id),
