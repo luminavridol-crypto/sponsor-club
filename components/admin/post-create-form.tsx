@@ -273,7 +273,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
     }
   }
 
-  const mediaAccept = ".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,image/*,video/*";
+  const mediaAccept = ".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,.m4v,.3gp,.3g2,image/*,video/*";
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 grid gap-3" encType="multipart/form-data">

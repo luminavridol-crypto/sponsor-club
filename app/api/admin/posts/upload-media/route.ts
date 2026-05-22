@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireActiveAdminSession } from "@/lib/auth/admin-session";
 import { getR2Env } from "@/lib/r2/env";
-import { assertUploadFile, getSafeFileExtension } from "@/lib/security/file-uploads";
+import { assertUploadFile, getMimeTypeFromFileName, getSafeFileExtension } from "@/lib/security/file-uploads";
 import { toR2StoragePath, uploadMediaToR2 } from "@/lib/storage/media";
 
 export const runtime = "nodejs";
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       kind === "thumbnail"
         ? `thumbnails/${randomUUID()}.${extension}`
         : `posts/pending/${randomUUID()}.${extension}`;
-    const contentType = file.type || "application/octet-stream";
+    const contentType = file.type || getMimeTypeFromFileName(file.name) || "application/octet-stream";
     const uploaded = await uploadMediaToR2(file, key, contentType);
     const { bucketName } = getR2Env();
 
