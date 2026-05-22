@@ -23,6 +23,7 @@ type ServerUploadResponse = {
 
 const TARGET_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 2560;
+const SERVER_UPLOAD_FALLBACK_MAX_BYTES = 4 * 1024 * 1024;
 const DEFAULT_POST_TITLE = "Lumina Secret Drop";
 const CLUB_DESTINATION_HINT = "Материал будет опубликован только внутри закрытого клуба.";
 
@@ -157,11 +158,30 @@ async function uploadFileThroughServer(file: File) {
     body: file
   });
 
-  if (!uploadResponse.ok) {
-    throw new Error("Не удалось загрузить файл в хранилище.");
+  if (uploadResponse.ok) {
+    return payload;
   }
 
-  return payload;
+  if (file.size <= SERVER_UPLOAD_FALLBACK_MAX_BYTES) {
+    const fallbackBody = new FormData();
+    fallbackBody.set("mode", "server");
+    fallbackBody.set("kind", "media");
+    fallbackBody.set("file", file);
+
+    const fallbackResponse = await fetch("/api/admin/posts/upload-media", {
+      method: "POST",
+      body: fallbackBody
+    });
+    const fallbackPayload = (await fallbackResponse.json().catch(() => ({}))) as ServerUploadResponse;
+
+    if (fallbackResponse.ok) {
+      return fallbackPayload;
+    }
+  }
+
+  throw new Error(
+    "Не удалось загрузить файл в хранилище. Скорее всего, для бакета R2 еще не настроен CORS для этого домена."
+  );
 }
 
 export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
