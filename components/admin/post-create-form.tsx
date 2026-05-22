@@ -16,6 +16,8 @@ type ServerUploadResponse = {
   mime_type: string;
   size_bytes: number;
   media_type: "image" | "video";
+  upload_url?: string;
+  upload_method?: "PUT";
   error?: string;
 };
 
@@ -126,8 +128,11 @@ async function compressImageFile(file: File) {
 
 async function uploadFileThroughServer(file: File) {
   const body = new FormData();
+  body.set("mode", "direct");
   body.set("kind", "media");
-  body.set("file", file);
+  body.set("fileName", file.name);
+  body.set("fileType", file.type);
+  body.set("fileSize", String(file.size));
 
   const response = await fetch("/api/admin/posts/upload-media", {
     method: "POST",
@@ -138,6 +143,22 @@ async function uploadFileThroughServer(file: File) {
 
   if (!response.ok) {
     throw new Error(payload.error || "Не удалось загрузить файл через сервер.");
+  }
+
+  if (!payload.upload_url) {
+    throw new Error("Не удалось получить ссылку для загрузки.");
+  }
+
+  const uploadResponse = await fetch(payload.upload_url, {
+    method: payload.upload_method || "PUT",
+    headers: {
+      "Content-Type": payload.mime_type || file.type || "application/octet-stream"
+    },
+    body: file
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error("Не удалось загрузить файл в хранилище.");
   }
 
   return payload;
