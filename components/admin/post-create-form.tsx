@@ -36,6 +36,58 @@ function replaceFileExtension(fileName: string, nextExtension: string) {
   return `${baseName}.${nextExtension}`;
 }
 
+async function uploadFileToSignedUrl(
+  file: File,
+  {
+    uploadUrl,
+    contentType,
+    method = "PUT"
+  }: {
+    uploadUrl: string;
+    contentType: string;
+    method?: "PUT";
+  }
+) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, uploadUrl, true);
+    xhr.responseType = "text";
+    xhr.timeout = 5 * 60 * 1000;
+    xhr.setRequestHeader("Content-Type", contentType || "application/octet-stream");
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+        return;
+      }
+
+      reject(
+        new Error(
+          `Не удалось загрузить файл в хранилище. R2 вернул ${xhr.status}.${xhr.responseText ? ` ${String(xhr.responseText).slice(0, 240)}` : ""}`
+        )
+      );
+    };
+
+    xhr.onerror = () => {
+      reject(
+        new Error(
+          "Сетевой запрос к хранилищу не выполнился. На iPhone это обычно связано с CORS, Telegram WebView или прямой загрузкой большого файла."
+        )
+      );
+    };
+
+    xhr.ontimeout = () => {
+      reject(new Error("Загрузка файла в хранилище превысила лимит ожидания."));
+    };
+
+    xhr.onabort = () => {
+      reject(new Error("Загрузка файла была прервана."));
+    };
+
+    xhr.send(file);
+  });
+}
+
 function canvasToBlob(canvas: HTMLCanvasElement, quality: number) {
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -150,19 +202,19 @@ async function uploadFileThroughServer(file: File) {
     throw new Error("Не удалось получить ссылку для загрузки.");
   }
 
-  const uploadResponse = await fetch(payload.upload_url, {
-    method: payload.upload_method || "PUT",
-    headers: {
-      "Content-Type": payload.mime_type || file.type || "application/octet-stream"
-    },
-    body: file
-  });
+  try {
+    await uploadFileToSignedUrl(file, {
+      uploadUrl: payload.upload_url,
+      contentType: payload.mime_type || file.type || "application/octet-stream",
+      method: payload.upload_method || "PUT"
+    });
 
-  if (uploadResponse.ok) {
     return payload;
-  }
+  } catch (directUploadError) {
+    if (file.size > SERVER_UPLOAD_FALLBACK_MAX_BYTES) {
+      throw directUploadError;
+    }
 
-  if (file.size <= SERVER_UPLOAD_FALLBACK_MAX_BYTES) {
     const fallbackBody = new FormData();
     fallbackBody.set("mode", "server");
     fallbackBody.set("kind", "media");
@@ -177,6 +229,11 @@ async function uploadFileThroughServer(file: File) {
     if (fallbackResponse.ok) {
       return fallbackPayload;
     }
+
+    throw new Error(
+      `${directUploadError instanceof Error ? directUploadError.message : "Прямая загрузка не сработала."} Сервер: ${fallbackResponse.status}. ${fallbackPayload.error || "Пустой ответ сервера."}`
+    );
+
   }
 
   throw new Error(
