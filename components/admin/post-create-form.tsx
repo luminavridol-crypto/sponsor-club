@@ -22,8 +22,11 @@ type ServerUploadResponse = {
 };
 
 type MultipartStartResponse = ServerUploadResponse & {
-  upload_id: string;
+  upload_id: string | null;
+  worker_create_url?: string | null;
   worker_upload_url?: string | null;
+  worker_complete_url?: string | null;
+  worker_abort_url?: string | null;
   worker_token?: string | null;
 };
 
@@ -118,14 +121,44 @@ async function uploadFileInChunks(
   });
   const startPayload = (await startResponse.json().catch(() => ({}))) as MultipartStartResponse;
 
-  if (!startResponse.ok || !startPayload.upload_id) {
+  if (!startResponse.ok) {
     throw new Error(startPayload.error || "Не удалось начать загрузку файла по частям.");
   }
 
-  if (!startPayload.worker_upload_url || !startPayload.worker_token) {
+  if (
+    !startPayload.worker_create_url ||
+    !startPayload.worker_upload_url ||
+    !startPayload.worker_complete_url ||
+    !startPayload.worker_abort_url ||
+    !startPayload.worker_token
+  ) {
     throw new Error("Не настроен upload worker для Telegram Mini App.");
   }
 
+  const createResponse = await fetch(startPayload.worker_create_url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${startPayload.worker_token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      objectKey: startPayload.object_key,
+      contentType: startPayload.mime_type || file.type || "application/octet-stream"
+    })
+  });
+  const createPayload = (await createResponse.json().catch(() => ({}))) as {
+    ok?: boolean;
+    uploadId?: string;
+    workerToken?: string;
+    error?: string;
+  };
+
+  if (!createResponse.ok || !createPayload.uploadId || !createPayload.workerToken) {
+    throw new Error(createPayload.error || "Не удалось создать multipart-сессию в R2.");
+  }
+
+  const uploadId = createPayload.uploadId;
+  const workerToken = createPayload.workerToken;
   const parts: Array<{ etag: string; partNumber: number }> = [];
   const totalParts = Math.max(1, Math.ceil(file.size / SERVER_UPLOAD_CHUNK_BYTES));
 
@@ -139,7 +172,7 @@ async function uploadFileInChunks(
       onMessage?.(`Загружаю видео по частям: ${partNumber} из ${totalParts}`);
 
       const partBody = new FormData();
-      partBody.set("uploadId", startPayload.upload_id);
+      partBody.set("uploadId", uploadId);
       partBody.set("objectKey", startPayload.object_key);
       partBody.set("partNumber", String(partNumber));
       partBody.set("chunk", chunk, `${file.name}.part-${partNumber}`);
@@ -147,7 +180,7 @@ async function uploadFileInChunks(
       const partResponse = await fetch(startPayload.worker_upload_url, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${startPayload.worker_token}`
+          Authorization: `Bearer ${workerToken}`
         },
         body: partBody
       });
@@ -168,35 +201,47 @@ async function uploadFileInChunks(
       onProgress?.(Math.round((partNumber / totalParts) * 100));
     }
 
-    const completeBody = new FormData();
-    completeBody.set("mode", "multipart-complete");
-    completeBody.set("uploadId", startPayload.upload_id);
-    completeBody.set("objectKey", startPayload.object_key);
-    completeBody.set("mimeType", startPayload.mime_type || file.type || "application/octet-stream");
-    completeBody.set("fileSize", String(file.size));
-    completeBody.set("mediaType", startPayload.media_type);
-    completeBody.set("parts", JSON.stringify(parts));
-
-    const completeResponse = await fetch("/api/admin/posts/upload-media", {
+    const completeResponse = await fetch(startPayload.worker_complete_url, {
       method: "POST",
-      body: completeBody
+      headers: {
+        Authorization: `Bearer ${workerToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        uploadId,
+        objectKey: startPayload.object_key,
+        parts
+      })
     });
-    const completePayload = (await completeResponse.json().catch(() => ({}))) as ServerUploadResponse;
+    const completePayload = (await completeResponse.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+    };
 
-    if (!completeResponse.ok) {
+    if (!completeResponse.ok || !completePayload.ok) {
       throw new Error(completePayload.error || "Не удалось завершить загрузку файла.");
     }
 
-    return completePayload;
+    return {
+      provider: "r2" as const,
+      bucket: startPayload.bucket,
+      object_key: startPayload.object_key,
+      storage_path: startPayload.storage_path,
+      mime_type: startPayload.mime_type || file.type || "application/octet-stream",
+      size_bytes: startPayload.size_bytes || file.size,
+      media_type: startPayload.media_type
+    };
   } catch (error) {
-    const abortBody = new FormData();
-    abortBody.set("mode", "multipart-abort");
-    abortBody.set("uploadId", startPayload.upload_id);
-    abortBody.set("objectKey", startPayload.object_key);
-
-    await fetch("/api/admin/posts/upload-media", {
+    await fetch(startPayload.worker_abort_url, {
       method: "POST",
-      body: abortBody
+      headers: {
+        Authorization: `Bearer ${workerToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        uploadId,
+        objectKey: startPayload.object_key
+      })
     }).catch(() => undefined);
 
     throw error;
@@ -348,12 +393,7 @@ async function uploadFileThroughServer(file: File) {
     throw new Error(
       `${directUploadError instanceof Error ? directUploadError.message : "Прямая загрузка не сработала."} Сервер: ${fallbackResponse.status}. ${fallbackPayload.error || "Пустой ответ сервера."}`
     );
-
   }
-
-  throw new Error(
-    "Не удалось загрузить файл в хранилище. Скорее всего, для бакета R2 еще не настроен CORS для этого домена."
-  );
 }
 
 export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
@@ -497,9 +537,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       router.refresh();
     } catch (error) {
       setStatus("error");
-      setMessage(
-        error instanceof Error ? error.message : "Не удалось загрузить файлы и создать публикацию."
-      );
+      setMessage(error instanceof Error ? error.message : "Не удалось загрузить файлы и создать публикацию.");
     }
   }
 
@@ -552,47 +590,47 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       {!miniApp ? (
         <>
           <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-white/65">
-        {CLUB_DESTINATION_HINT}
+            {CLUB_DESTINATION_HINT}
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
-        <label className="flex items-center gap-3 text-sm text-white/85">
-          <input
-            type="checkbox"
-            name="sendEmailCampaign"
-            checked={sendEmail}
-            onChange={(event) => setSendEmail(event.target.checked)}
-            className="h-4 w-4 rounded border-white/20 bg-transparent p-0"
-          />
-          <span>Сразу отправить email-рассылку по этому посту</span>
-        </label>
-        <p className="mt-2 text-sm leading-6 text-white/55">
-          Письмо уйдёт только тем участникам, которым доступен этот пост. Можно использовать{" "}
-          <code>{"{{name}}"}</code>, <code>{"{{club_url}}"}</code> и <code>{"{{post_url}}"}</code>.
-        </p>
-        <div className={`mt-4 grid gap-3 ${sendEmail ? "" : "opacity-60"}`}>
-          <input
-            name="emailSubject"
-            value={emailSubject}
-            onChange={(event) => {
-              setSubjectEdited(true);
-              setEmailSubject(event.target.value);
-            }}
-            placeholder="Тема письма"
-            disabled={!sendEmail}
-          />
-          <textarea
-            name="emailBody"
-            value={emailBody}
-            onChange={(event) => {
-              setBodyEdited(true);
-              setEmailBody(event.target.value);
-            }}
-            placeholder="Текст письма"
-            className="min-h-[180px]"
-            disabled={!sendEmail}
-          />
-        </div>
+            <label className="flex items-center gap-3 text-sm text-white/85">
+              <input
+                type="checkbox"
+                name="sendEmailCampaign"
+                checked={sendEmail}
+                onChange={(event) => setSendEmail(event.target.checked)}
+                className="h-4 w-4 rounded border-white/20 bg-transparent p-0"
+              />
+              <span>Сразу отправить email-рассылку по этому посту</span>
+            </label>
+            <p className="mt-2 text-sm leading-6 text-white/55">
+              Письмо уйдёт только тем участникам, которым доступен этот пост. Можно использовать{" "}
+              <code>{"{{name}}"}</code>, <code>{"{{club_url}}"}</code> и <code>{"{{post_url}}"}</code>.
+            </p>
+            <div className={`mt-4 grid gap-3 ${sendEmail ? "" : "opacity-60"}`}>
+              <input
+                name="emailSubject"
+                value={emailSubject}
+                onChange={(event) => {
+                  setSubjectEdited(true);
+                  setEmailSubject(event.target.value);
+                }}
+                placeholder="Тема письма"
+                disabled={!sendEmail}
+              />
+              <textarea
+                name="emailBody"
+                value={emailBody}
+                onChange={(event) => {
+                  setBodyEdited(true);
+                  setEmailBody(event.target.value);
+                }}
+                placeholder="Текст письма"
+                className="min-h-[180px]"
+                disabled={!sendEmail}
+              />
+            </div>
           </div>
         </>
       ) : null}

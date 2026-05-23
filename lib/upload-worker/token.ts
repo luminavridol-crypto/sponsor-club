@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 
 type UploadWorkerTokenPayload = {
   objectKey: string;
-  uploadId: string;
+  uploadId?: string;
   exp: number;
 };
 
@@ -56,7 +56,7 @@ export function verifyUploadWorkerToken(
 
   const payload = JSON.parse(fromBase64Url(encodedPayload)) as UploadWorkerTokenPayload;
 
-  if (!payload.objectKey || !payload.uploadId || !payload.exp) {
+  if (!payload.objectKey || !payload.exp) {
     throw new Error("Upload worker token payload is incomplete.");
   }
 
