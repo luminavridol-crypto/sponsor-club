@@ -23,6 +23,8 @@ type ServerUploadResponse = {
 
 type MultipartStartResponse = ServerUploadResponse & {
   upload_id: string;
+  worker_upload_url?: string | null;
+  worker_token?: string | null;
 };
 
 const TARGET_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -120,6 +122,10 @@ async function uploadFileInChunks(
     throw new Error(startPayload.error || "Не удалось начать загрузку файла по частям.");
   }
 
+  if (!startPayload.worker_upload_url || !startPayload.worker_token) {
+    throw new Error("Не настроен upload worker для Telegram Mini App.");
+  }
+
   const parts: Array<{ etag: string; partNumber: number }> = [];
   const totalParts = Math.max(1, Math.ceil(file.size / SERVER_UPLOAD_CHUNK_BYTES));
 
@@ -133,14 +139,16 @@ async function uploadFileInChunks(
       onMessage?.(`Загружаю видео по частям: ${partNumber} из ${totalParts}`);
 
       const partBody = new FormData();
-      partBody.set("mode", "multipart-part");
       partBody.set("uploadId", startPayload.upload_id);
       partBody.set("objectKey", startPayload.object_key);
       partBody.set("partNumber", String(partNumber));
       partBody.set("chunk", chunk, `${file.name}.part-${partNumber}`);
 
-      const partResponse = await fetch("/api/admin/posts/upload-media", {
+      const partResponse = await fetch(startPayload.worker_upload_url, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${startPayload.worker_token}`
+        },
         body: partBody
       });
       const partPayload = (await partResponse.json().catch(() => ({}))) as {

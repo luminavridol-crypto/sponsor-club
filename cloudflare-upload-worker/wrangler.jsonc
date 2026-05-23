@@ -1,0 +1,17 @@
+{
+  "name": "sponsor-club-upload-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-23",
+  "observability": {
+    "enabled": true
+  },
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "lumina-videos"
+    }
+  ],
+  "vars": {
+    "UPLOAD_WORKER_ALLOWED_ORIGINS": "https://sponsor-club.vercel.app,https://sponsor-club-luminavridol-cryptos-projects.vercel.app,https://sponsor-club-git-main-luminavridol-cryptos-projects.vercel.app,http://localhost:3000,http://127.0.0.1:3000"
+  }
+}

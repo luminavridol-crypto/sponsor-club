@@ -16,6 +16,7 @@ import {
   uploadR2MultipartPart,
   uploadMediaToR2
 } from "@/lib/storage/media";
+import { createUploadWorkerToken, getUploadWorkerEnv } from "@/lib/upload-worker/token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -106,6 +107,17 @@ export async function POST(request: Request) {
       const contentType = fileType || getMimeTypeFromFileName(fileName) || "application/octet-stream";
       const key = buildKey(kind, extension);
       const multipart = await createR2MultipartUpload(key, contentType);
+      const workerEnv = getUploadWorkerEnv();
+      const workerToken = workerEnv.enabled
+        ? createUploadWorkerToken(
+            {
+              objectKey: multipart.objectKey,
+              uploadId: multipart.uploadId,
+              exp: Math.floor(Date.now() / 1000) + 60 * 30
+            },
+            workerEnv.tokenSecret
+          )
+        : null;
 
       return NextResponse.json({
         provider: "r2",
@@ -115,7 +127,9 @@ export async function POST(request: Request) {
         mime_type: contentType,
         size_bytes: fileSize,
         media_type: mediaType,
-        upload_id: multipart.uploadId
+        upload_id: multipart.uploadId,
+        worker_upload_url: workerEnv.enabled ? `${workerEnv.publicUrl}/multipart/part` : null,
+        worker_token: workerToken
       });
     }
 
