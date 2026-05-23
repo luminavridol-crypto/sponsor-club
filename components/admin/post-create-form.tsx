@@ -21,9 +21,14 @@ type ServerUploadResponse = {
   error?: string;
 };
 
+type MultipartStartResponse = ServerUploadResponse & {
+  upload_id: string;
+};
+
 const TARGET_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 2560;
 const SERVER_UPLOAD_FALLBACK_MAX_BYTES = 4 * 1024 * 1024;
+const SERVER_UPLOAD_CHUNK_BYTES = 4 * 1024 * 1024;
 const DEFAULT_POST_TITLE = "Lumina Secret Drop";
 const CLUB_DESTINATION_HINT = "Материал будет опубликован только внутри закрытого клуба.";
 
@@ -86,6 +91,108 @@ async function uploadFileToSignedUrl(
 
     xhr.send(file);
   });
+}
+
+async function uploadFileInChunks(
+  file: File,
+  {
+    onProgress,
+    onMessage
+  }: {
+    onProgress?: (percent: number) => void;
+    onMessage?: (message: string) => void;
+  } = {}
+) {
+  const startBody = new FormData();
+  startBody.set("mode", "multipart-start");
+  startBody.set("kind", "media");
+  startBody.set("fileName", file.name);
+  startBody.set("fileType", file.type);
+  startBody.set("fileSize", String(file.size));
+
+  const startResponse = await fetch("/api/admin/posts/upload-media", {
+    method: "POST",
+    body: startBody
+  });
+  const startPayload = (await startResponse.json().catch(() => ({}))) as MultipartStartResponse;
+
+  if (!startResponse.ok || !startPayload.upload_id) {
+    throw new Error(startPayload.error || "Не удалось начать загрузку файла по частям.");
+  }
+
+  const parts: Array<{ etag: string; partNumber: number }> = [];
+  const totalParts = Math.max(1, Math.ceil(file.size / SERVER_UPLOAD_CHUNK_BYTES));
+
+  try {
+    for (let partIndex = 0; partIndex < totalParts; partIndex += 1) {
+      const start = partIndex * SERVER_UPLOAD_CHUNK_BYTES;
+      const end = Math.min(file.size, start + SERVER_UPLOAD_CHUNK_BYTES);
+      const chunk = file.slice(start, end);
+      const partNumber = partIndex + 1;
+
+      onMessage?.(`Загружаю видео по частям: ${partNumber} из ${totalParts}`);
+
+      const partBody = new FormData();
+      partBody.set("mode", "multipart-part");
+      partBody.set("uploadId", startPayload.upload_id);
+      partBody.set("objectKey", startPayload.object_key);
+      partBody.set("partNumber", String(partNumber));
+      partBody.set("chunk", chunk, `${file.name}.part-${partNumber}`);
+
+      const partResponse = await fetch("/api/admin/posts/upload-media", {
+        method: "POST",
+        body: partBody
+      });
+      const partPayload = (await partResponse.json().catch(() => ({}))) as {
+        ok?: boolean;
+        etag?: string;
+        error?: string;
+      };
+
+      if (!partResponse.ok || !partPayload.etag) {
+        throw new Error(partPayload.error || `Не удалось загрузить часть ${partNumber}.`);
+      }
+
+      parts.push({
+        etag: partPayload.etag,
+        partNumber
+      });
+      onProgress?.(Math.round((partNumber / totalParts) * 100));
+    }
+
+    const completeBody = new FormData();
+    completeBody.set("mode", "multipart-complete");
+    completeBody.set("uploadId", startPayload.upload_id);
+    completeBody.set("objectKey", startPayload.object_key);
+    completeBody.set("mimeType", startPayload.mime_type || file.type || "application/octet-stream");
+    completeBody.set("fileSize", String(file.size));
+    completeBody.set("mediaType", startPayload.media_type);
+    completeBody.set("parts", JSON.stringify(parts));
+
+    const completeResponse = await fetch("/api/admin/posts/upload-media", {
+      method: "POST",
+      body: completeBody
+    });
+    const completePayload = (await completeResponse.json().catch(() => ({}))) as ServerUploadResponse;
+
+    if (!completeResponse.ok) {
+      throw new Error(completePayload.error || "Не удалось завершить загрузку файла.");
+    }
+
+    return completePayload;
+  } catch (error) {
+    const abortBody = new FormData();
+    abortBody.set("mode", "multipart-abort");
+    abortBody.set("uploadId", startPayload.upload_id);
+    abortBody.set("objectKey", startPayload.object_key);
+
+    await fetch("/api/admin/posts/upload-media", {
+      method: "POST",
+      body: abortBody
+    }).catch(() => undefined);
+
+    throw error;
+  }
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, quality: number) {
@@ -296,9 +403,26 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
 
       for (let index = 0; index < optimizedFiles.length; index += 1) {
         const file = optimizedFiles[index];
+        const shouldUseChunkedUpload =
+          miniApp && (file.type.startsWith("video/") || file.size > SERVER_UPLOAD_FALLBACK_MAX_BYTES);
 
-        setMessage(`Загружаю файл через сервер: ${index + 1} из ${optimizedFiles.length}`);
-        const uploaded = await uploadFileThroughServer(file);
+        setMessage(
+          shouldUseChunkedUpload
+            ? `Готовлю безопасную загрузку видео: ${index + 1} из ${optimizedFiles.length}`
+            : `Загружаю файл: ${index + 1} из ${optimizedFiles.length}`
+        );
+
+        const uploaded = shouldUseChunkedUpload
+          ? await uploadFileInChunks(file, {
+              onMessage: setMessage,
+              onProgress: (percent) => {
+                const overall = Math.round(
+                  ((index + Math.min(percent, 100) / 100) / Math.max(optimizedFiles.length, 1)) * 90
+                );
+                setProgress(overall);
+              }
+            })
+          : await uploadFileThroughServer(file);
         mediaEntries.push(uploaded);
         setProgress(Math.round(((index + 1) / Math.max(optimizedFiles.length, 1)) * 90));
       }

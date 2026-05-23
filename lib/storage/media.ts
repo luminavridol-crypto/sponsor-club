@@ -1,10 +1,15 @@
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
+  CompletedPart,
   PutObjectCommand,
-  S3Client
+  S3Client,
+  UploadPartCommand
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -155,6 +160,128 @@ export async function createR2SignedUploadUrl(
       expiresIn,
       signableHeaders: new Set(["content-type"])
     }
+  );
+}
+
+export async function createR2MultipartUpload(
+  key: string,
+  contentType = "application/octet-stream"
+) {
+  const client = getR2Client();
+  const { bucketName } = getR2Env();
+  const result = await client.send(
+    new CreateMultipartUploadCommand({
+      Bucket: bucketName,
+      Key: key,
+      ContentType: contentType || "application/octet-stream",
+      ContentDisposition: "inline"
+    })
+  );
+
+  if (!result.UploadId) {
+    throw new Error("Не удалось создать multipart-загрузку.");
+  }
+
+  return {
+    bucket: bucketName,
+    objectKey: key,
+    uploadId: result.UploadId
+  };
+}
+
+export async function uploadR2MultipartPart(
+  {
+    key,
+    uploadId,
+    partNumber,
+    body,
+    contentLength
+  }: {
+    key: string;
+    uploadId: string;
+    partNumber: number;
+    body: Buffer | Uint8Array;
+    contentLength?: number;
+  }
+) {
+  const client = getR2Client();
+  const { bucketName } = getR2Env();
+  const result = await client.send(
+    new UploadPartCommand({
+      Bucket: bucketName,
+      Key: key,
+      UploadId: uploadId,
+      PartNumber: partNumber,
+      Body: body,
+      ContentLength: contentLength ?? body.byteLength
+    })
+  );
+
+  if (!result.ETag) {
+    throw new Error(`Не удалось загрузить chunk ${partNumber}.`);
+  }
+
+  return {
+    etag: result.ETag,
+    partNumber
+  };
+}
+
+export async function completeR2MultipartUpload(
+  {
+    key,
+    uploadId,
+    parts
+  }: {
+    key: string;
+    uploadId: string;
+    parts: Array<{ etag: string; partNumber: number }>;
+  }
+) {
+  const client = getR2Client();
+  const { bucketName } = getR2Env();
+  const sortedParts: CompletedPart[] = [...parts]
+    .sort((left, right) => left.partNumber - right.partNumber)
+    .map((part) => ({
+      ETag: part.etag,
+      PartNumber: part.partNumber
+    }));
+
+  await client.send(
+    new CompleteMultipartUploadCommand({
+      Bucket: bucketName,
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: {
+        Parts: sortedParts
+      }
+    })
+  );
+
+  return {
+    provider: R2_PROVIDER,
+    bucket: bucketName,
+    objectKey: key,
+    storagePath: toR2StoragePath(key)
+  };
+}
+
+export async function abortR2MultipartUpload({
+  key,
+  uploadId
+}: {
+  key: string;
+  uploadId: string;
+}) {
+  const client = getR2Client();
+  const { bucketName } = getR2Env();
+
+  await client.send(
+    new AbortMultipartUploadCommand({
+      Bucket: bucketName,
+      Key: key,
+      UploadId: uploadId
+    })
   );
 }
 

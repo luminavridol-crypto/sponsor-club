@@ -8,8 +8,12 @@ import {
   getSafeFileExtension
 } from "@/lib/security/file-uploads";
 import {
+  abortR2MultipartUpload,
+  completeR2MultipartUpload,
+  createR2MultipartUpload,
   createR2SignedUploadUrl,
   toR2StoragePath,
+  uploadR2MultipartPart,
   uploadMediaToR2
 } from "@/lib/storage/media";
 
@@ -24,6 +28,19 @@ function buildKey(kind: string, extension: string) {
   return kind === "thumbnail"
     ? `thumbnails/${randomUUID()}.${extension}`
     : `posts/pending/${randomUUID()}.${extension}`;
+}
+
+function parseParts(raw: string) {
+  const parsed = JSON.parse(raw) as Array<{ etag: string; partNumber: number }>;
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error("Не удалось завершить загрузку: список частей пуст.");
+  }
+
+  return parsed.map((part) => ({
+    etag: String(part.etag || "").trim(),
+    partNumber: Number(part.partNumber || 0)
+  }));
 }
 
 export async function POST(request: Request) {
@@ -69,6 +86,109 @@ export async function POST(request: Request) {
         upload_url: uploadUrl,
         upload_method: "PUT"
       });
+    }
+
+    if (mode === "multipart-start") {
+      const fileName = formValue(formData.get("fileName"));
+      const fileType = formValue(formData.get("fileType"));
+      const fileSize = Number(formValue(formData.get("fileSize")) || 0);
+
+      if (!fileName || fileSize <= 0) {
+        return NextResponse.json({ error: "Файл не найден." }, { status: 400 });
+      }
+
+      const pseudoFile = { name: fileName, type: fileType, size: fileSize } as File;
+      const mediaType =
+        kind === "thumbnail"
+          ? assertUploadFile(pseudoFile, { allowImages: true, allowVideos: false })
+          : assertUploadFile(pseudoFile);
+      const extension = getSafeFileExtension(pseudoFile);
+      const contentType = fileType || getMimeTypeFromFileName(fileName) || "application/octet-stream";
+      const key = buildKey(kind, extension);
+      const multipart = await createR2MultipartUpload(key, contentType);
+
+      return NextResponse.json({
+        provider: "r2",
+        bucket: bucketName,
+        object_key: multipart.objectKey,
+        storage_path: toR2StoragePath(multipart.objectKey),
+        mime_type: contentType,
+        size_bytes: fileSize,
+        media_type: mediaType,
+        upload_id: multipart.uploadId
+      });
+    }
+
+    if (mode === "multipart-part") {
+      const uploadId = formValue(formData.get("uploadId"));
+      const objectKey = formValue(formData.get("objectKey"));
+      const partNumber = Number(formValue(formData.get("partNumber")) || 0);
+      const chunk = formData.get("chunk");
+
+      if (!uploadId || !objectKey || partNumber <= 0 || !(chunk instanceof File) || chunk.size <= 0) {
+        return NextResponse.json({ error: "Не удалось загрузить chunk." }, { status: 400 });
+      }
+
+      const buffer = Buffer.from(await chunk.arrayBuffer());
+      const uploadedPart = await uploadR2MultipartPart({
+        key: objectKey,
+        uploadId,
+        partNumber,
+        body: buffer,
+        contentLength: buffer.byteLength
+      });
+
+      return NextResponse.json({
+        ok: true,
+        part_number: uploadedPart.partNumber,
+        etag: uploadedPart.etag
+      });
+    }
+
+    if (mode === "multipart-complete") {
+      const uploadId = formValue(formData.get("uploadId"));
+      const objectKey = formValue(formData.get("objectKey"));
+      const mimeType = formValue(formData.get("mimeType")) || "application/octet-stream";
+      const sizeBytes = Number(formValue(formData.get("fileSize")) || 0);
+      const mediaType = formValue(formData.get("mediaType")) as "image" | "video";
+      const rawParts = formValue(formData.get("parts"));
+
+      if (!uploadId || !objectKey || !rawParts) {
+        return NextResponse.json({ error: "Не удалось завершить загрузку." }, { status: 400 });
+      }
+
+      const parts = parseParts(rawParts);
+      const completed = await completeR2MultipartUpload({
+        key: objectKey,
+        uploadId,
+        parts
+      });
+
+      return NextResponse.json({
+        provider: "r2",
+        bucket: completed.bucket,
+        object_key: completed.objectKey,
+        storage_path: completed.storagePath,
+        mime_type: mimeType,
+        size_bytes: sizeBytes,
+        media_type: mediaType
+      });
+    }
+
+    if (mode === "multipart-abort") {
+      const uploadId = formValue(formData.get("uploadId"));
+      const objectKey = formValue(formData.get("objectKey"));
+
+      if (!uploadId || !objectKey) {
+        return NextResponse.json({ error: "Не удалось отменить загрузку." }, { status: 400 });
+      }
+
+      await abortR2MultipartUpload({
+        key: objectKey,
+        uploadId
+      });
+
+      return NextResponse.json({ ok: true });
     }
 
     const file = formData.get("file");
