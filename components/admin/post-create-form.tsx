@@ -28,7 +28,7 @@ type MultipartStartResponse = ServerUploadResponse & {
 const TARGET_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 2560;
 const SERVER_UPLOAD_FALLBACK_MAX_BYTES = 4 * 1024 * 1024;
-const SERVER_UPLOAD_CHUNK_BYTES = 4 * 1024 * 1024;
+const SERVER_UPLOAD_CHUNK_BYTES = 6 * 1024 * 1024;
 const DEFAULT_POST_TITLE = "Lumina Secret Drop";
 const CLUB_DESTINATION_HINT = "Материал будет опубликован только внутри закрытого клуба.";
 
