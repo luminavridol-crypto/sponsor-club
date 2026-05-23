@@ -185,15 +185,12 @@ const worker = {
       const tokenPayload = await verifyToken(token, env.UPLOAD_WORKER_TOKEN_SECRET);
 
       if (url.pathname === "/multipart/create") {
-        const body = await readJsonBody(request) as { objectKey?: string; contentType?: string };
+        const body = await readJsonBody(request) as { objectKey?: string };
         const objectKey = String(body.objectKey || "").trim();
-        const contentType = String(body.contentType || "").trim();
 
         validateObjectKey(objectKey, tokenPayload);
 
-        const multipartUpload = await env.UPLOADS.createMultipartUpload(objectKey, {
-          httpMetadata: contentType ? { contentType } : undefined
-        });
+        const multipartUpload = await env.UPLOADS.createMultipartUpload(objectKey);
         const workerToken = await createToken(
           {
             objectKey,

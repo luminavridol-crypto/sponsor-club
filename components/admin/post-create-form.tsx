@@ -108,6 +108,10 @@ async function uploadFileInChunks(
     onMessage?: (message: string) => void;
   } = {}
 ) {
+  async function safeJson<T>(response: Response) {
+    return (await response.json().catch(() => null)) as T | null;
+  }
+
   const startBody = new FormData();
   startBody.set("mode", "multipart-start");
   startBody.set("kind", "media");
@@ -119,7 +123,7 @@ async function uploadFileInChunks(
     method: "POST",
     body: startBody
   });
-  const startPayload = (await startResponse.json().catch(() => ({}))) as MultipartStartResponse;
+  const startPayload = ((await safeJson<MultipartStartResponse>(startResponse)) || {}) as MultipartStartResponse;
 
   if (!startResponse.ok) {
     throw new Error(startPayload.error || "Не удалось начать загрузку файла по частям.");
@@ -142,11 +146,15 @@ async function uploadFileInChunks(
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      objectKey: startPayload.object_key,
-      contentType: startPayload.mime_type || file.type || "application/octet-stream"
+      objectKey: startPayload.object_key
     })
   });
-  const createPayload = (await createResponse.json().catch(() => ({}))) as {
+  const createPayload = ((await safeJson<{
+    ok?: boolean;
+    uploadId?: string;
+    workerToken?: string;
+    error?: string;
+  }>(createResponse)) || {}) as {
     ok?: boolean;
     uploadId?: string;
     workerToken?: string;
