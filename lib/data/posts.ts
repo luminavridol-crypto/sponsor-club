@@ -1,7 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { getMediaUrl, isR2StoragePath } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { PostWithMedia, Tier } from "@/lib/types";
+import { FeedPost, PostWithMedia, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
 
 async function getPublishedPosts() {
@@ -17,6 +17,19 @@ async function getPublishedPosts() {
   return posts.filter((post) => !(post.expires_at && new Date(post.expires_at) <= new Date()));
 }
 
+async function getPublishedFeedPosts() {
+  const admin = createAdminSupabaseClient();
+  const { data } = await admin
+    .from("posts")
+    .select("id, slug, title, description, post_type, required_tier, publish_at, expires_at, thumbnail_path, post_media(id)")
+    .eq("status", "published")
+    .lte("publish_at", new Date().toISOString())
+    .order("publish_at", { ascending: false });
+
+  const posts = (data ?? []) as Array<FeedPost & { expires_at?: string | null }>;
+  return posts.filter((post) => !(post.expires_at && new Date(post.expires_at) <= new Date()));
+}
+
 export async function getVisiblePostsForTier(tier: Tier) {
   noStore();
   const posts = await getPublishedPosts();
@@ -25,7 +38,7 @@ export async function getVisiblePostsForTier(tier: Tier) {
 
 export async function getFeedPostsForTier(tier: Tier) {
   noStore();
-  const posts = await getPublishedPosts();
+  const posts = await getPublishedFeedPosts();
 
   return posts.map((post) => ({
     ...post,

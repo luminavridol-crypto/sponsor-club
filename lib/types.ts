@@ -112,6 +112,20 @@ export interface PostWithMedia extends Post {
   is_locked?: boolean;
 }
 
+export interface FeedPost {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  post_type: PostType;
+  required_tier: Tier;
+  publish_at: string;
+  thumbnail_path: string | null;
+  post_media: Array<Pick<PostMedia, "id">>;
+  thumbnail_url?: string | null;
+  is_locked?: boolean;
+}
+
 export interface PostComment {
   id: string;
   post_id: string;

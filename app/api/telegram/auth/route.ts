@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasClubAccess } from "@/lib/auth/access";
-import { getTelegramProfileFromSession, upsertTelegramProfile } from "@/lib/telegram/auth";
+import { upsertTelegramProfile } from "@/lib/telegram/auth";
 import { writeTelegramSession } from "@/lib/telegram/session";
 
 export async function POST(request: Request) {
@@ -13,7 +13,6 @@ export async function POST(request: Request) {
 
     const { profile, telegramId } = await upsertTelegramProfile(body.initData);
     await writeTelegramSession(profile.id, telegramId);
-    const sessionProfile = await getTelegramProfileFromSession();
 
     const nextPath =
       profile.role === "admin"
@@ -26,15 +25,13 @@ export async function POST(request: Request) {
       {
         ok: true,
         nextPath,
-        profile: sessionProfile
-          ? {
-              id: sessionProfile.id,
-              role: sessionProfile.role,
-              access_status: sessionProfile.access_status,
-              telegram_id: sessionProfile.telegram_id,
-              telegram_username: sessionProfile.telegram_username
-            }
-          : null
+        profile: {
+          id: profile.id,
+          role: profile.role,
+          access_status: profile.access_status,
+          telegram_id: profile.telegram_id,
+          telegram_username: profile.telegram_username
+        }
       },
       {
         headers: {

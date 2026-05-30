@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Route } from "next";
 import { PostReactions } from "@/components/posts/post-reactions";
 import { ReactionSummary } from "@/lib/data/reactions";
-import { PostWithMedia } from "@/lib/types";
+import { FeedPost } from "@/lib/types";
 import { formatDate } from "@/lib/utils/format";
 import { TIER_LABELS } from "@/lib/utils/tier";
 
@@ -20,7 +20,7 @@ export function PostCard({
   reactionSummary,
   routeBase = "/club"
 }: {
-  post: PostWithMedia;
+  post: FeedPost;
   commentCount?: number;
   reactionSummary: ReactionSummary;
   routeBase?: string;
