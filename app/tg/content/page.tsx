@@ -14,17 +14,17 @@ export default async function TelegramContentPage() {
   const seenAt = new Date().toISOString();
   const visibleTier = profile.role === "admin" ? "tier_3" : profile.tier;
 
-  await admin.from("profiles").update({ last_content_seen_at: seenAt }).eq("id", profile.id);
-
-  const posts = await getFeedPostsForTier(visibleTier);
-  const commentCounts = await getCommentCountsForPosts(posts.map((post) => post.id));
-  const reactionSummaries = await getReactionSummariesForPosts(
-    posts.map((post) => post.id),
-    profile.id
-  );
-  const thumbnailMap = await getSignedMediaUrls(
-    posts.map((post) => post.thumbnail_path).filter((path): path is string => Boolean(path))
-  );
+  const [posts] = await Promise.all([
+    getFeedPostsForTier(visibleTier),
+    admin.from("profiles").update({ last_content_seen_at: seenAt }).eq("id", profile.id)
+  ]);
+  const [commentCounts, reactionSummaries, thumbnailMap] = await Promise.all([
+    getCommentCountsForPosts(posts.map((post) => post.id)),
+    getReactionSummariesForPosts(posts.map((post) => post.id), profile.id),
+    getSignedMediaUrls(
+      posts.map((post) => post.thumbnail_path).filter((path): path is string => Boolean(path))
+    )
+  ]);
   const postsWithThumbnails = posts.map((post) => ({
     ...post,
     thumbnail_url: post.thumbnail_path ? thumbnailMap[post.thumbnail_path] ?? null : null

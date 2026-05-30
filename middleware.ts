@@ -1,13 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { getSupabaseEnv } from "@/lib/supabase/env";
+const STATIC_FILE_PATTERN = /\.[^/]+$/;
 
-const privateRoutes = ["/dashboard", "/feed", "/profile", "/chat", "/admin"];
-const TELEGRAM_SESSION_COOKIE = "tg_club_session";
-
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-current-pathname", request.nextUrl.pathname);
+  requestHeaders.set("x-current-pathname", pathname);
 
   const response = NextResponse.next({
     request: {
@@ -15,44 +12,24 @@ export async function middleware(request: NextRequest) {
     }
   });
 
-  if (request.nextUrl.pathname.startsWith("/tg")) {
+  const isApiRoute = pathname.startsWith("/api");
+  const isNextAsset = pathname.startsWith("/_next");
+  const isStaticFile = STATIC_FILE_PATTERN.test(pathname);
+
+  if (isApiRoute || isNextAsset || isStaticFile) {
     return response;
   }
 
-  const { url, anonKey } = getSupabaseEnv();
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(
-        cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>
-      ) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
-        });
-      }
-    }
-  });
-
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  const isPrivateRoute = privateRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
-  );
-  const hasTelegramSession = Boolean(request.cookies.get(TELEGRAM_SESSION_COOKIE)?.value);
-
-  if (isPrivateRoute && !user && !hasTelegramSession) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/login";
-    return NextResponse.redirect(redirectUrl);
+  if (pathname.startsWith("/tg")) {
+    return response;
   }
 
-  return response;
+  const redirectUrl = request.nextUrl.clone();
+  redirectUrl.pathname = "/tg";
+  redirectUrl.search = "";
+  return NextResponse.redirect(redirectUrl);
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/feed/:path*", "/profile/:path*", "/chat/:path*", "/admin/:path*", "/tg/:path*"]
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)"]
 };

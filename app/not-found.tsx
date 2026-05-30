@@ -11,13 +11,13 @@ export default function NotFound() {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
-            href="/dashboard"
+            href="/tg"
             className="rounded-2xl bg-white px-4 py-3 font-medium text-background transition hover:bg-goldSoft"
           >
             В дашборд
           </Link>
           <Link
-            href="/feed"
+            href="/tg/content"
             className="rounded-2xl border border-white/10 px-4 py-3 text-white/80 transition hover:border-accent/40 hover:text-white"
           >
             В ленту

@@ -15,7 +15,7 @@ export async function getCommentsForPost(postId: string) {
   const admin = createAdminSupabaseClient();
   const { data } = await admin
     .from("post_comments")
-    .select("*, profiles(display_name, nickname, email, role)")
+    .select("*, profiles(display_name, nickname, role)")
     .eq("post_id", postId)
     .order("created_at", { ascending: true });
 
@@ -47,7 +47,7 @@ export async function getAdminUnreadPostComments(lastSeenAt: string | null) {
   const admin = createAdminSupabaseClient();
   let query = admin
     .from("post_comments")
-    .select("*, profiles(display_name, nickname, email, role), posts(title, slug)")
+    .select("*, profiles(display_name, nickname, role), posts(title, slug)")
     .order("created_at", { ascending: false })
     .limit(10);
 

@@ -121,7 +121,7 @@ export interface PostComment {
 }
 
 export interface PostCommentWithAuthor extends PostComment {
-  profiles: Pick<Profile, "display_name" | "nickname" | "email" | "role"> | null;
+  profiles: Pick<Profile, "display_name" | "nickname" | "role"> | null;
 }
 
 export interface PostCommentReaction {

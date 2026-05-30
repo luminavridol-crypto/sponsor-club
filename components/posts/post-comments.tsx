@@ -25,7 +25,7 @@ function getAuthorLabel(comment: PostCommentWithAuthor) {
     return "Участник";
   }
 
-  return author.display_name || author.nickname || author.email.split("@")[0] || "Участник";
+  return author.display_name || author.nickname || "Участник";
 }
 
 function SubmitButton() {

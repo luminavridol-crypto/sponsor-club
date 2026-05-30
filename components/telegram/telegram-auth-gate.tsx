@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import type { Route } from "next";
 
 declare global {
   interface Window {
@@ -36,23 +34,7 @@ type AuthPayload = {
   } | null;
 };
 
-type SessionPayload = {
-  ok?: boolean;
-  nextPath?: string;
-  profile?: {
-    id: string;
-    role: "admin" | "member";
-    access_status: "active" | "disabled";
-    auth_source?: "web" | "telegram";
-    telegram_id?: string | null;
-    telegram_username?: string | null;
-  } | null;
-};
-
 const AUTH_TIMEOUT_MS = 12000;
-const SESSION_TIMEOUT_MS = 8000;
-const SESSION_RETRY_LIMIT = 6;
-const SESSION_RETRY_MS = 350;
 const TELEGRAM_INIT_RETRY_LIMIT = 10;
 const TELEGRAM_INIT_RETRY_MS = 250;
 
@@ -111,7 +93,6 @@ function sleep(ms: number) {
 }
 
 export function TelegramAuthGate({ pathname }: { pathname: string }) {
-  const router = useRouter();
   const runIdRef = useRef(0);
   const startedRef = useRef(false);
   const [retryTick, setRetryTick] = useState(0);
@@ -178,7 +159,7 @@ export function TelegramAuthGate({ pathname }: { pathname: string }) {
         applyTheme(webApp.themeParams);
 
         setLoadingState({
-          message: "Проверяю Telegram-подпись и открываю клуб..."
+          message: "Проверяю Telegram и открываю клуб..."
         });
 
         const response = await fetchWithTimeout(
@@ -204,66 +185,12 @@ export function TelegramAuthGate({ pathname }: { pathname: string }) {
           throw new Error(payload?.error || "Не удалось войти через Telegram");
         }
 
-        setLoadingState({
-          message: "Проверяю сессию Telegram..."
-        });
-
-        let sessionPayload: SessionPayload | null = null;
-        let sessionStatus = 0;
-
-        for (let attempt = 0; attempt < SESSION_RETRY_LIMIT; attempt += 1) {
-          const sessionResponse = await fetchWithTimeout(
-            "/api/telegram/session",
-            {
-              method: "GET",
-              credentials: "include",
-              cache: "no-store",
-              headers: {
-                "cache-control": "no-store"
-              }
-            },
-            SESSION_TIMEOUT_MS
-          );
-
-          sessionStatus = sessionResponse.status;
-          sessionPayload = await parseJsonSafe<SessionPayload>(sessionResponse);
-          log("cookie/session/profile result", {
-            attempt,
-            status: sessionStatus,
-            sessionPayload
-          });
-
-          if (sessionResponse.ok && sessionPayload?.ok && sessionPayload.profile) {
-            break;
-          }
-
-          if (attempt < SESSION_RETRY_LIMIT - 1) {
-            await sleep(SESSION_RETRY_MS);
-          }
-        }
-
-        if (!sessionPayload?.ok || !sessionPayload.profile) {
-          const nextPath = normalizePath(pathname, payload?.nextPath);
-          log("session not confirmed after retries, forcing document navigation", {
-            nextPath,
-            sessionStatus,
-            sessionPayload
-          });
-
-          setLoadingState({
-            loading: false,
-            message: "Открываю клуб..."
-          });
-          window.location.assign(nextPath);
-          return;
-        }
-
         if (cancelled || runIdRef.current !== runId) {
           return;
         }
 
-        const nextPath = normalizePath(pathname, payload?.nextPath || sessionPayload.nextPath);
-        log("router navigation", {
+        const nextPath = normalizePath(pathname, payload?.nextPath);
+        log("document navigation", {
           pathname,
           nextPath
         });
@@ -273,16 +200,7 @@ export function TelegramAuthGate({ pathname }: { pathname: string }) {
           message: "Открываю клуб..."
         });
 
-        router.replace(nextPath as Route);
-        window.setTimeout(() => {
-          if (!cancelled && window.location.pathname !== nextPath) {
-            log("router fallback navigation", {
-              currentPath: window.location.pathname,
-              nextPath
-            });
-            window.location.assign(nextPath);
-          }
-        }, 1200);
+        window.location.replace(nextPath);
       } catch (error) {
         const reason = error instanceof Error ? error.message : "Неизвестная ошибка";
         console.error("[TelegramAuthGate] Auth flow failed", error);
@@ -304,7 +222,7 @@ export function TelegramAuthGate({ pathname }: { pathname: string }) {
     return () => {
       cancelled = true;
     };
-  }, [pathname, retryTick, router]);
+  }, [pathname, retryTick]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#05060d] px-5 text-white">

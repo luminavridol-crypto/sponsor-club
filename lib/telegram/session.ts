@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { getTelegramSessionSecret } from "@/lib/telegram/env";
 
 export const TELEGRAM_SESSION_COOKIE = "tg_club_session";
+const TELEGRAM_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+const TELEGRAM_SESSION_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
 type TelegramSessionPayload = {
   profileId: string;
@@ -42,6 +44,16 @@ function decode(value: string): TelegramSessionPayload | null {
       return null;
     }
 
+    const now = Date.now();
+    const sessionAgeMs = now - parsed.issuedAt;
+
+    if (
+      parsed.issuedAt > now + TELEGRAM_SESSION_MAX_FUTURE_SKEW_MS ||
+      sessionAgeMs > TELEGRAM_SESSION_MAX_AGE_SECONDS * 1000
+    ) {
+      return null;
+    }
+
     return parsed;
   } catch {
     return null;
@@ -61,7 +73,7 @@ export async function writeTelegramSession(profileId: string, telegramId: string
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30
+    maxAge: TELEGRAM_SESSION_MAX_AGE_SECONDS
   });
 }
 

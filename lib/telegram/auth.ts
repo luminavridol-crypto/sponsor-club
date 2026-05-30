@@ -74,6 +74,15 @@ function buildTelegramEmail(telegramId: string) {
   return `tg-${telegramId}@telegram.local`;
 }
 
+function extractTelegramIdFromContact(contact: string | null | undefined) {
+  if (!contact) {
+    return null;
+  }
+
+  const match = contact.match(/Telegram ID:\s*([0-9]+)/i);
+  return match?.[1] ?? null;
+}
+
 async function findApprovedPurchaseRequest(telegramId: string) {
   if (!telegramId) {
     return null;
@@ -84,12 +93,10 @@ async function findApprovedPurchaseRequest(telegramId: string) {
     .from("purchase_requests")
     .select("tier, approved_for_club, contact")
     .eq("approved_for_club", true)
-    .ilike("contact", `%Telegram ID: ${telegramId}%`)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(200);
 
-  return data;
+  return (data ?? []).find((request) => extractTelegramIdFromContact(request.contact) === telegramId) ?? null;
 }
 
 function parseInviteCodeFromStartParam(startParam: string | null) {

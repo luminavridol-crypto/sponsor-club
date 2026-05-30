@@ -1,7 +1,6 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import type { Route } from "next";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -174,26 +173,9 @@ async function getSiteUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
-function getSafeNextPath(value: string | undefined, fallback: Route = "/dashboard") {
-  if (!value) {
-    return fallback;
-  }
-
-  if (!value.startsWith("/") || value.startsWith("//")) {
-    return fallback;
-  }
-
-  return value as Route;
-}
-
 function redirectToAdminEmail(params: Record<string, string | number>): never {
-  const searchParams = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(params)) {
-    searchParams.set(key, String(value));
-  }
-
-  return redirect(`/admin/email?${searchParams.toString()}`);
+  void params;
+  return redirect("/tg/admin/posts");
 }
 
 // Kept as a ready-to-reuse mapper for storage provider errors in admin flows.
@@ -227,14 +209,9 @@ function addDays(base: string | null, days: number) {
 }
 
 function redirectToInviteError(message: string, code?: string) {
-  const params = new URLSearchParams();
-
-  if (code) {
-    params.set("code", code);
-  }
-
-  params.set("error", message);
-  redirect(`/invite?${params.toString()}`);
+  void message;
+  void code;
+  redirect("/tg");
 }
 
 async function uploadFile(file: File, folder: string) {
@@ -307,17 +284,17 @@ export async function loginAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect("/login?error=1");
+    redirect("/tg");
   }
 
   const supabase = await createServerSupabaseClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
-    redirect("/login?error=1");
+    redirect("/tg");
   }
 
-  redirect(getSafeNextPath(parsed.data.next, "/dashboard"));
+  redirect("/tg");
 }
 
 export async function requestPasswordResetAction(formData: FormData) {
@@ -326,7 +303,7 @@ export async function requestPasswordResetAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect("/forgot-password?error=1");
+    redirect("/tg");
   }
 
   const supabase = await createServerSupabaseClient();
@@ -344,14 +321,10 @@ export async function requestPasswordResetAction(formData: FormData) {
       code: error.code
     });
 
-    const params = new URLSearchParams({
-      error: "1",
-      message: error.message
-    });
-    redirect(`/forgot-password?${params.toString()}`);
+    redirect("/tg");
   }
 
-  redirect("/forgot-password?sent=1");
+  redirect("/tg");
 }
 
 export async function updatePasswordAction(formData: FormData) {
@@ -361,11 +334,11 @@ export async function updatePasswordAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect("/reset-password?error=1");
+    redirect("/tg");
   }
 
   if (parsed.data.password !== parsed.data.confirmPassword) {
-    redirect("/reset-password?error=match");
+    redirect("/tg");
   }
 
   const supabase = await createServerSupabaseClient();
@@ -374,10 +347,10 @@ export async function updatePasswordAction(formData: FormData) {
   });
 
   if (error) {
-    redirect("/reset-password?error=1");
+    redirect("/tg");
   }
 
-  redirect("/login?passwordUpdated=1");
+  redirect("/tg");
 }
 
 export async function createPurchaseRequestAction(formData: FormData) {
@@ -394,7 +367,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect("/?inviteRequestError=1#invitation-request");
+    redirect("/tg/support");
   }
 
   const admin = createAdminSupabaseClient();
@@ -409,7 +382,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
     .maybeSingle();
 
   if (recentRequest) {
-    redirect("/?inviteRequestSent=1#invitation-request");
+    redirect("/tg/support");
   }
 
   const requestPayload = {
@@ -431,23 +404,23 @@ export async function createPurchaseRequestAction(formData: FormData) {
     });
 
     if (fallbackError) {
-      redirect("/?inviteRequestError=1#invitation-request");
+      redirect("/tg/support");
     }
 
     revalidatePath("/");
     revalidatePath("/admin");
     revalidatePath("/admin/requests");
-    redirect("/?inviteRequestSent=1#invitation-request");
+    redirect("/tg/support");
   }
 
   if (error) {
-    redirect("/?inviteRequestError=1#invitation-request");
+    redirect("/tg/support");
   }
 
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
-  redirect("/?inviteRequestSent=1#invitation-request");
+  redirect("/tg/support");
 }
 
 export async function createTelegramPurchaseRequestAction(formData: FormData) {
@@ -911,7 +884,7 @@ export async function signOutAction() {
 
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
-  redirect("/login");
+  redirect("/tg");
 }
 
 export async function redeemInviteAction(formData: FormData) {
@@ -1020,7 +993,7 @@ export async function redeemInviteAction(formData: FormData) {
     password: inviteInput.password
   });
 
-  redirect("/dashboard");
+  redirect("/tg");
 }
 
 export async function updateProfileAction(formData: FormData) {

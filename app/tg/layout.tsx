@@ -1,16 +1,16 @@
 import Script from "next/script";
 import { headers } from "next/headers";
 import { TelegramAuthGate } from "@/components/telegram/telegram-auth-gate";
-import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
+import { readTelegramSession } from "@/lib/telegram/session";
 
 export default async function TelegramLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const profile = await getTelegramProfileFromSession();
+  const session = await readTelegramSession();
 
-  if (!profile) {
+  if (!session) {
     const headerStore = await headers();
     const pathname = headerStore.get("x-current-pathname") || "/tg";
     return (

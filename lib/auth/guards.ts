@@ -30,7 +30,7 @@ export async function requireSession() {
 
   if (!user) {
     const pathname = await getCurrentPathname();
-    redirect(isTelegramPath(pathname) ? "/tg" : "/login");
+    redirect(isTelegramPath(pathname) ? "/tg" : "/tg");
   }
 
   return user;
@@ -58,7 +58,7 @@ export async function requireAnyProfile() {
     await supabase.auth.signOut();
     await clearTelegramSession();
     const pathname = await getCurrentPathname();
-    redirect(isTelegramPath(pathname) ? "/tg" : "/login?error=1");
+    redirect(isTelegramPath(pathname) ? "/tg" : "/tg");
   }
 
   return typedProfile;
@@ -69,7 +69,7 @@ export async function requireProfile() {
 
   if (!hasClubAccess(profile)) {
     const pathname = await getCurrentPathname();
-    redirect(isTelegramPath(pathname) ? "/tg/support" : "/");
+    redirect(isTelegramPath(pathname) ? "/tg/support" : "/tg/support");
   }
 
   return profile;
@@ -80,7 +80,7 @@ export async function requireAdmin() {
 
   if (profile.role !== "admin") {
     const pathname = await getCurrentPathname();
-    redirect(isTelegramPath(pathname) ? "/tg" : "/dashboard");
+    redirect(isTelegramPath(pathname) ? "/tg" : "/tg");
   }
 
   return profile;

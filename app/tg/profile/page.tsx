@@ -29,15 +29,16 @@ function accessLabel(status: "active" | "disabled") {
 export default async function TelegramProfilePage() {
   const profile = await requireAnyProfile();
   const admin = createAdminSupabaseClient();
-  const avatarMap = await getSignedAvatarUrls(profile.avatar_url ? [profile.avatar_url] : []);
+  const [avatarMap, { data: donations }] = await Promise.all([
+    getSignedAvatarUrls(profile.avatar_url ? [profile.avatar_url] : []),
+    admin
+      .from("donation_events")
+      .select("*")
+      .eq("profile_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(8)
+  ]);
   const avatarUrl = profile.avatar_url ? avatarMap[profile.avatar_url] ?? null : null;
-
-  const { data: donations } = await admin
-    .from("donation_events")
-    .select("*")
-    .eq("profile_id", profile.id)
-    .order("created_at", { ascending: false })
-    .limit(8);
 
   const recentDonations = (donations ?? []) as DonationEvent[];
 
