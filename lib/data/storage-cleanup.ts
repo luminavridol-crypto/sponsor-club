@@ -1,4 +1,6 @@
+import { unstable_cache } from "next/cache";
 import { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { listR2Media } from "@/lib/storage/media";
 
 type CleanupResult = {
@@ -169,6 +171,21 @@ export async function getOrphanedStorageReport(admin: SupabaseClient): Promise<O
     totalCount,
     totalBytes
   };
+}
+
+const getCachedOrphanedStorageReportInternal = unstable_cache(
+  async () => {
+    const admin = createAdminSupabaseClient();
+    return getOrphanedStorageReport(admin);
+  },
+  ["orphaned-storage-report"],
+  {
+    revalidate: 60
+  }
+);
+
+export function getCachedOrphanedStorageReport() {
+  return getCachedOrphanedStorageReportInternal();
 }
 
 export async function cleanupOrphanedStorage(admin: SupabaseClient): Promise<CleanupResult> {

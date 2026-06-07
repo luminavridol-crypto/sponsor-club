@@ -1,13 +1,18 @@
+import { isAccessExpired } from "@/lib/auth/access";
 import { getTelegramBotToken } from "@/lib/telegram/env";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { Tier } from "@/lib/types";
-import { isAccessExpired } from "@/lib/auth/access";
 import { canAccessTier, TIER_LABELS } from "@/lib/utils/tier";
 
 type NotifyNewPostInput = {
   postTitle: string;
   postSlug: string;
   requiredTier: Tier;
+};
+
+type TelegramButton = {
+  text: string;
+  url: string;
 };
 
 type TelegramSendResult = {
@@ -23,7 +28,16 @@ function buildPostUrl(postSlug: string) {
   return `${getSiteUrl()}/tg/content/${postSlug}`;
 }
 
-async function sendTelegramMessage(chatId: string, text: string, postSlug: string): Promise<TelegramSendResult> {
+export function buildTelegramPathUrl(pathname: string) {
+  const siteUrl = getSiteUrl();
+  return `${siteUrl}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
+
+export async function sendTelegramMessage(
+  chatId: string,
+  text: string,
+  button?: TelegramButton
+): Promise<TelegramSendResult> {
   try {
     const token = getTelegramBotToken();
     const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -35,16 +49,11 @@ async function sendTelegramMessage(chatId: string, text: string, postSlug: strin
         chat_id: chatId,
         text,
         disable_web_page_preview: true,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "Открыть пост",
-                url: buildPostUrl(postSlug)
-              }
-            ]
-          ]
-        }
+        reply_markup: button
+          ? {
+              inline_keyboard: [[button]]
+            }
+          : undefined
       })
     });
 
@@ -81,19 +90,17 @@ export async function notifyTelegramUsersAboutNewPost({
     return canAccessTier(profile.tier, requiredTier);
   });
 
-  const text = [
-    "Новый пост в Lumina Club",
-    "",
-    postTitle,
-    "",
-    `Уровень: ${TIER_LABELS[requiredTier]}`
-  ].join("\n");
+  const text = ["Новый пост в Lumina Club", "", postTitle, "", `Уровень: ${TIER_LABELS[requiredTier]}`].join("\n");
 
   let sentCount = 0;
   let failedCount = 0;
 
   for (const profile of eligibleProfiles) {
-    const result = await sendTelegramMessage(String(profile.telegram_id), text, postSlug);
+    const result = await sendTelegramMessage(String(profile.telegram_id), text, {
+      text: "Открыть пост",
+      url: buildPostUrl(postSlug)
+    });
+
     if (result.ok) {
       sentCount += 1;
     } else {

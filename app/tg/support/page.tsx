@@ -37,6 +37,14 @@ const tierCards: Array<{
     accent: "border-amber-300/30 bg-amber-300/10",
     summary: "Максимальный уровень и личное внимание.",
     bullets: ["всё из tier 2", "личные пожелания", "эксклюзив вне ленты"]
+  },
+  {
+    tier: "tier_4",
+    label: "After Dark",
+    price: "Скоро",
+    accent: "border-fuchsia-300/30 bg-fuchsia-300/10",
+    summary: "Самые эксклюзивные материалы танца на пилоне.",
+    bullets: ["всё из VIP", "самый высокий доступ", "эксклюзивный контент на пилоне"]
   }
 ];
 

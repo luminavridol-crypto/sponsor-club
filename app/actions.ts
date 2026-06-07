@@ -62,7 +62,7 @@ const passwordUpdateSchema = z.object({
 });
 
 const purchaseRequestSchema = z.object({
-  tier: z.enum(["tier_1", "tier_2", "tier_3"]),
+  tier: z.enum(["tier_1", "tier_2", "tier_3", "tier_4"]),
   displayName: z.string().min(2).max(80),
   email: z.string().email().max(120),
   country: z.string().min(2).max(80),
@@ -72,7 +72,7 @@ const purchaseRequestSchema = z.object({
 });
 
 const donationClaimSchema = z.object({
-  tier: z.enum(["tier_1", "tier_2", "tier_3"]),
+  tier: z.enum(["tier_1", "tier_2", "tier_3", "tier_4"]),
   amount: z.number().min(0).max(100000).optional(),
   note: z.string().trim().min(2).max(1000)
 });
@@ -84,7 +84,7 @@ const postEmailCampaignSchema = z.object({
 });
 
 const manualEmailCampaignSchema = z.object({
-  audience: z.enum(["all_active", "tier_1", "tier_2", "tier_3", "expiring_soon"]),
+  audience: z.enum(["all_active", "tier_1", "tier_2", "tier_3", "tier_4", "expiring_soon"]),
   subject: z.string().trim().min(3).max(180),
   body: z.string().trim().min(10).max(20000)
 });
@@ -427,7 +427,7 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
   const profile = await requireAnyProfile();
   const tier = formValue(formData.get("tier")) as Tier;
 
-  if (!["tier_1", "tier_2", "tier_3"].includes(tier)) {
+  if (!["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier)) {
     redirect("/tg/support?error=1");
   }
 
@@ -803,7 +803,7 @@ export async function approveDonationClaimAction(formData: FormData) {
 
   if (
     !claimId ||
-    !["tier_1", "tier_2", "tier_3"].includes(tier) ||
+    !["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier) ||
     !Number.isFinite(accessDays) ||
     accessDays <= 0
   ) {
@@ -1022,6 +1022,10 @@ export async function updateProfileAction(formData: FormData) {
   const payload = {
     display_name: formValue(formData.get("displayName")) || null,
     bio: formValue(formData.get("bio")) || null,
+    birth_date: formValue(formData.get("birthDate")) || null,
+    telegram_contact: formValue(formData.get("telegramContact")) || null,
+    tiktok_contact: formValue(formData.get("tiktokContact")) || null,
+    favorite_lumina_cosplay: formValue(formData.get("favoriteLuminaCosplay")) || null,
     avatar_url: nextAvatarUrl
   };
 
@@ -1033,6 +1037,8 @@ export async function updateProfileAction(formData: FormData) {
   }
 
   revalidatePath("/profile");
+  revalidatePath("/tg/profile");
+  revalidatePath("/tg/admin/users");
   revalidatePath("/chat");
   revalidatePath("/club");
 }
@@ -1900,6 +1906,7 @@ export async function updateUserDetailsAction(formData: FormData) {
       birth_date: formValue(formData.get("birthDate")) || null,
       telegram_contact: formValue(formData.get("telegramContact")) || null,
       tiktok_contact: formValue(formData.get("tiktokContact")) || null,
+      favorite_lumina_cosplay: formValue(formData.get("favoriteLuminaCosplay")) || null,
       admin_note: formValue(formData.get("adminNote")) || null,
       admin_badges: nextBadges,
       tier: nextTier,

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 type NavItem = {
   href: Route;
   label: string;
+  featured?: boolean;
 };
 
 function isActive(pathname: string, href: string) {
@@ -23,31 +24,31 @@ export function MiniAppNav({
   const pathname = usePathname();
   const items: NavItem[] = admin
     ? [
-        { href: "/tg/admin/posts", label: "Добавить" },
-        { href: "/tg/admin/users", label: "Пользователи" },
+        { href: "/tg/admin/posts", label: "Посты" },
+        { href: "/tg/admin/users", label: "Люди" },
         { href: "/tg/content", label: "Лента" },
-        { href: "/tg/admin/invites", label: "Приглашение" }
+        { href: "/tg/admin/invites", label: "Инвайты" }
       ]
     : hasAccess
       ? [
           { href: "/tg/content", label: "Лента" },
-          { href: "/tg/profile", label: "Профиль" },
-          { href: "/tg/support", label: "Поддержать" }
+          { href: "/tg/tiers", label: "Уровни" },
+          { href: "/tg/profile", label: "Профиль" }
         ]
       : [
-          { href: "/tg/support", label: "Доступ" },
+          { href: "/tg/tiers", label: "Уровни" },
+          { href: "/tg/support", label: "Доступ", featured: true },
           { href: "/tg/profile", label: "Профиль" }
         ];
 
+  const columns = admin ? "grid-cols-4" : "grid-cols-3";
+
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#090b14]/96 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-3 backdrop-blur-xl">
-      <div
-        className={`mx-auto grid max-w-xl gap-2 ${
-          admin ? "grid-cols-4" : hasAccess ? "grid-cols-3" : "grid-cols-2"
-        }`}
-      >
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#14141c]/94 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-3 backdrop-blur-md">
+      <div className={`mx-auto grid max-w-xl gap-2 ${columns}`}>
         {items.map((item) => {
           const active = isActive(pathname, item.href);
+          const featured = Boolean(item.featured);
 
           return (
             <Link
@@ -55,8 +56,10 @@ export function MiniAppNav({
               href={item.href}
               className={`rounded-2xl px-3 py-3 text-center text-xs font-medium transition ${
                 active
-                  ? "bg-gradient-to-r from-accent/80 to-[#7d52ff] text-white shadow-glow"
-                  : "border border-white/10 bg-white/[0.04] text-white/65"
+                  ? "bg-white text-slate-950"
+                  : featured
+                    ? "border border-white/16 bg-white/[0.05] text-white"
+                    : "border border-white/10 bg-white/[0.03] text-white/65"
               }`}
             >
               {item.label}

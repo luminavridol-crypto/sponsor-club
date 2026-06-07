@@ -1,5 +1,5 @@
 export type Role = "admin" | "member";
-export type Tier = "tier_1" | "tier_2" | "tier_3";
+export type Tier = "tier_1" | "tier_2" | "tier_3" | "tier_4";
 export type AccessStatus = "active" | "disabled";
 export type PostType = "gallery" | "video" | "text" | "announcement";
 export type PostStatus = "draft" | "published";
@@ -26,6 +26,7 @@ export interface Profile {
   telegram_last_name?: string | null;
   telegram_contact: string | null;
   tiktok_contact: string | null;
+  favorite_lumina_cosplay: string | null;
   admin_note: string | null;
   admin_badges: string[];
   total_donations: number | null;

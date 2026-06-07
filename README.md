@@ -15,7 +15,7 @@
 - landing page
 - логин по email и паролю
 - signup только по invite link или invite code
-- 3 sponsor tier: `tier_1`, `tier_2`, `tier_3`
+- 4 sponsor tier: `tier_1`, `tier_2`, `tier_3`, `tier_4`
 - server-side защита приватных маршрутов
 - server-side tier checks для ленты и карточки поста
 - админ-панель с управлением постами, инвайтами и пользователями
@@ -77,7 +77,7 @@ npm run dev
 Поскольку свободная регистрация отключена, есть два простых пути:
 
 1. Создайте пользователя вручную в `Supabase Auth`.
-2. Добавьте запись в `public.profiles` с `role = 'admin'`, `tier = 'tier_3'`, `access_status = 'active'`.
+2. Добавьте запись в `public.profiles` с `role = 'admin'`, `tier = 'tier_4'`, `access_status = 'active'`.
 
 Пример SQL:
 
@@ -87,7 +87,7 @@ values (
   'USER_ID_FROM_AUTH',
   'admin@example.com',
   'admin',
-  'tier_3',
+  'tier_4',
   'active',
   'Main Admin'
 );
@@ -137,3 +137,11 @@ https://your-domain.com/invite?code=VIP-ABCDEFGH
 - Весь admin control и invite signup должен работать только на сервере.
 - Не полагайтесь только на скрытие кнопок в интерфейсе: доступ защищён middleware, server components и RLS.
 - Для production лучше включить строгую политику паролей и rate limiting на уровне Supabase/Auth Edge.
+## Current Ops Checklist
+
+- The real Telegram Mini App surface now lives under `/tg/*`.
+- `vercel.json` includes a daily cron for `/api/cron/access-reminders`, so `CRON_SECRET` is required before relying on reminder automation.
+- Apply all Supabase migrations through `024_telegram_access_reminder_logs.sql` on a fresh database.
+- For local media/avatar signing, `.env.local` must include `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`.
+- `LOCAL_TELEGRAM_PREVIEW=1` can be used to force localhost Telegram preview mode, though localhost also auto-enables the preview path.
+- `vercel env pull` defaults to Development variables. If a secret exists only in Preview or Production, local `.env.local` may still need a manual value or a Preview-sourced pull.

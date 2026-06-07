@@ -10,6 +10,9 @@ declare global {
         ready: () => void;
         expand: () => void;
         themeParams?: Record<string, string>;
+        HapticFeedback?: {
+          impactOccurred?: (style: "light" | "medium" | "heavy" | "rigid" | "soft") => void;
+        };
       };
     };
   }

@@ -1,6 +1,7 @@
 import Script from "next/script";
 import { headers } from "next/headers";
 import { TelegramAuthGate } from "@/components/telegram/telegram-auth-gate";
+import { isLocalTelegramPreviewEnabled } from "@/lib/telegram/local-preview";
 import { readTelegramSession } from "@/lib/telegram/session";
 
 export default async function TelegramLayout({
@@ -9,8 +10,9 @@ export default async function TelegramLayout({
   children: React.ReactNode;
 }>) {
   const session = await readTelegramSession();
+  const localPreview = await isLocalTelegramPreviewEnabled();
 
-  if (!session) {
+  if (!session && !localPreview) {
     const headerStore = await headers();
     const pathname = headerStore.get("x-current-pathname") || "/tg";
     return (

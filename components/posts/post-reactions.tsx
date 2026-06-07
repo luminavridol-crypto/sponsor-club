@@ -26,13 +26,13 @@ export function PostReactions({
               aria-label={`${item.label}: ${count}`}
               aria-pressed={active}
               title={item.label}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[13px] transition ${
                 active
                   ? "border-accent/40 bg-accent/15 text-white"
                   : "border-white/10 bg-white/[0.04] text-white/70 hover:border-accent/25 hover:text-white"
               }`}
             >
-              <span className="text-base leading-none">{item.emoji}</span>
+              <span className="text-[15px] leading-none">{item.emoji}</span>
               <span>{count}</span>
             </button>
           </form>

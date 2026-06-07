@@ -590,6 +590,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
             <option value="tier_1">{TIER_LABELS.tier_1}</option>
             <option value="tier_2">{TIER_LABELS.tier_2}</option>
             <option value="tier_3">{TIER_LABELS.tier_3}</option>
+            <option value="tier_4">{TIER_LABELS.tier_4}</option>
           </select>
           <p className="mt-2 text-xs leading-5 text-accentSoft">{TIER_ACCESS_HINTS[selectedTier]}</p>
         </div>

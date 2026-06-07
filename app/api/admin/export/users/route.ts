@@ -23,6 +23,7 @@ export async function GET() {
     birth_date: user.birth_date,
     telegram_contact: user.telegram_contact,
     tiktok_contact: user.tiktok_contact,
+    favorite_lumina_cosplay: user.favorite_lumina_cosplay,
     admin_note: user.admin_note,
     created_at: user.created_at
   }));

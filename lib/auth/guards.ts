@@ -2,7 +2,9 @@ import { unstable_noStore as noStore } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { hasClubAccess } from "@/lib/auth/access";
+import { syncExpiredProfileAccess } from "@/lib/auth/membership-alerts";
 import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
+import { buildLocalPreviewProfile, isLocalTelegramPreviewEnabled } from "@/lib/telegram/local-preview";
 import { clearTelegramSession } from "@/lib/telegram/session";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Profile } from "@/lib/types";
@@ -21,6 +23,10 @@ export async function requireSession() {
 
   if (telegramProfile) {
     return { id: telegramProfile.id };
+  }
+
+  if (await isLocalTelegramPreviewEnabled()) {
+    return { id: buildLocalPreviewProfile().id };
   }
 
   const supabase = await createServerSupabaseClient();
@@ -44,6 +50,10 @@ export async function requireAnyProfile() {
     return telegramProfile;
   }
 
+  if (await isLocalTelegramPreviewEnabled()) {
+    return buildLocalPreviewProfile();
+  }
+
   const user = await requireSession();
   const supabase = await createServerSupabaseClient();
   const { data: profile } = await supabase
@@ -61,7 +71,7 @@ export async function requireAnyProfile() {
     redirect(isTelegramPath(pathname) ? "/tg" : "/tg");
   }
 
-  return typedProfile;
+  return syncExpiredProfileAccess(typedProfile);
 }
 
 export async function requireProfile() {

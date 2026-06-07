@@ -4,6 +4,21 @@ import { deleteAllPostsAction, deletePostAction, updatePostAction } from "@/app/
 import { ConfirmActionForm } from "@/components/admin/confirm-action-form";
 import { PostCreateForm } from "@/components/admin/post-create-form";
 import { PostsVisibilityToggle } from "@/components/admin/posts-visibility-toggle";
+import {
+  ADMIN_BADGE_CLASS,
+  ADMIN_BUTTON_DANGER_CLASS,
+  ADMIN_BUTTON_SECONDARY_CLASS,
+  ADMIN_EYEBROW_CLASS,
+  ADMIN_HEADER_CLASS,
+  ADMIN_INPUT_CLASS,
+  ADMIN_PANEL_CLASS,
+  ADMIN_PANEL_GLOW_CLASS,
+  ADMIN_SECTION_TITLE_CLASS,
+  ADMIN_SELECT_CLASS,
+  ADMIN_SHELL_CLASS,
+  ADMIN_SUBPANEL_CLASS,
+  ADMIN_TEXTAREA_CLASS
+} from "@/components/admin/theme";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -39,10 +54,19 @@ export default async function TelegramAdminPostsPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <MiniAppShell profile={profile} title="Добавить">
-      <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-glow">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <h2 className="text-2xl font-semibold text-white">Новый пост</h2>
+    <MiniAppShell
+      profile={profile}
+      title="Посты"
+      shellClassName={ADMIN_SHELL_CLASS}
+      headerClassName={ADMIN_HEADER_CLASS}
+      eyebrowClassName={ADMIN_EYEBROW_CLASS}
+    >
+      <section className={ADMIN_PANEL_CLASS}>
+        <div className={ADMIN_PANEL_GLOW_CLASS} />
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className={ADMIN_SECTION_TITLE_CLASS}>Новый пост</h2>
+          </div>
           <ConfirmActionForm
             action={deleteAllPostsAction}
             confirmMessage="Удалить все посты? Это действие нельзя отменить."
@@ -52,21 +76,26 @@ export default async function TelegramAdminPostsPage() {
                 Удалить все посты
               </span>
             }
-            buttonClassName="rounded-2xl border border-rose-400/35 bg-rose-400/10 px-4 py-3 text-sm font-medium text-rose-100 transition hover:bg-rose-400/15"
+            buttonClassName={ADMIN_BUTTON_DANGER_CLASS}
           />
         </div>
-        <PostCreateForm miniApp />
+        <div className="relative mt-5">
+          <PostCreateForm miniApp />
+        </div>
       </section>
 
       <PostsVisibilityToggle>
         {posts?.map((post) => (
-          <article key={post.id} className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold text-white">{post.title}</h3>
-                <p className="mt-1 text-sm text-white/55">
-                  {post.post_type} • {post.required_tier} • {post.status} • {formatDate(post.publish_at)}
-                </p>
+          <article key={post.id} className={ADMIN_SUBPANEL_CLASS}>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap gap-2">
+                  <span className={ADMIN_BADGE_CLASS}>{post.post_type}</span>
+                  <span className={ADMIN_BADGE_CLASS}>{post.required_tier}</span>
+                  <span className={ADMIN_BADGE_CLASS}>{post.status}</span>
+                </div>
+                <h3 className="font-display mt-3 text-[1.35rem] font-semibold text-white">{post.title}</h3>
+                <p className="mt-2 text-sm text-white/55">Опубликовано: {formatDate(post.publish_at)}</p>
               </div>
               <ConfirmActionForm
                 action={deletePostAction}
@@ -77,7 +106,7 @@ export default async function TelegramAdminPostsPage() {
                     Удалить
                   </span>
                 }
-                buttonClassName="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20"
+                buttonClassName={ADMIN_BUTTON_DANGER_CLASS}
                 hiddenFields={[{ name: "postId", value: post.id }]}
               />
             </div>
@@ -85,33 +114,32 @@ export default async function TelegramAdminPostsPage() {
             <form action={updatePostAction} className="grid gap-3">
               <input type="hidden" name="postId" value={post.id} />
               <div className="grid gap-3 lg:grid-cols-2">
-                <input name="title" defaultValue={post.title} />
-                <select name="requiredTier" defaultValue={post.required_tier}>
+                <input name="title" defaultValue={post.title} className={ADMIN_INPUT_CLASS} />
+                <select name="requiredTier" defaultValue={post.required_tier} className={ADMIN_SELECT_CLASS}>
                   <option value="tier_1">Tier 1</option>
                   <option value="tier_2">Tier 2</option>
                   <option value="tier_3">Tier 3</option>
+                  <option value="tier_4">After Dark</option>
                 </select>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
-                <select name="postType" defaultValue={post.post_type}>
+                <select name="postType" defaultValue={post.post_type} className={ADMIN_SELECT_CLASS}>
                   <option value="announcement">Объявление</option>
                   <option value="text">Текст</option>
                   <option value="gallery">Галерея</option>
                   <option value="video">Видео</option>
                 </select>
-                <select name="status" defaultValue={post.status}>
+                <select name="status" defaultValue={post.status} className={ADMIN_SELECT_CLASS}>
                   <option value="draft">Черновик</option>
                   <option value="published">Опубликован</option>
                 </select>
               </div>
 
-              <textarea name="description" defaultValue={post.description ?? ""} />
-              <textarea name="body" defaultValue={post.body ?? ""} />
+              <textarea name="description" defaultValue={post.description ?? ""} className={`${ADMIN_TEXTAREA_CLASS} min-h-[120px]`} />
+              <textarea name="body" defaultValue={post.body ?? ""} className={`${ADMIN_TEXTAREA_CLASS} min-h-[220px]`} />
 
-              <button className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/85 transition hover:border-accent/35 hover:bg-white/5 sm:w-fit">
-                Сохранить изменения
-              </button>
+              <button className={`w-full sm:w-fit ${ADMIN_BUTTON_SECONDARY_CLASS}`}>Сохранить изменения</button>
             </form>
           </article>
         ))}

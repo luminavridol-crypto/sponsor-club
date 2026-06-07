@@ -60,6 +60,8 @@ function tierLabel(tier?: Tier | null) {
       return "Tier 2";
     case "tier_3":
       return "VIP";
+    case "tier_4":
+      return "After Dark";
     default:
       return "участник клуба";
   }

@@ -6,6 +6,7 @@ import {
   isTelegramAdminUser
 } from "@/lib/telegram/env";
 import { readTelegramSession } from "@/lib/telegram/session";
+import { syncExpiredProfileAccess } from "@/lib/auth/membership-alerts";
 import { Profile } from "@/lib/types";
 
 type TelegramInitUser = {
@@ -320,5 +321,11 @@ export async function getTelegramProfileFromSession() {
     .eq("telegram_id", session.telegramId)
     .maybeSingle();
 
-  return (data as Profile | null) ?? null;
+  const profile = (data as Profile | null) ?? null;
+
+  if (!profile) {
+    return null;
+  }
+
+  return syncExpiredProfileAccess(profile);
 }

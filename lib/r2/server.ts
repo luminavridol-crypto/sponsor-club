@@ -3,6 +3,7 @@ import {
   ListObjectsV2Command,
   S3Client
 } from "@aws-sdk/client-s3";
+import { unstable_cache } from "next/cache";
 import { getR2Env } from "@/lib/r2/env";
 import {
   getR2SignedReadUrl,
@@ -91,6 +92,18 @@ export async function getR2StorageUsage(prefix = "") {
     fileCount,
     totalBytes
   };
+}
+
+const getCachedR2StorageUsageInternal = unstable_cache(
+  async () => getR2StorageUsage(),
+  ["r2-storage-usage"],
+  {
+    revalidate: 60
+  }
+);
+
+export function getCachedR2StorageUsage() {
+  return getCachedR2StorageUsageInternal();
 }
 
 export async function getSignedR2Urls(paths: string[], expiresIn = 60 * 60) {

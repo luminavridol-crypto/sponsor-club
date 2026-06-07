@@ -9,4 +9,13 @@ dev-server.err.log
 dev-server.log
 start-server.log
 start-server.err.log
+.next-dev.log
+.next-dev.err.log
+.next-start.log
+.next-start.err.log
+.codex-dev.log
+.codex-env-scan.txt
 .local
+
+.vercel
+.env*

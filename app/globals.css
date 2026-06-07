@@ -14,9 +14,10 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(255, 79, 216, 0.14), transparent 35%),
-    radial-gradient(circle at 20% 20%, rgba(120, 231, 255, 0.08), transparent 22%),
-    linear-gradient(180deg, #0b0b12 0%, #07070d 100%);
+    radial-gradient(circle at top, rgba(120, 68, 142, 0.18), transparent 30%),
+    radial-gradient(circle at 18% 18%, rgba(99, 87, 156, 0.12), transparent 20%),
+    radial-gradient(circle at 84% 8%, rgba(61, 77, 128, 0.12), transparent 18%),
+    linear-gradient(180deg, #0c0912 0%, #07070d 46%, #04050a 100%);
   color: #fff;
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -85,5 +86,55 @@ button {
 }
 
 .font-display {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Palatino Linotype", "Book Antiqua", Georgia, "Times New Roman", serif;
+}
+
+@keyframes lumina-twinkle {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scale(0.92) translateY(0);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.08) translateY(-2px);
+  }
+}
+
+@keyframes lumina-mist {
+  0% {
+    transform: translate3d(-6%, 0, 0) scale(1);
+    opacity: 0.18;
+  }
+  50% {
+    transform: translate3d(4%, -2%, 0) scale(1.05);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate3d(-3%, 2%, 0) scale(0.98);
+    opacity: 0.2;
+  }
+}
+
+@keyframes lumina-rise {
+  0% {
+    transform: translateY(4px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.lumina-particle {
+  animation: lumina-twinkle 4.6s ease-in-out infinite;
+}
+
+.lumina-mist {
+  animation: lumina-mist 12s ease-in-out infinite;
+}
+
+.lumina-rise {
+  animation: lumina-rise 320ms ease-out;
 }

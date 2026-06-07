@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
+import { MiniAppBackButton } from "@/components/telegram/mini-app-back-button";
 import { PostComments } from "@/components/posts/post-comments";
 import { PostReactions } from "@/components/posts/post-reactions";
 import { ProtectedMedia } from "@/components/posts/protected-media";
@@ -16,7 +17,7 @@ export default async function TelegramContentPostPage({
 }) {
   const profile = await requireProfile();
   const { slug } = await params;
-  const visibleTier = profile.role === "admin" ? "tier_3" : profile.tier;
+  const visibleTier = profile.role === "admin" ? "tier_4" : profile.tier;
   const post = await getPostBySlugForViewer(slug, visibleTier);
 
   if (!post) {
@@ -32,6 +33,7 @@ export default async function TelegramContentPostPage({
   if (post.is_locked) {
     return (
       <MiniAppShell profile={profile} title={post.title}>
+        <MiniAppBackButton />
         {thumbnailUrl ? (
           <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-glow">
             <ProtectedMedia kind="image" src={thumbnailUrl} alt={post.title} className="w-full blur-[2px]" />
@@ -65,6 +67,7 @@ export default async function TelegramContentPostPage({
 
   return (
     <MiniAppShell profile={profile} title={post.title}>
+      <MiniAppBackButton />
       <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
         <p className="text-xs uppercase tracking-[0.24em] text-accentSoft">{post.post_type}</p>
         {post.description ? <p className="mt-3 text-sm leading-6 text-white/65">{post.description}</p> : null}
@@ -78,7 +81,7 @@ export default async function TelegramContentPostPage({
       ) : null}
 
       {post.body ? (
-        <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 text-sm leading-7 text-white/80">
+        <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 text-sm leading-7 text-white/80 whitespace-pre-wrap">
           {post.body}
         </section>
       ) : null}
