@@ -35,6 +35,7 @@ export type TierAccordionCard = {
   level: string;
   price: string;
   teaser: string;
+  description?: string;
   symbol: IconName;
   symbolText?: string;
   statusBadge?: string;
@@ -302,6 +303,11 @@ export function TierAccordionList({ cards }: { cards: TierAccordionCard[] }) {
                   <p className="mt-3 max-w-[32rem] text-[0.92rem] leading-5 text-white/78 sm:text-[0.96rem] sm:leading-6">
                     {card.teaser}
                   </p>
+                  {card.description ? (
+                    <p className="mt-2 max-w-[32rem] text-[0.92rem] leading-6 text-white/62 sm:text-[0.96rem]">
+                      {card.description}
+                    </p>
+                  ) : null}
                   {card.noteBadge ? (
                     <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/62">
                       <LuminaIcon name={card.symbol} className="h-3 w-3" />
