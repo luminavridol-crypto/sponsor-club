@@ -134,6 +134,7 @@ export default async function TelegramProfilePage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const profileFormId = "telegram-profile-form";
   const params = searchParams ? await searchParams : undefined;
   const isSaved = params?.saved === "1";
   const profile = await requireAnyProfile();
@@ -213,9 +214,16 @@ export default async function TelegramProfilePage({
           </div>
         ) : null}
 
-        <form action={updateProfileAction} className="space-y-4">
+        <form
+          id={profileFormId}
+          action={updateProfileAction}
+          encType="multipart/form-data"
+          className="space-y-4"
+        >
           <div className="flex justify-end">
             <button
+              type="submit"
+              form={profileFormId}
               className={`rounded-2xl bg-gradient-to-r px-4 py-3 text-sm font-semibold shadow-[0_14px_36px_rgba(214,74,255,0.28)] ${theme.button}`}
             >
               Сохранить
@@ -294,6 +302,8 @@ export default async function TelegramProfilePage({
           </div>
 
           <button
+            type="submit"
+            form={profileFormId}
             className={`w-full rounded-2xl bg-gradient-to-r px-4 py-3 text-sm font-semibold shadow-[0_14px_36px_rgba(214,74,255,0.28)] ${theme.button}`}
           >
             Сохранить профиль
