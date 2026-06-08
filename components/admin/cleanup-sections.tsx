@@ -17,6 +17,8 @@ type CleanupItem = {
   date: string;
   type: string;
   sizeLabel?: string;
+  secondaryMeta?: string;
+  autoDeleteLabel?: string;
   href: string;
   deleteAction: AdminFormAction;
   deleteConfirmMessage: string;
@@ -105,6 +107,12 @@ export function CleanupSections({
                                 {item.date}
                                 {item.sizeLabel ? ` • ${item.sizeLabel}` : ""}
                               </p>
+                              {item.secondaryMeta ? (
+                                <p className="mt-1 text-xs text-white/46">{item.secondaryMeta}</p>
+                              ) : null}
+                              {item.autoDeleteLabel ? (
+                                <p className="mt-1 text-xs text-amber-100/78">{item.autoDeleteLabel}</p>
+                              ) : null}
                             </div>
 
                             <div className="flex flex-wrap gap-2">

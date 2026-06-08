@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
+import { AdminUsersBrowser } from "@/components/admin/admin-users-browser";
 import {
   AdminUsersCleanupPanel,
   AdminUsersCleanupPanelFallback
@@ -11,15 +12,13 @@ import {
   ADMIN_HEADER_CLASS,
   ADMIN_PANEL_CLASS,
   ADMIN_PANEL_GLOW_CLASS,
-  ADMIN_SHELL_CLASS,
-  ADMIN_SUBPANEL_CLASS
+  ADMIN_SHELL_CLASS
 } from "@/components/admin/theme";
-import { UserCard } from "@/components/admin/user-card";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { DonationEvent, Profile } from "@/lib/types";
+import { DonationEvent, Profile, PurchaseRequest } from "@/lib/types";
 import { TIER_LABELS } from "@/lib/utils/tier";
 
 function getTierSortWeight(user: Profile) {
@@ -41,32 +40,19 @@ function sortUsers(users: Profile[]) {
   });
 }
 
-function CompactAnalyticsRow({
-  items
-}: {
-  items: { label: string; value: string | number }[];
-}) {
-  return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-      {items.map((item) => (
-        <div key={item.label} className="rounded-[22px] border border-white/10 bg-black/18 px-4 py-3">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">{item.label}</p>
-          <p className="mt-2 text-lg font-semibold text-white">{item.value}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default async function TelegramAdminUsersPage() {
   const profile = await requireAdmin();
   const admin = createAdminSupabaseClient();
 
-  const [{ data: profilesData }, { data: donationEventsData }, { data: purchaseRequests }] =
+  const [{ data: profilesData }, { data: donationEventsData }, { data: purchaseRequestsData }] =
     await Promise.all([
       admin.from("profiles").select("*"),
       admin.from("donation_events").select("*").order("created_at", { ascending: false }),
-      admin.from("purchase_requests").select("id, status")
+      admin
+        .from("purchase_requests")
+        .select("id, tier, display_name, email, country, contact, status, approved_for_club, created_at, updated_at")
+        .in("status", ["new", "in_progress"])
+        .order("created_at", { ascending: false })
     ]);
 
   const users = sortUsers(((profilesData ?? []) as Profile[]).filter((user) => user.role !== "admin"));
@@ -77,7 +63,9 @@ export default async function TelegramAdminUsersPage() {
     ...user,
     avatar_url: user.avatar_url ? avatarMap[user.avatar_url] ?? user.avatar_url : null
   }));
+
   const donationEvents = (donationEventsData ?? []) as DonationEvent[];
+  const purchaseRequests = (purchaseRequestsData ?? []) as PurchaseRequest[];
   const donationMap = new Map<string, DonationEvent[]>();
 
   donationEvents.forEach((event) => {
@@ -87,14 +75,6 @@ export default async function TelegramAdminUsersPage() {
   });
 
   const activeUsers = users.filter((user) => user.access_status === "active");
-  const afterDarkCount = activeUsers.filter((user) => user.tier === "tier_4").length;
-  const vipCount = activeUsers.filter((user) => user.tier === "tier_3").length;
-  const closeCount = activeUsers.filter((user) => user.tier === "tier_2").length;
-  const watcherCount = activeUsers.filter((user) => user.tier === "tier_1").length;
-  const pendingRequestsCount = (purchaseRequests ?? []).filter((item) =>
-    ["new", "in_progress"].includes(item.status)
-  ).length;
-
   const birthdayPeople = activeUsers
     .filter((person) => Boolean(person.birth_date))
     .map((person) => ({
@@ -122,16 +102,13 @@ export default async function TelegramAdminUsersPage() {
             </div>
           </div>
           <div className="mt-4">
-            <CompactAnalyticsRow
-              items={[
-                { label: "Участники", value: activeUsers.length },
-                { label: "After Dark", value: afterDarkCount },
-                { label: "VIP", value: vipCount },
-                { label: "Приближённые", value: closeCount },
-                { label: "Наблюдатели", value: watcherCount },
-                { label: "Ожидают", value: pendingRequestsCount },
-                { label: "Профилей", value: users.length }
-              ]}
+            <AdminUsersBrowser
+              users={usersWithAvatars.map((user) => ({
+                ...user,
+                donationEvents: donationMap.get(user.id) ?? []
+              }))}
+              currentAdminId={profile.id}
+              requests={purchaseRequests}
             />
           </div>
         </div>
@@ -142,22 +119,6 @@ export default async function TelegramAdminUsersPage() {
       <Suspense fallback={<AdminUsersCleanupPanelFallback />}>
         <AdminUsersCleanupPanel />
       </Suspense>
-
-      <section className="space-y-3">
-        {usersWithAvatars.length ? (
-          usersWithAvatars.map((user) => (
-            <UserCard
-              key={`${user.id}-${user.tier}-${user.access_expires_at ?? "none"}-${(user.admin_badges ?? []).join(",")}`}
-              user={user}
-              isCurrentAdmin={user.id === profile.id}
-              donationEvents={donationMap.get(user.id) ?? []}
-              hideUnlimitedButton
-            />
-          ))
-        ) : (
-          <div className={`${ADMIN_SUBPANEL_CLASS} text-sm text-white/60`}>Пользователей пока нет.</div>
-        )}
-      </section>
     </MiniAppShell>
   );
 }

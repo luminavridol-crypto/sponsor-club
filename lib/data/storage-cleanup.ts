@@ -12,6 +12,7 @@ type CleanupResult = {
 export type StorageFileEntry = {
   path: string;
   sizeBytes: number;
+  lastModified?: string | null;
 };
 
 export type OrphanedStorageReport = {
@@ -25,6 +26,9 @@ export type OrphanedStorageReport = {
 type StorageObject = {
   id: string | null;
   name: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  last_accessed_at?: string | null;
   metadata?: {
     size?: number;
   } | null;
@@ -61,7 +65,8 @@ export async function listBucketFileEntries(
     if (item.id) {
       files.push({
         path,
-        sizeBytes: item.metadata?.size ?? 0
+        sizeBytes: item.metadata?.size ?? 0,
+        lastModified: item.updated_at ?? item.created_at ?? item.last_accessed_at ?? null
       });
     } else {
       files.push(...(await listBucketFileEntries(admin, bucket, path)));
@@ -155,7 +160,8 @@ export async function getOrphanedStorageReport(admin: SupabaseClient): Promise<O
     .filter((file) => !usedR2Media.has(file.storagePath))
     .map((file) => ({
       path: file.storagePath,
-      sizeBytes: file.sizeBytes ?? 0
+      sizeBytes: file.sizeBytes ?? 0,
+      lastModified: file.lastModified?.toISOString() ?? null
     }));
 
   const totalCount = orphanPostMedia.length + orphanChatMedia.length + orphanR2Media.length;

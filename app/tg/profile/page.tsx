@@ -129,7 +129,13 @@ function ProfileStat({
   );
 }
 
-export default async function TelegramProfilePage() {
+export default async function TelegramProfilePage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = searchParams ? await searchParams : undefined;
+  const isSaved = params?.saved === "1";
   const profile = await requireAnyProfile();
   const theme = PROFILE_THEME[profile.tier];
   const admin = createAdminSupabaseClient();
@@ -201,7 +207,21 @@ export default async function TelegramProfilePage() {
           </p>
         </div>
 
+        {isSaved ? (
+          <div className={`mb-4 rounded-[22px] border px-4 py-3 text-sm text-white ${theme.item}`}>
+            Профиль сохранён.
+          </div>
+        ) : null}
+
         <form action={updateProfileAction} className="space-y-4">
+          <div className="flex justify-end">
+            <button
+              className={`rounded-2xl bg-gradient-to-r px-4 py-3 text-sm font-semibold shadow-[0_14px_36px_rgba(214,74,255,0.28)] ${theme.button}`}
+            >
+              Сохранить
+            </button>
+          </div>
+
           <div className="grid gap-3">
             <label className="block">
               <span className="mb-2 block text-sm text-white/60">Имя</span>

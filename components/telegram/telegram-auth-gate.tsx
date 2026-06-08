@@ -85,7 +85,7 @@ async function parseJsonSafe<T>(response: Response): Promise<T | null> {
 
 function normalizePath(pathname: string, fallbackPath?: string) {
   if (pathname === "/tg") {
-    return fallbackPath || "/tg/support";
+    return fallbackPath || "/tg/tiers";
   }
 
   return pathname;
@@ -115,25 +115,15 @@ export function TelegramAuthGate({ pathname }: { pathname: string }) {
     const runId = runIdRef.current;
     let cancelled = false;
 
-    function log(...args: unknown[]) {
-      console.log("[TelegramAuthGate]", ...args);
-    }
-
     function setLoadingState(next: Partial<GateState>) {
-      setState((prev) => {
-        const updated = { ...prev, ...next };
-        log("loading state changes", updated);
-        return updated;
-      });
+      setState((prev) => ({ ...prev, ...next }));
     }
 
     async function waitForTelegramWebApp() {
       for (let attempt = 0; attempt < TELEGRAM_INIT_RETRY_LIMIT; attempt += 1) {
         const webApp = window.Telegram?.WebApp;
-        log("Telegram WebApp object exists", Boolean(webApp), { attempt });
 
         if (webApp?.initData) {
-          log("initData length", webApp.initData.length);
           return webApp;
         }
 
@@ -180,9 +170,7 @@ export function TelegramAuthGate({ pathname }: { pathname: string }) {
           AUTH_TIMEOUT_MS
         );
 
-        log("/api/telegram/auth response status", response.status);
         const payload = await parseJsonSafe<AuthPayload>(response);
-        log("response json", payload);
 
         if (!response.ok) {
           throw new Error(payload?.error || "Не удалось войти через Telegram");
@@ -193,10 +181,6 @@ export function TelegramAuthGate({ pathname }: { pathname: string }) {
         }
 
         const nextPath = normalizePath(pathname, payload?.nextPath);
-        log("document navigation", {
-          pathname,
-          nextPath
-        });
 
         setLoadingState({
           loading: false,
@@ -237,10 +221,7 @@ export function TelegramAuthGate({ pathname }: { pathname: string }) {
         {!state.loading ? (
           <button
             type="button"
-            onClick={() => {
-              console.log("[TelegramAuthGate] retry requested");
-              setRetryTick((value) => value + 1);
-            }}
+            onClick={() => setRetryTick((value) => value + 1)}
             className="mt-5 w-full rounded-2xl border border-accent/35 bg-accent/10 px-4 py-3 text-sm font-medium text-accentSoft transition hover:bg-accent/20"
           >
             Попробовать снова

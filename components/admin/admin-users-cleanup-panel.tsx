@@ -26,6 +26,8 @@ type CleanupItem = {
   date: string;
   type: string;
   sizeLabel?: string;
+  secondaryMeta?: string;
+  autoDeleteLabel?: string;
   href: string;
   deleteAction: AdminFormAction;
   deleteConfirmMessage: string;
@@ -68,6 +70,20 @@ function formatItemSize(bytes?: number | null) {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${bytes} B`;
+}
+
+function formatTimeAgo(value: string | null | undefined) {
+  if (!value) return "недавно";
+
+  const diffMs = Date.now() - new Date(value).getTime();
+  const diffHours = Math.max(0, Math.floor(diffMs / (60 * 60 * 1000)));
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffHours < 1) return "меньше часа назад";
+  if (diffHours < 24) return `${diffHours} ч назад`;
+  if (diffDays === 1) return "1 день назад";
+  if (diffDays < 5) return `${diffDays} дня назад`;
+  return `${diffDays} дней назад`;
 }
 
 export function AdminUsersCleanupPanelFallback() {
@@ -168,6 +184,8 @@ export async function AdminUsersCleanupPanel() {
       date: "Supabase post-media",
       type: "медиа",
       sizeLabel: formatItemSize(item.sizeBytes),
+      secondaryMeta: `Последняя активность: ${formatTimeAgo(item.lastModified)}`,
+      autoDeleteLabel: "Автоудаление: при следующей очистке",
       href: "/admin/media",
       deleteAction: deleteOrphanMediaAction,
       deleteConfirmMessage: "Удалить этот неиспользуемый файл?",
@@ -185,6 +203,8 @@ export async function AdminUsersCleanupPanel() {
       date: "Supabase chat-media",
       type: "медиа",
       sizeLabel: formatItemSize(item.sizeBytes),
+      secondaryMeta: `Последняя активность: ${formatTimeAgo(item.lastModified)}`,
+      autoDeleteLabel: "Автоудаление: при следующей очистке",
       href: "/admin/media",
       deleteAction: deleteOrphanMediaAction,
       deleteConfirmMessage: "Удалить этот неиспользуемый файл?",
@@ -202,6 +222,8 @@ export async function AdminUsersCleanupPanel() {
       date: "Cloudflare R2",
       type: "медиа",
       sizeLabel: formatItemSize(item.sizeBytes),
+      secondaryMeta: `Последняя активность: ${formatTimeAgo(item.lastModified)}`,
+      autoDeleteLabel: "Автоудаление: при следующей очистке",
       href: "/admin/media",
       deleteAction: deleteOrphanMediaAction,
       deleteConfirmMessage: "Удалить этот неиспользуемый файл из R2?",

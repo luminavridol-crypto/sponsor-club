@@ -1,6 +1,7 @@
-"use server";
+﻿"use server";
 
 import { randomUUID } from "crypto";
+import type { Route } from "next";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -8,6 +9,7 @@ import { z } from "zod";
 import { requireAdmin, requireAnyProfile, requireProfile } from "@/lib/auth/guards";
 import { hasClubAccess } from "@/lib/auth/access";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
+import { deleteExpiredOrDraftPosts, removePostStorage } from "@/lib/data/post-cleanup";
 import { reactionOptions } from "@/lib/data/reactions";
 import { cleanupOrphanedStorage, getOrphanedStorageReport } from "@/lib/data/storage-cleanup";
 import {
@@ -118,6 +120,16 @@ function formValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function isMissingFavoriteLuminaCosplayColumn(message: string) {
+  return message.includes("favorite_lumina_cosplay") && message.includes("schema cache");
+}
+
+function omitFavoriteLuminaCosplay<T extends { favorite_lumina_cosplay?: string | null }>(payload: T) {
+  const rest = { ...payload };
+  delete rest.favorite_lumina_cosplay;
+  return rest;
+}
+
 function numberValue(value: FormDataEntryValue | null) {
   if (typeof value !== "string") {
     return 0;
@@ -148,16 +160,6 @@ function currentDonationPeriod() {
   };
 }
 
-async function getOldPostIds(admin = createAdminSupabaseClient()) {
-  const nowIso = new Date().toISOString();
-  const { data } = await admin
-    .from("posts")
-    .select("id")
-    .or(`status.eq.draft,and(expires_at.not.is.null,expires_at.lt.${nowIso})`);
-
-  return (data ?? []).map((post) => post.id);
-}
-
 async function getSiteUrl() {
   const headerStore = await headers();
   const forwardedHost = headerStore.get("x-forwarded-host");
@@ -182,11 +184,11 @@ function redirectToAdminEmail(params: Record<string, string | number>): never {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function humanizeStorageError(message: string) {
   if (message.includes("The object exceeded the maximum allowed size")) {
-    return "Файл слишком большой для текущего лимита в Supabase Storage. Увеличь лимит нужного bucket.";
+    return "Р¤Р°Р№Р» СЃР»РёС€РєРѕРј Р±РѕР»СЊС€РѕР№ РґР»СЏ С‚РµРєСѓС‰РµРіРѕ Р»РёРјРёС‚Р° РІ Supabase Storage. РЈРІРµР»РёС‡СЊ Р»РёРјРёС‚ РЅСѓР¶РЅРѕРіРѕ bucket.";
   }
 
   if (message.includes("Bucket not found")) {
-    return "Нужный bucket не найден в Supabase Storage.";
+    return "РќСѓР¶РЅС‹Р№ bucket РЅРµ РЅР°Р№РґРµРЅ РІ Supabase Storage.";
   }
 
   return message;
@@ -236,25 +238,6 @@ async function uploadAvatarFile(file: File, profileId: string) {
   assertUploadFile(file, { allowImages: true, allowVideos: false });
   const extension = getSafeFileExtension(file);
   return uploadMediaToR2(file, `avatars/${profileId}/${randomUUID()}.${extension}`, file.type);
-}
-
-async function removePostStorage(paths: string[]) {
-  if (!paths.length) {
-    return;
-  }
-
-  const admin = createAdminSupabaseClient();
-  const uniquePaths = [...new Set(paths)];
-  const r2Paths = uniquePaths.filter(isR2StoragePath);
-  const supabasePaths = uniquePaths.filter((path) => !isR2StoragePath(path));
-
-  if (supabasePaths.length) {
-    await admin.storage.from("post-media").remove(supabasePaths);
-  }
-
-  if (r2Paths.length) {
-    await deleteR2Objects(r2Paths);
-  }
 }
 
 async function removeChatStorage(paths: string[]) {
@@ -400,7 +383,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
       tier: parsed.data.tier,
       email: parsed.data.email,
       country: parsed.data.country,
-      contact: `Имя: ${parsed.data.displayName}\nСвязь: ${contact}`
+      contact: `РРјСЏ: ${parsed.data.displayName}\nРЎРІСЏР·СЊ: ${contact}`
     });
 
     if (fallbackError) {
@@ -420,7 +403,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
-  redirect("/tg/support");
+  redirect("/tg/tiers");
 }
 
 export async function createTelegramPurchaseRequestAction(formData: FormData) {
@@ -442,7 +425,7 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
     .maybeSingle();
 
   if (recentRequest) {
-    redirect("/tg/support?sent=1");
+    redirect(`/tg/support?sent=1&tier=${tier}`);
   }
 
   const displayName =
@@ -452,7 +435,7 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
     "Telegram user";
   const telegramHandle = profile.telegram_username
     ? `@${profile.telegram_username.replace(/^@/, "")}`
-    : "без username";
+    : "Р±РµР· username";
   const telegramId = profile.telegram_id || "unknown";
   const requestPayload = {
     tier,
@@ -469,20 +452,21 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
       tier,
       email: profile.email,
       country: "Telegram Mini App",
-      contact: `Имя: ${displayName}\nСвязь: Telegram ID: ${telegramId} | Username: ${telegramHandle}`
+      contact: `РРјСЏ: ${displayName}\nРЎРІСЏР·СЊ: Telegram ID: ${telegramId} | Username: ${telegramHandle}`
     });
 
     if (fallbackError) {
-      redirect("/tg/support?error=1");
+      redirect(`/tg/support?error=1&tier=${tier}`);
     }
   } else if (error) {
-    redirect("/tg/support?error=1");
+    redirect(`/tg/support?error=1&tier=${tier}`);
   }
 
+  revalidatePath("/tg/tiers");
   revalidatePath("/tg/support");
   revalidatePath("/tg/admin/users");
   revalidatePath("/admin/requests");
-  redirect("/tg/support?sent=1");
+  redirect(`/tg/support?sent=1&tier=${tier}`);
 }
 
 export async function createDonationClaimAction(formData: FormData) {
@@ -494,7 +478,7 @@ export async function createDonationClaimAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect("/tg/support?error=1");
+    redirect("/tg/tiers?error=1");
   }
 
   const admin = createAdminSupabaseClient();
@@ -506,9 +490,9 @@ export async function createDonationClaimAction(formData: FormData) {
     status: "new"
   });
 
-  revalidatePath("/tg/support");
+  revalidatePath("/tg/tiers");
   revalidatePath("/tg/admin/donations");
-  redirect("/tg/support?sent=1");
+  redirect("/tg/tiers?sent=1");
 }
 
 export async function sendPostEmailCampaignAction(formData: FormData) {
@@ -543,7 +527,7 @@ export async function sendPostEmailCampaignAction(formData: FormData) {
 
   const result = await sendEmailCampaign({
     kind: "post",
-    title: `Пост: ${post.title}`,
+    title: `РџРѕСЃС‚: ${post.title}`,
     subject: data.subject,
     body: data.body,
     postId: post.id,
@@ -610,7 +594,7 @@ export async function sendManualSponsorEmailAction(formData: FormData) {
 
   const result = await sendEmailCampaign({
     kind: "manual",
-    title: `Ручная рассылка: ${data.subject}`,
+    title: `Р СѓС‡РЅР°СЏ СЂР°СЃСЃС‹Р»РєР°: ${data.subject}`,
     subject: data.subject,
     body: data.body,
     targetScope: data.audience,
@@ -696,7 +680,7 @@ export async function updatePurchaseRequestStatusAction(formData: FormData) {
           .eq("id", existingProfile.id);
       } else {
         const defaultExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-        const note = `Заявка: ${request.display_name || "без имени"} • ${request.country} • ${request.contact}`;
+        const note = `Р—Р°СЏРІРєР°: ${request.display_name || "Р±РµР· РёРјРµРЅРё"} вЂў ${request.country} вЂў ${request.contact}`;
         const { data: activeInvite } = await admin
           .from("invites")
           .select("id")
@@ -896,7 +880,7 @@ export async function redeemInviteAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirectToInviteError("Проверьте поля формы");
+    redirectToInviteError("РџСЂРѕРІРµСЂСЊС‚Рµ РїРѕР»СЏ С„РѕСЂРјС‹");
   }
 
   const inviteInput = parsed.data!;
@@ -911,15 +895,15 @@ export async function redeemInviteAction(formData: FormData) {
     .single();
 
   if (inviteError || !invite) {
-    redirectToInviteError("Приглашение не найдено, уже использовано или отключено", inviteInput.code);
+    redirectToInviteError("РџСЂРёРіР»Р°С€РµРЅРёРµ РЅРµ РЅР°Р№РґРµРЅРѕ, СѓР¶Рµ РёСЃРїРѕР»СЊР·РѕРІР°РЅРѕ РёР»Рё РѕС‚РєР»СЋС‡РµРЅРѕ", inviteInput.code);
   }
 
   if (invite.email && invite.email.toLowerCase() !== inviteInput.email) {
-    redirectToInviteError("Это приглашение привязано к другому email", inviteInput.code);
+    redirectToInviteError("Р­С‚Рѕ РїСЂРёРіР»Р°С€РµРЅРёРµ РїСЂРёРІСЏР·Р°РЅРѕ Рє РґСЂСѓРіРѕРјСѓ email", inviteInput.code);
   }
 
   if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-    redirectToInviteError("Срок действия приглашения истёк", inviteInput.code);
+    redirectToInviteError("РЎСЂРѕРє РґРµР№СЃС‚РІРёСЏ РїСЂРёРіР»Р°С€РµРЅРёСЏ РёСЃС‚С‘Рє", inviteInput.code);
   }
 
   const { data: existingUsers } = await admin.auth.admin.listUsers();
@@ -928,7 +912,7 @@ export async function redeemInviteAction(formData: FormData) {
   );
 
   if (existingUser) {
-    redirectToInviteError("Пользователь с таким email уже существует", inviteInput.code);
+    redirectToInviteError("РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃ С‚Р°РєРёРј email СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓРµС‚", inviteInput.code);
   }
 
   const createdUser = await admin.auth.admin.createUser({
@@ -940,7 +924,7 @@ export async function redeemInviteAction(formData: FormData) {
   const user = createdUser.data.user!;
 
   if (createdUser.error || !user) {
-    redirectToInviteError("Не удалось создать аккаунт", inviteInput.code);
+    redirectToInviteError("РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ Р°РєРєР°СѓРЅС‚", inviteInput.code);
   }
 
   const { error: profileError } = await admin.from("profiles").insert({
@@ -959,7 +943,7 @@ export async function redeemInviteAction(formData: FormData) {
       // no-op
     }
 
-    redirectToInviteError("Не удалось создать профиль", inviteInput.code);
+    redirectToInviteError("РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РїСЂРѕС„РёР»СЊ", inviteInput.code);
   }
 
   const usedAt = new Date().toISOString();
@@ -984,7 +968,7 @@ export async function redeemInviteAction(formData: FormData) {
       // Cleanup problems should not break the invite screen UX.
     }
 
-    redirectToInviteError("Это приглашение уже использовано или отключено", inviteInput.code);
+    redirectToInviteError("Р­С‚Рѕ РїСЂРёРіР»Р°С€РµРЅРёРµ СѓР¶Рµ РёСЃРїРѕР»СЊР·РѕРІР°РЅРѕ РёР»Рё РѕС‚РєР»СЋС‡РµРЅРѕ", inviteInput.code);
   }
 
   const supabase = await createServerSupabaseClient();
@@ -1029,11 +1013,23 @@ export async function updateProfileAction(formData: FormData) {
     avatar_url: nextAvatarUrl
   };
 
+  const updateProfileRow = (value: Partial<typeof payload>) =>
+    telegramProfile
+      ? admin.from("profiles").update(value).eq("id", profile.id)
+      : supabase.from("profiles").update(value).eq("id", profile.id);
+
+  let { error } = await updateProfileRow(payload);
+
+  if (error && isMissingFavoriteLuminaCosplayColumn(error.message)) {
+    ({ error } = await updateProfileRow(omitFavoriteLuminaCosplay(payload)));
+  }
+
+  if (error) {
+    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РїСЂРѕС„РёР»СЊ: ${error?.message ?? "unknown error"}`);
+  }
+
   if (telegramProfile) {
-    await admin.from("profiles").update(payload).eq("id", profile.id);
     revalidatePath("/tg/profile");
-  } else {
-    await supabase.from("profiles").update(payload).eq("id", profile.id);
   }
 
   revalidatePath("/profile");
@@ -1041,6 +1037,10 @@ export async function updateProfileAction(formData: FormData) {
   revalidatePath("/tg/admin/users");
   revalidatePath("/chat");
   revalidatePath("/club");
+
+  redirect(
+    (telegramProfile ? "/tg/profile?saved=1" : "/profile?saved=1") as Route
+  );
 }
 
 export async function createPostCommentAction(formData: FormData) {
@@ -1269,7 +1269,7 @@ export async function togglePostPinAction(formData: FormData) {
 }
 
 export async function sendMemberChatMessageAction(formData: FormData) {
-  const profile = await requireProfile();
+  const profile = await requireAnyProfile();
   const admin = createAdminSupabaseClient();
   const body = formValue(formData.get("body"));
 
@@ -1278,6 +1278,7 @@ export async function sendMemberChatMessageAction(formData: FormData) {
   if (!body) {
     revalidatePath("/profile");
     revalidatePath("/chat");
+    revalidatePath("/tg/support");
     return;
   }
 
@@ -1291,6 +1292,7 @@ export async function sendMemberChatMessageAction(formData: FormData) {
 
   revalidatePath("/profile");
   revalidatePath("/chat");
+  revalidatePath("/tg/support");
   revalidatePath("/admin/users");
   revalidatePath("/admin/chat");
 }
@@ -1319,7 +1321,7 @@ export async function sendAdminChatMessageAction(formData: FormData) {
 
   if (mediaFile) {
     if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("video/")) {
-      throw new Error("В чат можно загрузить только фото или видео.");
+      throw new Error("Р’ С‡Р°С‚ РјРѕР¶РЅРѕ Р·Р°РіСЂСѓР·РёС‚СЊ С‚РѕР»СЊРєРѕ С„РѕС‚Рѕ РёР»Рё РІРёРґРµРѕ.");
     }
 
     uploadedChatMedia = await uploadChatFile(mediaFile, profileId);
@@ -1655,17 +1657,17 @@ export async function checkStorageCleanupAction(
       status: "success",
       message:
         report.totalCount > 0
-          ? `Проверка выполнена. Найдено ${report.totalCount} файлов. Можно очистить ${
+          ? `РџСЂРѕРІРµСЂРєР° РІС‹РїРѕР»РЅРµРЅР°. РќР°Р№РґРµРЅРѕ ${report.totalCount} С„Р°Р№Р»РѕРІ. РњРѕР¶РЅРѕ РѕС‡РёСЃС‚РёС‚СЊ ${
               megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)
             } MB.`
-          : "Проверка выполнена. Лишних файлов не найдено.",
+          : "РџСЂРѕРІРµСЂРєР° РІС‹РїРѕР»РЅРµРЅР°. Р›РёС€РЅРёС… С„Р°Р№Р»РѕРІ РЅРµ РЅР°Р№РґРµРЅРѕ.",
       fileCount: report.totalCount,
       totalBytes: report.totalBytes
     };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "Не удалось проверить хранилище.",
+      message: error instanceof Error ? error.message : "РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕРІРµСЂРёС‚СЊ С…СЂР°РЅРёР»РёС‰Рµ.",
       fileCount: 0,
       totalBytes: 0
     };
@@ -1674,28 +1676,7 @@ export async function checkStorageCleanupAction(
 
 export async function deleteOldPostsAction() {
   await requireAdmin();
-  const admin = createAdminSupabaseClient();
-  const postIds = await getOldPostIds(admin);
-
-  if (!postIds.length) {
-    revalidatePath("/admin");
-    revalidatePath("/admin/posts");
-    return;
-  }
-
-  const [{ data: posts }, { data: media }] = await Promise.all([
-    admin.from("posts").select("thumbnail_path").in("id", postIds),
-    admin.from("post_media").select("storage_path").in("post_id", postIds)
-  ]);
-
-  await removePostStorage([
-    ...((posts ?? [])
-      .map((post) => post.thumbnail_path)
-      .filter((path): path is string => Boolean(path))),
-    ...((media ?? []).map((item) => item.storage_path))
-  ]);
-
-  await admin.from("posts").delete().in("id", postIds);
+  await deleteExpiredOrDraftPosts();
 
   revalidatePath("/admin");
   revalidatePath("/admin/posts");
@@ -1897,25 +1878,31 @@ export async function updateUserDetailsAction(formData: FormData) {
     }
   }
 
-  const { error } = await admin
-    .from("profiles")
-    .update({
-      display_name: formValue(formData.get("displayName")) || null,
-      nickname: formValue(formData.get("nickname")) || null,
-      avatar_url: nextAvatarUrl,
-      birth_date: formValue(formData.get("birthDate")) || null,
-      telegram_contact: formValue(formData.get("telegramContact")) || null,
-      tiktok_contact: formValue(formData.get("tiktokContact")) || null,
-      favorite_lumina_cosplay: formValue(formData.get("favoriteLuminaCosplay")) || null,
-      admin_note: formValue(formData.get("adminNote")) || null,
-      admin_badges: nextBadges,
-      tier: nextTier,
-      access_status: nextAccessStatus
-    })
-    .eq("id", userId);
+  const safePayload = {
+    display_name: formValue(formData.get("displayName")) || null,
+    nickname: formValue(formData.get("nickname")) || null,
+    avatar_url: nextAvatarUrl,
+    birth_date: formValue(formData.get("birthDate")) || null,
+    telegram_contact: formValue(formData.get("telegramContact")) || null,
+    tiktok_contact: formValue(formData.get("tiktokContact")) || null,
+    favorite_lumina_cosplay: formValue(formData.get("favoriteLuminaCosplay")) || null,
+    admin_note: formValue(formData.get("adminNote")) || null,
+    admin_badges: nextBadges,
+    tier: nextTier,
+    access_status: nextAccessStatus
+  };
 
-  if (error) {
-    throw new Error(`Не удалось обновить пользователя: ${error.message}`);
+  const updateUserRowSafely = (value: Partial<typeof safePayload>) =>
+    admin.from("profiles").update(value).eq("id", userId);
+
+  let safeResult = await updateUserRowSafely(safePayload);
+
+  if (safeResult.error && isMissingFavoriteLuminaCosplayColumn(safeResult.error.message)) {
+    safeResult = await updateUserRowSafely(omitFavoriteLuminaCosplay(safePayload));
+  }
+
+  if (safeResult.error) {
+    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ: ${safeResult.error.message}`);
   }
 
   revalidatePath("/admin/users");
@@ -1955,7 +1942,7 @@ export async function addUserDonationAction(formData: FormData) {
     .eq("id", userId);
 
   if (profileError) {
-    throw new Error(`Не удалось обновить сумму донатов: ${profileError.message}`);
+    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ СЃСѓРјРјСѓ РґРѕРЅР°С‚РѕРІ: ${profileError.message}`);
   }
 
   const { error: donationError } = await admin.from("donation_events").insert({
@@ -1967,7 +1954,7 @@ export async function addUserDonationAction(formData: FormData) {
   });
 
   if (donationError) {
-    throw new Error(`Не удалось сохранить донат: ${donationError.message}`);
+    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РґРѕРЅР°С‚: ${donationError.message}`);
   }
 
   revalidatePath("/admin/users");
@@ -2016,7 +2003,7 @@ export async function addUserDonationForMonthAction(formData: FormData) {
     .eq("id", userId);
 
   if (profileError) {
-    throw new Error(`Не удалось обновить сумму донатов: ${profileError.message}`);
+    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ СЃСѓРјРјСѓ РґРѕРЅР°С‚РѕРІ: ${profileError.message}`);
   }
 
   const donationMonth = monthIndex + 1;
@@ -2032,7 +2019,7 @@ export async function addUserDonationForMonthAction(formData: FormData) {
   });
 
   if (donationError) {
-    throw new Error(`Не удалось сохранить донат за месяц: ${donationError.message}`);
+    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РґРѕРЅР°С‚ Р·Р° РјРµСЃСЏС†: ${donationError.message}`);
   }
 
   revalidatePath("/admin/users");
@@ -2153,3 +2140,4 @@ export async function deleteUserAction(formData: FormData) {
   revalidatePath("/tg/admin/users");
   revalidatePath("/dashboard");
 }
+

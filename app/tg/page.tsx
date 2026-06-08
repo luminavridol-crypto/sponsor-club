@@ -15,5 +15,5 @@ export default async function TelegramEntryPage() {
     redirect("/tg/admin/posts");
   }
 
-  redirect(hasClubAccess(profile) ? "/tg/content" : "/tg/support");
+  redirect(hasClubAccess(profile) ? "/tg/content" : "/tg/tiers");
 }

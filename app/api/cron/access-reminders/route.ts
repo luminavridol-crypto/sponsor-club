@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { disableExpiredProfiles } from "@/lib/auth/membership-alerts";
+import { deleteExpiredOrDraftPosts } from "@/lib/data/post-cleanup";
 import { runAutomaticAccessExpiryReminders } from "@/lib/email/access-reminders";
 import { runTelegramAccessReminderSweep } from "@/lib/telegram/access-reminders";
 
@@ -24,12 +25,14 @@ export async function GET(request: Request) {
     return unauthorized();
   }
 
+  const postCleanup = await deleteExpiredOrDraftPosts();
   const expiredAccess = await disableExpiredProfiles();
   const emailResult = await runAutomaticAccessExpiryReminders();
   const telegramResult = await runTelegramAccessReminderSweep();
 
   return NextResponse.json({
     ok: true,
+    postCleanup,
     expiredAccess,
     emailResult,
     telegramResult,

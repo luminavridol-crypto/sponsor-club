@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ReactNode, useState } from "react";
+import { Tier } from "@/lib/types";
 
 type IconName =
   | "star"
@@ -28,6 +29,7 @@ type TierSection = {
 
 export type TierAccordionCard = {
   id: string;
+  tier: Tier;
   badge: string;
   label: string;
   level: string;
@@ -255,11 +257,19 @@ export function TierAccordionList({ cards }: { cards: TierAccordionCard[] }) {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-[0.24em] ${card.headerBadgeClass ?? "border-white/10 bg-black/20 text-white/50"}`}>
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-[0.24em] ${
+                        card.headerBadgeClass ?? "border-white/10 bg-black/20 text-white/50"
+                      }`}
+                    >
                       {card.badge}
                     </span>
                     {card.statusBadge ? (
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] ${card.statusBadgeClass ?? "border border-white/15 bg-white/10 text-white/80"}`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] ${
+                          card.statusBadgeClass ?? "border border-white/15 bg-white/10 text-white/80"
+                        }`}
+                      >
                         {card.statusBadge}
                       </span>
                     ) : null}
@@ -272,18 +282,26 @@ export function TierAccordionList({ cards }: { cards: TierAccordionCard[] }) {
                           <LuminaIcon name={card.symbol} className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                          <h2 className="font-display text-[1.15rem] leading-[1.02] text-white sm:text-[1.9rem]">{card.label}</h2>
-                          <p className="mt-1.5 text-[10px] uppercase tracking-[0.16em] text-white/45 sm:text-xs sm:tracking-[0.22em]">{card.level}</p>
+                          <h2 className="font-display text-[1.15rem] leading-[1.02] text-white sm:text-[1.9rem]">
+                            {card.label}
+                          </h2>
+                          <p className="mt-1.5 text-[10px] uppercase tracking-[0.16em] text-white/45 sm:text-xs sm:tracking-[0.22em]">
+                            {card.level}
+                          </p>
                         </div>
                       </div>
                     </div>
 
                     <div className="shrink-0 pt-0.5 text-right">
-                      <p className="font-display text-[1rem] leading-none text-white sm:text-[1.9rem]">{card.price}</p>
+                      <p className="font-display text-[1rem] leading-none text-white sm:text-[1.9rem]">
+                        {card.price}
+                      </p>
                     </div>
                   </div>
 
-                  <p className="mt-3 max-w-[32rem] text-[0.92rem] leading-5 text-white/78 sm:text-[0.96rem] sm:leading-6">{card.teaser}</p>
+                  <p className="mt-3 max-w-[32rem] text-[0.92rem] leading-5 text-white/78 sm:text-[0.96rem] sm:leading-6">
+                    {card.teaser}
+                  </p>
                   {card.noteBadge ? (
                     <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/62">
                       <LuminaIcon name={card.symbol} className="h-3 w-3" />
@@ -320,7 +338,9 @@ export function TierAccordionList({ cards }: { cards: TierAccordionCard[] }) {
                             </span>
                             <div className="min-w-0">
                               {section.label ? (
-                                <p className="text-[9px] uppercase tracking-[0.18em] text-white/36">{section.label}</p>
+                                <p className="text-[9px] uppercase tracking-[0.18em] text-white/36">
+                                  {section.label}
+                                </p>
                               ) : null}
                               <h3
                                 className={`text-[0.92rem] font-semibold sm:text-[0.96rem] ${
@@ -360,6 +380,13 @@ export function TierAccordionList({ cards }: { cards: TierAccordionCard[] }) {
                         </div>
                       </section>
                     ))}
+
+                    <Link
+                      href={`/tg/support?tier=${card.tier}`}
+                      className="flex w-full items-center justify-center rounded-[20px] border border-white/16 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/28 hover:bg-white/14"
+                    >
+                      Оплатить
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -367,15 +394,6 @@ export function TierAccordionList({ cards }: { cards: TierAccordionCard[] }) {
           </article>
         );
       })}
-
-      <div className="pt-4">
-        <Link
-          href="/tg/support"
-          className="mx-auto flex w-full max-w-[17rem] items-center justify-center rounded-[22px] border border-fuchsia-300/35 bg-[linear-gradient(90deg,rgba(236,72,153,0.92),rgba(168,85,247,0.96))] px-4 py-3 text-center text-[0.92rem] font-semibold text-white shadow-[0_16px_45px_rgba(214,74,255,0.35)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_56px_rgba(214,74,255,0.42)]"
-        >
-          Поддержать и выбрать уровень
-        </Link>
-      </div>
     </div>
   );
 }
