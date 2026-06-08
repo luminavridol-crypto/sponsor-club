@@ -2,7 +2,7 @@ import { isAccessExpired } from "@/lib/auth/access";
 import { getTelegramBotToken } from "@/lib/telegram/env";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { Tier } from "@/lib/types";
-import { canAccessTier, TIER_LABELS } from "@/lib/utils/tier";
+import { canAccessTier, getEffectiveTier, TIER_LABELS } from "@/lib/utils/tier";
 
 type NotifyNewPostInput = {
   postTitle: string;
@@ -79,7 +79,7 @@ export async function notifyTelegramUsersAboutNewPost({
   const admin = createAdminSupabaseClient();
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, role, tier, access_status, access_expires_at, telegram_id")
+    .select("id, role, tier, admin_badges, access_status, access_expires_at, telegram_id")
     .not("telegram_id", "is", null);
 
   const eligibleProfiles = (profiles ?? []).filter((profile) => {
@@ -87,7 +87,7 @@ export async function notifyTelegramUsersAboutNewPost({
     if (profile.role === "admin") return true;
     if (profile.access_status !== "active") return false;
     if (isAccessExpired(profile.access_expires_at)) return false;
-    return canAccessTier(profile.tier, requiredTier);
+    return canAccessTier(getEffectiveTier(profile), requiredTier);
   });
 
   const text = ["Новый пост в Lumina Club", "", postTitle, "", `Уровень: ${TIER_LABELS[requiredTier]}`].join("\n");

@@ -8,6 +8,7 @@ import {
 import { readTelegramSession } from "@/lib/telegram/session";
 import { syncExpiredProfileAccess } from "@/lib/auth/membership-alerts";
 import { Profile } from "@/lib/types";
+import { normalizeProfileTier } from "@/lib/utils/tier";
 
 type TelegramInitUser = {
   id: number | string;
@@ -203,7 +204,7 @@ async function activateInviteForTelegramProfile(profile: Profile, inviteCode: st
     return profile;
   }
 
-  return updatedProfile as Profile;
+  return normalizeProfileTier(updatedProfile as Profile);
 }
 
 export async function upsertTelegramProfile(initData: string): Promise<TelegramAuthResult> {
@@ -260,7 +261,7 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
       : (updatedProfile as Profile);
 
     return {
-      profile: nextProfile,
+      profile: normalizeProfileTier(nextProfile),
       telegramId,
       isAdmin: nextProfile.role === "admin"
     };
@@ -300,7 +301,7 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
     : (insertedProfile as Profile);
 
   return {
-    profile: nextProfile,
+    profile: normalizeProfileTier(nextProfile),
     telegramId,
     isAdmin: nextProfile.role === "admin"
   };
@@ -327,5 +328,5 @@ export async function getTelegramProfileFromSession() {
     return null;
   }
 
-  return syncExpiredProfileAccess(profile);
+  return syncExpiredProfileAccess(normalizeProfileTier(profile));
 }

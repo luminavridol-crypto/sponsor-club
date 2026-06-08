@@ -31,7 +31,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
 import { clearTelegramSession } from "@/lib/telegram/session";
 import { AccessStatus, DonationClaimStatus, PostReactionType, PostStatus, PostType, Tier } from "@/lib/types";
-import { canAccessTier } from "@/lib/utils/tier";
+import { canAccessTier, normalizeTierBadges } from "@/lib/utils/tier";
 import { buildContentSlug } from "@/lib/utils/content-space";
 import { mergeFavoriteLuminaCosplayIntoAdminNote } from "@/lib/utils/favorite-cosplay";
 
@@ -123,6 +123,10 @@ function formValue(value: FormDataEntryValue | null) {
 
 function isMissingFavoriteLuminaCosplayColumn(message: string) {
   return message.includes("favorite_lumina_cosplay") && message.includes("schema cache");
+}
+
+function isMissingAfterDarkTierValue(message: string) {
+  return message.includes('invalid input value for enum sponsor_tier') && message.includes('"tier_4"');
 }
 
 function omitFavoriteLuminaCosplay<T extends { favorite_lumina_cosplay?: string | null }>(payload: T) {
@@ -1858,11 +1862,14 @@ export async function updateUserDetailsAction(formData: FormData) {
   const avatarFile = formData.get("avatar");
   const nextTier = formValue(formData.get("tier")) as Tier;
   const nextAccessStatus = formValue(formData.get("accessStatus")) as AccessStatus;
-  const nextBadges = formData
+  const nextBadges = normalizeTierBadges(
+    formData
     .getAll("adminBadges")
     .filter((value): value is string => typeof value === "string")
     .map((value) => value.trim())
-    .filter(Boolean);
+    .filter(Boolean),
+    nextTier
+  );
 
   const { data: existingUser } = await admin
     .from("profiles")
@@ -1913,6 +1920,14 @@ export async function updateUserDetailsAction(formData: FormData) {
         safePayload.admin_note,
         safePayload.favorite_lumina_cosplay
       )
+    });
+  }
+
+  if (safeResult.error && nextTier === "tier_4" && isMissingAfterDarkTierValue(safeResult.error.message)) {
+    safeResult = await updateUserRowSafely({
+      ...safePayload,
+      tier: "tier_3",
+      admin_badges: normalizeTierBadges(safePayload.admin_badges, "tier_4")
     });
   }
 

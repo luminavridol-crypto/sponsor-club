@@ -1,7 +1,7 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { Tier } from "@/lib/types";
 import { isAccessExpired } from "@/lib/auth/access";
-import { canAccessTier } from "@/lib/utils/tier";
+import { canAccessTier, getEffectiveTier } from "@/lib/utils/tier";
 import { EmailRecipient } from "./service";
 
 export type ManualEmailAudience =
@@ -18,6 +18,7 @@ type ProfileRow = {
   display_name: string | null;
   nickname: string | null;
   tier: Tier;
+  admin_badges?: string[] | null;
   access_expires_at: string | null;
 };
 
@@ -26,7 +27,7 @@ function mapProfileRecipient(profile: ProfileRow): EmailRecipient {
     profileId: profile.id,
     email: profile.email,
     displayName: profile.display_name || profile.nickname || profile.email,
-    tier: profile.tier,
+    tier: getEffectiveTier(profile),
     accessExpiresAt: profile.access_expires_at
   };
 }
@@ -35,7 +36,7 @@ export async function getPostEmailRecipients(requiredTier: Tier) {
   const admin = createAdminSupabaseClient();
   const { data } = await admin
     .from("profiles")
-    .select("id, email, display_name, nickname, tier, access_expires_at")
+    .select("id, email, display_name, nickname, tier, admin_badges, access_expires_at")
     .eq("role", "member")
     .eq("access_status", "active")
     .order("created_at", { ascending: false });
@@ -44,7 +45,7 @@ export async function getPostEmailRecipients(requiredTier: Tier) {
     .filter(
       (profile) =>
         Boolean(profile.email) &&
-        canAccessTier(profile.tier, requiredTier) &&
+        canAccessTier(getEffectiveTier(profile), requiredTier) &&
         !isAccessExpired(profile.access_expires_at)
     )
     .map(mapProfileRecipient);
@@ -56,11 +57,11 @@ export async function getManualEmailRecipients(audience: ManualEmailAudience) {
 
   let query = admin
     .from("profiles")
-    .select("id, email, display_name, nickname, tier, access_expires_at")
+    .select("id, email, display_name, nickname, tier, admin_badges, access_expires_at")
     .eq("role", "member")
     .eq("access_status", "active");
 
-  if (audience === "tier_1" || audience === "tier_2" || audience === "tier_3" || audience === "tier_4") {
+  if (audience === "tier_1" || audience === "tier_2" || audience === "tier_3") {
     query = query.eq("tier", audience);
   }
 
@@ -75,6 +76,7 @@ export async function getManualEmailRecipients(audience: ManualEmailAudience) {
   const { data } = await query.order("created_at", { ascending: false });
 
   return ((data ?? []) as ProfileRow[])
+    .filter((profile) => (audience === "tier_4" ? getEffectiveTier(profile) === "tier_4" : true))
     .filter((profile) => Boolean(profile.email) && !isAccessExpired(profile.access_expires_at))
     .map((profile) => ({
       ...mapProfileRecipient(profile),

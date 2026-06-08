@@ -7,6 +7,7 @@ import { buildLocalPreviewProfile, isLocalTelegramPreviewEnabled } from "@/lib/t
 import { clearTelegramSession } from "@/lib/telegram/session";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { Profile } from "@/lib/types";
+import { normalizeProfileTier } from "@/lib/utils/tier";
 
 export async function requireSession() {
   const telegramProfile = await getTelegramProfileFromSession();
@@ -59,7 +60,7 @@ export async function requireAnyProfile() {
     redirect("/tg");
   }
 
-  return syncExpiredProfileAccess(typedProfile);
+  return syncExpiredProfileAccess(normalizeProfileTier(typedProfile));
 }
 
 export async function requireProfile() {

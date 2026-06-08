@@ -373,7 +373,7 @@ export function UserCard({
 
         {open ? (
           <div className={`mt-4 space-y-4 rounded-[26px] border p-4 ${theme.subtle}`}>
-            <form action={updateUserDetailsAction} className="space-y-4">
+            <form action={updateUserDetailsAction} className="space-y-4" encType="multipart/form-data">
               <input type="hidden" name="userId" value={user.id} />
               {selectedBadges.map((badge) => (
                 <input key={badge} type="hidden" name="adminBadges" value={badge} />

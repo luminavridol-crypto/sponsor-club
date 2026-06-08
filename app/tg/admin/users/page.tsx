@@ -19,7 +19,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { DonationEvent, Profile, PurchaseRequest } from "@/lib/types";
-import { TIER_LABELS } from "@/lib/utils/tier";
+import { normalizeProfileTier, TIER_LABELS } from "@/lib/utils/tier";
 
 function getTierSortWeight(user: Profile) {
   if (user.tier === "tier_4") return 4;
@@ -55,7 +55,11 @@ export default async function TelegramAdminUsersPage() {
         .order("created_at", { ascending: false })
     ]);
 
-  const users = sortUsers(((profilesData ?? []) as Profile[]).filter((user) => user.role !== "admin"));
+  const users = sortUsers(
+    ((profilesData ?? []) as Profile[])
+      .map((user) => normalizeProfileTier(user))
+      .filter((user) => user.role !== "admin")
+  );
   const avatarMap = await getSignedAvatarUrls(
     users.map((user) => user.avatar_url).filter((path): path is string => Boolean(path))
   );
