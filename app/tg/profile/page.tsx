@@ -7,6 +7,7 @@ import { requireAnyProfile } from "@/lib/auth/guards";
 import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { DonationEvent, Tier } from "@/lib/types";
+import { extractFavoriteLuminaCosplay } from "@/lib/utils/favorite-cosplay";
 import { TIER_LABELS } from "@/lib/utils/tier";
 
 const PROFILE_THEME: Record<
@@ -146,6 +147,10 @@ export default async function TelegramProfilePage({
   ]);
   const avatarUrl = profile.avatar_url ? avatarMap[profile.avatar_url] ?? null : null;
   const recentDonations = (donations ?? []) as DonationEvent[];
+  const favoriteCosplay = extractFavoriteLuminaCosplay(
+    profile.favorite_lumina_cosplay,
+    profile.admin_note
+  );
 
   return (
     <MiniAppShell
@@ -220,16 +225,6 @@ export default async function TelegramProfilePage({
           encType="multipart/form-data"
           className="space-y-4"
         >
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              form={profileFormId}
-              className={`rounded-2xl bg-gradient-to-r px-4 py-3 text-sm font-semibold shadow-[0_14px_36px_rgba(214,74,255,0.28)] ${theme.button}`}
-            >
-              Сохранить
-            </button>
-          </div>
-
           <div className="grid gap-3">
             <label className="block">
               <span className="mb-2 block text-sm text-white/60">Имя</span>
@@ -288,7 +283,7 @@ export default async function TelegramProfilePage({
                 <span className="mb-2 block text-sm text-white/60">Любимый косплей Люмины</span>
                 <input
                   name="favoriteLuminaCosplay"
-                  defaultValue={profile.favorite_lumina_cosplay ?? ""}
+                  defaultValue={favoriteCosplay ?? ""}
                   placeholder="Например: 2B, Yennefer, Makima"
                   className={`w-full rounded-2xl border px-4 py-3 text-white outline-none ${theme.item}`}
                 />
@@ -306,7 +301,7 @@ export default async function TelegramProfilePage({
             form={profileFormId}
             className={`w-full rounded-2xl bg-gradient-to-r px-4 py-3 text-sm font-semibold shadow-[0_14px_36px_rgba(214,74,255,0.28)] ${theme.button}`}
           >
-            Сохранить профиль
+            Сохранить
           </button>
         </form>
       </section>

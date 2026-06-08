@@ -33,6 +33,7 @@ import { clearTelegramSession } from "@/lib/telegram/session";
 import { AccessStatus, DonationClaimStatus, PostReactionType, PostStatus, PostType, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
 import { buildContentSlug } from "@/lib/utils/content-space";
+import { mergeFavoriteLuminaCosplayIntoAdminNote } from "@/lib/utils/favorite-cosplay";
 
 export type CleanupCheckState = {
   status: "idle" | "success" | "error";
@@ -1013,7 +1014,9 @@ export async function updateProfileAction(formData: FormData) {
     avatar_url: nextAvatarUrl
   };
 
-  const updateProfileRow = (value: Partial<typeof payload>) =>
+  const updateProfileRow = (
+    value: Partial<typeof payload> & { admin_note?: string | null }
+  ) =>
     telegramProfile
       ? admin.from("profiles").update(value).eq("id", profile.id)
       : supabase.from("profiles").update(value).eq("id", profile.id);
@@ -1021,7 +1024,13 @@ export async function updateProfileAction(formData: FormData) {
   let { error } = await updateProfileRow(payload);
 
   if (error && isMissingFavoriteLuminaCosplayColumn(error.message)) {
-    ({ error } = await updateProfileRow(omitFavoriteLuminaCosplay(payload)));
+    ({ error } = await updateProfileRow({
+      ...omitFavoriteLuminaCosplay(payload),
+      admin_note: mergeFavoriteLuminaCosplayIntoAdminNote(
+        profile.admin_note,
+        payload.favorite_lumina_cosplay
+      )
+    }));
   }
 
   if (error) {
@@ -1898,7 +1907,13 @@ export async function updateUserDetailsAction(formData: FormData) {
   let safeResult = await updateUserRowSafely(safePayload);
 
   if (safeResult.error && isMissingFavoriteLuminaCosplayColumn(safeResult.error.message)) {
-    safeResult = await updateUserRowSafely(omitFavoriteLuminaCosplay(safePayload));
+    safeResult = await updateUserRowSafely({
+      ...omitFavoriteLuminaCosplay(safePayload),
+      admin_note: mergeFavoriteLuminaCosplayIntoAdminNote(
+        safePayload.admin_note,
+        safePayload.favorite_lumina_cosplay
+      )
+    });
   }
 
   if (safeResult.error) {
