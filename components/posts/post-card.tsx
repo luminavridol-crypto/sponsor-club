@@ -18,6 +18,7 @@ const TIER_CARD_STYLES: Record<
   Tier,
   {
     article: string;
+    frame?: string;
     tierBadge: string;
     action: string;
   }
@@ -38,8 +39,11 @@ const TIER_CARD_STYLES: Record<
     action: "bg-[#ffe2a9] text-[#2c1d08] hover:bg-[#ffdf9b]"
   },
   tier_4: {
-    article: "border-white/10 bg-[#191a22]",
-    tierBadge: "border-white/10 bg-white/[0.03] text-white/65",
+    article:
+      "border-violet-300/18 bg-[radial-gradient(circle_at_top,rgba(167,139,250,0.16),transparent_26%),radial-gradient(circle_at_30%_80%,rgba(76,29,149,0.18),transparent_28%),linear-gradient(180deg,rgba(8,8,12,0.98),rgba(14,10,24,0.98))]",
+    frame:
+      "shadow-[0_0_34px_rgba(139,92,246,0.16),0_18px_44px_rgba(0,0,0,0.28)] before:absolute before:inset-0 before:pointer-events-none before:rounded-[24px] before:bg-[radial-gradient(circle_at_78%_18%,rgba(196,181,253,0.08),transparent_16%),radial-gradient(circle_at_22%_78%,rgba(168,85,247,0.10),transparent_22%)] before:opacity-100",
+    tierBadge: "border-violet-300/18 bg-violet-400/10 text-violet-100",
     action: "bg-white text-slate-950 hover:bg-white/92"
   }
 };
@@ -59,7 +63,21 @@ export function PostCard({
   const tierStyle = TIER_CARD_STYLES[post.required_tier];
 
   return (
-    <article className={`overflow-hidden rounded-[24px] border ${tierStyle.article} shadow-[0_12px_28px_rgba(0,0,0,0.12)]`}>
+    <article
+      className={`relative overflow-hidden rounded-[24px] border ${tierStyle.article} ${
+        tierStyle.frame ?? "shadow-[0_12px_28px_rgba(0,0,0,0.12)]"
+      }`}
+    >
+      {post.required_tier === "tier_4" ? (
+        <>
+          <div className="pointer-events-none absolute inset-0 opacity-80">
+            <div className="absolute -left-10 top-8 h-20 w-20 rounded-full bg-violet-400/10 blur-3xl" />
+            <div className="absolute -right-6 bottom-10 h-24 w-24 rounded-full bg-fuchsia-400/10 blur-3xl" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_18%,rgba(196,181,253,0.08),transparent_16%),radial-gradient(circle_at_28%_78%,rgba(168,85,247,0.10),transparent_22%)]" />
+          </div>
+        </>
+      ) : null}
+
       {post.thumbnail_url ? (
         <div className="relative border-b border-white/10">
           <Image
@@ -81,7 +99,7 @@ export function PostCard({
         </div>
       ) : null}
 
-      <div className="border-b border-white/8 px-4 py-3.5">
+      <div className="relative border-b border-white/8 px-4 py-3.5">
         <div className="mb-2.5 flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-white/60">
             {POST_TYPE_LABELS[post.post_type] ?? post.post_type}
