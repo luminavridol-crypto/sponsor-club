@@ -35,6 +35,7 @@ export function MiniAppNav({
       ? [
           { href: "/tg/content", label: "Лента" },
           { href: "/tg/tiers", label: "Уровни" },
+          { href: "/tg/support", label: "Чат" },
           { href: "/tg/profile", label: "Профиль" }
         ]
       : [

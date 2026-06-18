@@ -124,8 +124,8 @@ export async function AdminUsersCleanupPanel() {
   const admin = createAdminSupabaseClient();
   const nowIso = new Date().toISOString();
 
-  const orphanReportPromise = withTimeout(getCachedOrphanedStorageReport(), 8000, EMPTY_ORPHAN_REPORT);
-  const r2MediaUsagePromise = withTimeout(getCachedR2StorageUsage(), 8000, {
+  const orphanReportPromise = withTimeout(getCachedOrphanedStorageReport(), 20000, EMPTY_ORPHAN_REPORT);
+  const r2MediaUsagePromise = withTimeout(getCachedR2StorageUsage(), 20000, {
     fileCount: 0,
     totalBytes: 0
   });

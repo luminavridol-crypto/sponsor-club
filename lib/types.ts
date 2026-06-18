@@ -79,6 +79,8 @@ export interface Post {
   post_type: PostType;
   required_tier: Tier;
   status: PostStatus;
+  is_sellable?: boolean;
+  sale_price?: number | null;
   publish_at: string;
   expires_at: string | null;
   retention_days: number | null;
@@ -120,6 +122,8 @@ export interface FeedPost {
   description: string | null;
   post_type: PostType;
   required_tier: Tier;
+  is_sellable?: boolean;
+  sale_price?: number | null;
   publish_at: string;
   thumbnail_path: string | null;
   post_media: Array<Pick<PostMedia, "id">>;

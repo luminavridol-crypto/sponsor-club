@@ -21,7 +21,9 @@ async function getPublishedFeedPosts() {
   const admin = createAdminSupabaseClient();
   const { data } = await admin
     .from("posts")
-    .select("id, slug, title, description, post_type, required_tier, publish_at, expires_at, thumbnail_path, post_media(id)")
+    .select(
+      "id, slug, title, description, post_type, required_tier, is_sellable, sale_price, publish_at, expires_at, thumbnail_path, post_media(id)"
+    )
     .eq("status", "published")
     .lte("publish_at", new Date().toISOString())
     .order("publish_at", { ascending: false });

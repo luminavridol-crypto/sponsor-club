@@ -345,6 +345,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
   const contactMethod = formValue(formData.get("contactMethod"));
   const contactHandle = formValue(formData.get("contactHandle"));
   const postTitle = formValue(formData.get("postTitle"));
+  const postPrice = formValue(formData.get("postPrice"));
   const parsed = purchaseRequestSchema.safeParse({
     tier: formValue(formData.get("tier")),
     displayName: formValue(formData.get("displayName")),
@@ -360,7 +361,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
   }
 
   const admin = createAdminSupabaseClient();
-  const contact = `${parsed.data.contactMethod}: ${parsed.data.contactHandle}${postTitle ? ` | Post: ${postTitle}` : ""}`;
+  const contact = `${parsed.data.contactMethod}: ${parsed.data.contactHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`;
   const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data: recentRequest } = await admin
     .from("purchase_requests")
@@ -416,6 +417,7 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
   const profile = await requireAnyProfile();
   const tier = formValue(formData.get("tier")) as Tier;
   const postTitle = formValue(formData.get("postTitle"));
+  const postPrice = formValue(formData.get("postPrice"));
 
   if (!["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier)) {
     redirect("/tg/support?error=1");
@@ -449,7 +451,7 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
     display_name: displayName,
     email: profile.email,
     country: "Telegram Mini App",
-    contact: `Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}`
+    contact: `Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`
   };
 
   const { error } = await admin.from("purchase_requests").insert(requestPayload);
@@ -459,7 +461,7 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
       tier,
       email: profile.email,
       country: "Telegram Mini App",
-      contact: `РРјСЏ: ${displayName}\nРЎРІСЏР·СЊ: Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}`
+      contact: `РРјСЏ: ${displayName}\nРЎРІСЏР·СЊ: Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`
     });
 
     if (fallbackError) {
@@ -1510,6 +1512,12 @@ export async function createPostAction(formData: FormData) {
   let thumbnailObjectKey: string | null = null;
   let thumbnailMimeType: string | null = null;
   let thumbnailSizeBytes: number | null = null;
+  const isSellable = formData.get("isSellable") === "on";
+  const salePrice = isSellable ? numberValue(formData.get("salePrice")) : 0;
+
+  if (isSellable && salePrice <= 0) {
+    throw new Error("Укажите цену для платного поста.");
+  }
 
   if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
     const uploadedThumbnail = await uploadFile(thumbnailFile, "thumbnails");
@@ -1531,6 +1539,8 @@ export async function createPostAction(formData: FormData) {
       post_type: formValue(formData.get("postType")) as PostType,
       required_tier: formValue(formData.get("requiredTier")) as Tier,
       status: formValue(formData.get("status")) as PostStatus,
+      is_sellable: isSellable,
+      sale_price: isSellable ? Number(salePrice.toFixed(2)) : null,
       publish_at: formValue(formData.get("publishAt"))
         ? new Date(formValue(formData.get("publishAt"))).toISOString()
         : new Date().toISOString(),
@@ -1583,6 +1593,12 @@ export async function updatePostAction(formData: FormData) {
   await requireAdmin();
   const admin = createAdminSupabaseClient();
   const title = formValue(formData.get("title"));
+  const isSellable = formData.get("isSellable") === "on";
+  const salePrice = isSellable ? numberValue(formData.get("salePrice")) : 0;
+
+  if (isSellable && salePrice <= 0) {
+    throw new Error("Укажите цену для платного поста.");
+  }
 
   await admin
     .from("posts")
@@ -1593,7 +1609,9 @@ export async function updatePostAction(formData: FormData) {
       body: formValue(formData.get("body")) || null,
       post_type: formValue(formData.get("postType")) as PostType,
       required_tier: formValue(formData.get("requiredTier")) as Tier,
-      status: formValue(formData.get("status")) as PostStatus
+      status: formValue(formData.get("status")) as PostStatus,
+      is_sellable: isSellable,
+      sale_price: isSellable ? Number(salePrice.toFixed(2)) : null
     })
     .eq("id", formValue(formData.get("postId")));
 

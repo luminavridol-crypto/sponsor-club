@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createPostCommentAction, deletePostCommentAction } from "@/app/actions";
 import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
@@ -57,10 +57,24 @@ export function PostComments({
   reactionSummaries: Map<string, ReactionSummary>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [body, setBody] = useState("");
+  const [replyTarget, setReplyTarget] = useState<{ id: string; author: string; preview: string } | null>(
+    null
+  );
+
+  const replyTemplate = useMemo(() => {
+    if (!replyTarget) {
+      return "";
+    }
+
+    return `@${replyTarget.author}\n> ${replyTarget.preview}\n\n`;
+  }, [replyTarget]);
 
   async function action(formData: FormData) {
     await createPostCommentAction(formData);
     formRef.current?.reset();
+    setBody("");
+    setReplyTarget(null);
   }
 
   return (
@@ -80,6 +94,7 @@ export function PostComments({
         {comments.length ? (
           comments.map((comment) => {
             const canDelete = admin || comment.profile_id === currentProfileId;
+            const authorLabel = getAuthorLabel(comment);
 
             return (
               <article
@@ -89,7 +104,7 @@ export function PostComments({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-white">{getAuthorLabel(comment)}</p>
+                      <p className="text-sm font-medium text-white">{authorLabel}</p>
                       {comment.profiles?.role === "admin" ? (
                         <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-accentSoft">
                           Lumina
@@ -99,6 +114,25 @@ export function PostComments({
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/78">
                       {comment.body}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const preview = comment.body.slice(0, 140);
+                          const template = `@${authorLabel}\n> ${preview}\n\n`;
+                          setReplyTarget({
+                            id: comment.id,
+                            author: authorLabel,
+                            preview
+                          });
+                          setBody((current) => (current.trim() ? `${current}\n\n${template}` : template));
+                          document.getElementById("post-comment-body")?.focus();
+                        }}
+                        className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/72 transition hover:border-accent/30 hover:bg-white/[0.06] hover:text-white"
+                      >
+                        Ответить
+                      </button>
+                    </div>
                     <CommentReactions
                       commentId={comment.id}
                       postSlug={postSlug}
@@ -166,15 +200,39 @@ export function PostComments({
       <form ref={formRef} action={action} className="mt-5 space-y-3">
         <input type="hidden" name="postId" value={postId} />
         <input type="hidden" name="postSlug" value={postSlug} />
+        <input type="hidden" name="replyToCommentId" value={replyTarget?.id ?? ""} />
+        <input type="hidden" name="replyToAuthor" value={replyTarget?.author ?? ""} />
         <textarea
           id="post-comment-body"
           name="body"
           required
           maxLength={1000}
-          placeholder="Написать комментарий..."
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          placeholder={replyTarget ? `Ответить ${replyTarget.author}...` : "Написать комментарий..."}
           className="min-h-[120px]"
         />
         <EmojiToolbar targetId="post-comment-body" label="Эмодзи для комментария" />
+        {replyTarget ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/70">
+            <div className="flex items-center justify-between gap-3">
+              <span>
+                Ответ к <span className="text-white">{replyTarget.author}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setReplyTarget(null);
+                  setBody((current) => current.replace(replyTemplate, ""));
+                }}
+                className="text-xs text-white/45 transition hover:text-white"
+              >
+                Убрать
+              </button>
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-xs text-white/45">{replyTemplate.trim()}</p>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-white/35">
             До 1000 символов. Комментарий увидят участники с доступом к посту.

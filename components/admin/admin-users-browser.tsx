@@ -46,14 +46,14 @@ function SummaryCard({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[96px] flex-col items-start justify-between rounded-[22px] border px-4 py-4 text-left transition ${
+      className={`flex min-h-[68px] flex-col items-start justify-between rounded-[18px] border px-3 py-2.5 text-left transition ${
         active
           ? "border-white/18 bg-white/[0.08] shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
           : "border-white/10 bg-black/18 hover:border-white/16 hover:bg-white/[0.04]"
       }`}
     >
-      <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">{label}</p>
-      <p className="mt-3 text-[1.5rem] font-semibold leading-none text-white">{value}</p>
+      <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">{label}</p>
+      <p className="mt-1.5 text-[1.05rem] font-semibold leading-none text-white">{value}</p>
     </button>
   );
 }
@@ -168,7 +168,7 @@ export function AdminUsersBrowser({
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="font-display text-[1.35rem] font-semibold text-white">{FILTER_LABELS[selectedFilter]}</h3>
+              <h3 className="font-display text-[1.05rem] font-semibold text-white">{FILTER_LABELS[selectedFilter]}</h3>
               <p className="mt-1 text-sm text-white/45">
                 {selectedFilter === "pending" ? counts.pending : filteredUsers.length}
               </p>

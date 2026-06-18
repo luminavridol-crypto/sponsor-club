@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 
 import { createTelegramPurchaseRequestAction, sendMemberChatMessageAction } from "@/app/actions";
 import { MessageThread } from "@/components/chat/message-thread";
@@ -13,6 +13,7 @@ import { requireAnyProfile } from "@/lib/auth/guards";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { getSupportDetails } from "@/lib/telegram/env";
 import { Tier } from "@/lib/types";
+import { formatEuroAmount } from "@/lib/utils/money";
 
 const tierConfig: Record<
   Tier,
@@ -68,6 +69,7 @@ export default async function TelegramSupportPage({
   const sent = (Array.isArray(params.sent) ? params.sent[0] : params.sent) === "1";
   const error = (Array.isArray(params.error) ? params.error[0] : params.error) === "1";
   const postTitle = Array.isArray(params.postTitle) ? params.postTitle[0] : params.postTitle;
+  const postPrice = Array.isArray(params.postPrice) ? params.postPrice[0] : params.postPrice;
   const support = getSupportDetails();
   const tier = tierConfig[selectedTier];
 
@@ -135,6 +137,12 @@ export default async function TelegramSupportPage({
           </div>
         ) : null}
 
+        {postPrice ? (
+          <div className="mt-3 rounded-[22px] border border-fuchsia-300/15 bg-fuchsia-400/10 px-4 py-3 text-sm text-fuchsia-50">
+            Цена поста: <span className="font-medium text-white">{formatEuroAmount(postPrice) ?? postPrice}</span>
+          </div>
+        ) : null}
+
         <div className="mt-5 rounded-[24px] border border-white/10 bg-black/15 p-4">
           <p className="text-[11px] uppercase tracking-[0.24em] text-white/45">Оплата</p>
           {support.cardNumber ? (
@@ -153,6 +161,7 @@ export default async function TelegramSupportPage({
         <form action={createTelegramPurchaseRequestAction} className="mt-5">
           <input type="hidden" name="tier" value={selectedTier} />
           {postTitle ? <input type="hidden" name="postTitle" value={postTitle} /> : null}
+          {postPrice ? <input type="hidden" name="postPrice" value={postPrice} /> : null}
           <button className="flex w-full items-center justify-center rounded-[20px] border border-white/16 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/28 hover:bg-white/14">
             Я оплатила, отправить заявку
           </button>
@@ -191,3 +200,5 @@ export default async function TelegramSupportPage({
     </MiniAppShell>
   );
 }
+
+

@@ -6,6 +6,7 @@ import {
   AdminUsersCleanupPanel,
   AdminUsersCleanupPanelFallback
 } from "@/components/admin/admin-users-cleanup-panel";
+import { AdminUsersChatPanel } from "@/components/admin/admin-users-chat-panel";
 import { BirthdayCalendar } from "@/components/admin/birthday-calendar";
 import {
   ADMIN_EYEBROW_CLASS,
@@ -40,9 +41,15 @@ function sortUsers(users: Profile[]) {
   });
 }
 
-export default async function TelegramAdminUsersPage() {
+export default async function TelegramAdminUsersPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ chat?: string | string[] }>;
+}) {
   const profile = await requireAdmin();
   const admin = createAdminSupabaseClient();
+  const params = (await searchParams) ?? {};
+  const selectedChatId = typeof params.chat === "string" ? params.chat : Array.isArray(params.chat) ? params.chat[0] : undefined;
 
   const [{ data: profilesData }, { data: donationEventsData }, { data: purchaseRequestsData }] =
     await Promise.all([
@@ -102,7 +109,7 @@ export default async function TelegramAdminUsersPage() {
         <div className="relative">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-display text-[1.5rem] font-semibold text-white">Сводка</h2>
+              <h2 className="font-display text-[1.2rem] font-semibold text-white">Сводка</h2>
             </div>
           </div>
           <div className="mt-4">
@@ -123,6 +130,8 @@ export default async function TelegramAdminUsersPage() {
       <Suspense fallback={<AdminUsersCleanupPanelFallback />}>
         <AdminUsersCleanupPanel />
       </Suspense>
+
+      <AdminUsersChatPanel selectedProfileId={selectedChatId} />
     </MiniAppShell>
   );
 }

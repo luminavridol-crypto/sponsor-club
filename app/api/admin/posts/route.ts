@@ -128,6 +128,12 @@ export async function POST(request: Request) {
     let thumbnailObjectKey = uploadedThumbnailObjectKey;
     let thumbnailMimeType = uploadedThumbnailMimeType;
     let thumbnailSizeBytes = uploadedThumbnailSizeBytes;
+    const isSellable = formValue(formData.get("isSellable")) === "on";
+    const salePrice = isSellable ? Number(formValue(formData.get("salePrice"))) || 0 : 0;
+
+    if (isSellable && salePrice <= 0) {
+      return NextResponse.json({ error: "Укажи цену для платного поста." }, { status: 400 });
+    }
 
     if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
       const uploaded = await uploadFile(thumbnailFile, "thumbnails");
@@ -158,6 +164,8 @@ export async function POST(request: Request) {
         thumbnail_object_key: thumbnailObjectKey || (thumbnailPath ? toR2ObjectKey(thumbnailPath) : null),
         thumbnail_mime_type: thumbnailMimeType,
         thumbnail_size_bytes: thumbnailSizeBytes,
+        is_sellable: isSellable,
+        sale_price: isSellable ? Number(salePrice.toFixed(2)) : null,
         author_id: profile.id
       })
       .select("id")

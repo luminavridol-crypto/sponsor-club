@@ -12,6 +12,7 @@ import { requireProfile } from "@/lib/auth/guards";
 import { getCommentsForPost, getReactionSummariesForComments } from "@/lib/data/comments";
 import { getPostBySlugForViewer, getSignedMediaUrls } from "@/lib/data/posts";
 import { getReactionSummaryForPost } from "@/lib/data/reactions";
+import { formatEuroAmount } from "@/lib/utils/money";
 import { TIER_LABELS } from "@/lib/utils/tier";
 
 function TrashIcon() {
@@ -89,6 +90,11 @@ export default async function TelegramContentPostPage({
           <p className="text-xs uppercase tracking-[0.24em] text-accentSoft">Нужен уровень</p>
           <h3 className="mt-2 text-xl font-semibold text-white">{TIER_LABELS[post.required_tier]}</h3>
           {post.description ? <p className="mt-3 text-sm leading-6 text-white/65">{post.description}</p> : null}
+          {post.is_sellable && post.sale_price != null ? (
+            <div className="mt-4 rounded-[20px] border border-fuchsia-300/15 bg-fuchsia-400/10 px-4 py-3 text-sm text-fuchsia-50">
+              Цена поста: <span className="font-medium text-white">{formatEuroAmount(post.sale_price) ?? "Продажа"}</span>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
@@ -101,12 +107,24 @@ export default async function TelegramContentPostPage({
           </div>
         </section>
 
-        <PostNavLink
-          href={`/tg/support?tier=${post.required_tier}&postTitle=${encodeURIComponent(post.title)}` as Route}
-          className="inline-flex w-full items-center justify-center rounded-[22px] border border-fuchsia-200/18 bg-fuchsia-400/12 px-4 py-3 text-sm font-semibold text-white transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/16"
-        >
-          Купить пост
-        </PostNavLink>
+        {post.is_sellable ? (
+          <PostNavLink
+            href={
+              `/tg/support?tier=${post.required_tier}&postTitle=${encodeURIComponent(post.title)}${
+                post.sale_price != null
+                  ? `&postPrice=${encodeURIComponent(String(post.sale_price))}`
+                  : ""
+              }` as Route
+            }
+            className="inline-flex w-full items-center justify-center rounded-[22px] border border-fuchsia-200/18 bg-fuchsia-400/12 px-4 py-3 text-sm font-semibold text-white transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/16"
+          >
+            Купить пост
+          </PostNavLink>
+        ) : (
+          <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
+            Покупка для этого поста отключена.
+          </div>
+        )}
       </MiniAppShell>
     );
   }
