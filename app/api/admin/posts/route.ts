@@ -145,31 +145,42 @@ export async function POST(request: Request) {
       thumbnailSizeBytes = uploaded.sizeBytes;
     }
 
-    const { data: post, error } = await admin
-      .from("posts")
-      .insert({
-        title,
-        slug,
-        description: formValue(formData.get("description")) || null,
-        body: formValue(formData.get("body")) || null,
-        post_type: formValue(formData.get("postType")) as PostType,
-        required_tier: requiredTier,
-        status,
-        publish_at: publishAt,
-        retention_days: retentionDays || null,
-        expires_at: expiresAt,
-        thumbnail_path: thumbnailPath,
-        thumbnail_provider: thumbnailProvider || (thumbnailPath ? R2_PROVIDER : null),
-        thumbnail_bucket: thumbnailBucket,
-        thumbnail_object_key: thumbnailObjectKey || (thumbnailPath ? toR2ObjectKey(thumbnailPath) : null),
-        thumbnail_mime_type: thumbnailMimeType,
-        thumbnail_size_bytes: thumbnailSizeBytes,
-        is_sellable: isSellable,
-        sale_price: isSellable ? Number(salePrice.toFixed(2)) : null,
-        author_id: profile.id
-      })
-      .select("id")
-      .single();
+    const postPayload = {
+      title,
+      slug,
+      description: formValue(formData.get("description")) || null,
+      body: formValue(formData.get("body")) || null,
+      post_type: formValue(formData.get("postType")) as PostType,
+      required_tier: requiredTier,
+      status,
+      publish_at: publishAt,
+      retention_days: retentionDays || null,
+      expires_at: expiresAt,
+      thumbnail_path: thumbnailPath,
+      thumbnail_provider: thumbnailProvider || (thumbnailPath ? R2_PROVIDER : null),
+      thumbnail_bucket: thumbnailBucket,
+      thumbnail_object_key: thumbnailObjectKey || (thumbnailPath ? toR2ObjectKey(thumbnailPath) : null),
+      thumbnail_mime_type: thumbnailMimeType,
+      thumbnail_size_bytes: thumbnailSizeBytes,
+      is_sellable: isSellable,
+      sale_price: isSellable ? Number(salePrice.toFixed(2)) : null,
+      author_id: profile.id
+    };
+
+    const insertPost = async (payload: Record<string, unknown>) =>
+      admin.from("posts").insert(payload).select("id").single();
+
+    let { data: post, error } = await insertPost(postPayload);
+
+    if (
+      error?.message?.includes("posts.is_sellable") ||
+      error?.message?.includes("posts.sale_price")
+    ) {
+      const legacyPostPayload = { ...postPayload } as Record<string, unknown>;
+      delete legacyPostPayload.is_sellable;
+      delete legacyPostPayload.sale_price;
+      ({ data: post, error } = await insertPost(legacyPostPayload));
+    }
 
     if (error || !post) {
       await cleanupOrphanedStorage(admin);

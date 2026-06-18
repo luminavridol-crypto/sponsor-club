@@ -19,16 +19,30 @@ async function getPublishedPosts() {
 
 async function getPublishedFeedPosts() {
   const admin = createAdminSupabaseClient();
-  const { data } = await admin
+  const selectWithSales =
+    "id, slug, title, description, post_type, required_tier, is_sellable, sale_price, publish_at, expires_at, thumbnail_path, post_media(id)";
+  const selectWithoutSales =
+    "id, slug, title, description, post_type, required_tier, publish_at, expires_at, thumbnail_path, post_media(id)";
+
+  const { data, error } = await admin
     .from("posts")
-    .select(
-      "id, slug, title, description, post_type, required_tier, is_sellable, sale_price, publish_at, expires_at, thumbnail_path, post_media(id)"
-    )
+    .select(selectWithSales)
     .eq("status", "published")
     .lte("publish_at", new Date().toISOString())
     .order("publish_at", { ascending: false });
 
-  const posts = (data ?? []) as Array<FeedPost & { expires_at?: string | null }>;
+  const posts = data
+    ? (data as Array<FeedPost & { expires_at?: string | null }>)
+    : error?.message?.includes("posts.is_sellable") || error?.message?.includes("posts.sale_price")
+      ? ((await admin
+          .from("posts")
+          .select(selectWithoutSales)
+          .eq("status", "published")
+          .lte("publish_at", new Date().toISOString())
+          .order("publish_at", { ascending: false })).data ?? []) as Array<
+          FeedPost & { expires_at?: string | null }
+        >
+      : [];
   return posts.filter((post) => !(post.expires_at && new Date(post.expires_at) <= new Date()));
 }
 

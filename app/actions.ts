@@ -1529,9 +1529,7 @@ export async function createPostAction(formData: FormData) {
     thumbnailSizeBytes = uploadedThumbnail.sizeBytes;
   }
 
-  const { data: post, error } = await admin
-    .from("posts")
-    .insert({
+  const postPayload = {
       title,
       slug,
       description: formValue(formData.get("description")) || null,
@@ -1551,9 +1549,19 @@ export async function createPostAction(formData: FormData) {
       thumbnail_mime_type: thumbnailMimeType,
       thumbnail_size_bytes: thumbnailSizeBytes,
       author_id: profile.id
-    })
-    .select("id")
-    .single();
+  };
+
+  const insertPost = async (payload: typeof postPayload) =>
+    admin.from("posts").insert(payload).select("id").single();
+
+  let { data: post, error } = await insertPost(postPayload);
+
+  if (error?.message?.includes("posts.is_sellable") || error?.message?.includes("posts.sale_price")) {
+    const legacyPostPayload = { ...postPayload } as Record<string, unknown>;
+    delete legacyPostPayload.is_sellable;
+    delete legacyPostPayload.sale_price;
+    ({ data: post, error } = await insertPost(legacyPostPayload as typeof postPayload));
+  }
 
   if (error || !post) {
     await cleanupOrphanedStorage(admin);
@@ -1600,9 +1608,7 @@ export async function updatePostAction(formData: FormData) {
     throw new Error("Укажите цену для платного поста.");
   }
 
-  await admin
-    .from("posts")
-    .update({
+  const updatePayload = {
       title,
       slug: buildContentSlug(title),
       description: formValue(formData.get("description")) || null,
@@ -1612,8 +1618,22 @@ export async function updatePostAction(formData: FormData) {
       status: formValue(formData.get("status")) as PostStatus,
       is_sellable: isSellable,
       sale_price: isSellable ? Number(salePrice.toFixed(2)) : null
-    })
-    .eq("id", formValue(formData.get("postId")));
+  };
+
+  let updateResult = await admin.from("posts").update(updatePayload).eq("id", formValue(formData.get("postId")));
+
+  if (
+    updateResult.error?.message?.includes("posts.is_sellable") ||
+    updateResult.error?.message?.includes("posts.sale_price")
+  ) {
+    const legacyUpdatePayload = { ...updatePayload } as Record<string, unknown>;
+    delete legacyUpdatePayload.is_sellable;
+    delete legacyUpdatePayload.sale_price;
+    updateResult = await admin
+      .from("posts")
+      .update(legacyUpdatePayload)
+      .eq("id", formValue(formData.get("postId")));
+  }
 
   revalidatePath("/admin/posts");
   revalidatePath("/tg/admin/posts");
