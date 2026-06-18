@@ -47,6 +47,23 @@ type CleanupSectionData = {
   items: CleanupItem[];
 };
 
+const EMPTY_ORPHAN_REPORT = {
+  postMedia: [],
+  chatMedia: [],
+  r2Media: [],
+  totalCount: 0,
+  totalBytes: 0
+};
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      setTimeout(() => resolve(fallback), timeoutMs);
+    })
+  ]).catch(() => fallback);
+}
+
 function formatDate(value: string | null | undefined) {
   if (!value) return "Дата не указана";
   return new Date(value).toLocaleString("ru-RU", {
@@ -107,6 +124,12 @@ export async function AdminUsersCleanupPanel() {
   const admin = createAdminSupabaseClient();
   const nowIso = new Date().toISOString();
 
+  const orphanReportPromise = withTimeout(getCachedOrphanedStorageReport(), 8000, EMPTY_ORPHAN_REPORT);
+  const r2MediaUsagePromise = withTimeout(getCachedR2StorageUsage(), 8000, {
+    fileCount: 0,
+    totalBytes: 0
+  });
+
   const [
     { data: purchaseRequests },
     { data: invites },
@@ -133,8 +156,8 @@ export async function AdminUsersCleanupPanel() {
       .select("id, title, slug, post_type, status, created_at, expires_at, thumbnail_size_bytes, post_media(size_bytes)")
       .or(`status.eq.draft,and(expires_at.not.is.null,expires_at.lt.${nowIso})`)
       .order("created_at", { ascending: false }),
-    getCachedOrphanedStorageReport(),
-    getCachedR2StorageUsage(),
+    orphanReportPromise,
+    r2MediaUsagePromise,
     admin.from("profiles").select("id, display_name, email")
   ]);
 
