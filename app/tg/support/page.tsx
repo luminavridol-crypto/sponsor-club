@@ -67,6 +67,7 @@ export default async function TelegramSupportPage({
   const selectedTier = parseTier(params.tier);
   const sent = (Array.isArray(params.sent) ? params.sent[0] : params.sent) === "1";
   const error = (Array.isArray(params.error) ? params.error[0] : params.error) === "1";
+  const postTitle = Array.isArray(params.postTitle) ? params.postTitle[0] : params.postTitle;
   const support = getSupportDetails();
   const tier = tierConfig[selectedTier];
 
@@ -128,6 +129,12 @@ export default async function TelegramSupportPage({
           </div>
         </div>
 
+        {postTitle ? (
+          <div className="mt-4 rounded-[22px] border border-white/10 bg-black/12 px-4 py-3 text-sm text-white/72">
+            Оплата для поста: <span className="font-medium text-white">{postTitle}</span>
+          </div>
+        ) : null}
+
         <div className="mt-5 rounded-[24px] border border-white/10 bg-black/15 p-4">
           <p className="text-[11px] uppercase tracking-[0.24em] text-white/45">Оплата</p>
           {support.cardNumber ? (
@@ -145,6 +152,7 @@ export default async function TelegramSupportPage({
 
         <form action={createTelegramPurchaseRequestAction} className="mt-5">
           <input type="hidden" name="tier" value={selectedTier} />
+          {postTitle ? <input type="hidden" name="postTitle" value={postTitle} /> : null}
           <button className="flex w-full items-center justify-center rounded-[20px] border border-white/16 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/28 hover:bg-white/14">
             Я оплатила, отправить заявку
           </button>

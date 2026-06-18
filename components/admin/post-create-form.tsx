@@ -412,6 +412,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
   const [selectedTier, setSelectedTier] = useState<Tier>("tier_1");
   const [mediaNames, setMediaNames] = useState<string[]>([]);
   const [title, setTitle] = useState(DEFAULT_POST_TITLE);
+  const [body, setBody] = useState("");
   const [sendEmail, setSendEmail] = useState(false);
   const [emailSubject, setEmailSubject] = useState(`Новый пост в Lumina: ${DEFAULT_POST_TITLE}`);
   const [emailBody, setEmailBody] = useState(
@@ -419,6 +420,23 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
   );
   const [subjectEdited, setSubjectEdited] = useState(false);
   const [bodyEdited, setBodyEdited] = useState(false);
+
+  function syncEmailDraft(nextTitle: string) {
+    if (!subjectEdited) {
+      setEmailSubject(`Новый пост в Lumina: ${nextTitle || DEFAULT_POST_TITLE}`);
+    }
+
+    if (!bodyEdited) {
+      setEmailBody(
+        `Привет, {{name}}!\n\nВ клубе вышел новый пост: ${nextTitle || DEFAULT_POST_TITLE}.\n\nОткрыть пост: {{post_url}}\n\nДо встречи внутри клуба.`
+      );
+    }
+  }
+
+  function updateTitle(nextTitle: string) {
+    setTitle(nextTitle);
+    syncEmailDraft(nextTitle);
+  }
 
   useEffect(() => {
     if (status !== "success") return;
@@ -535,6 +553,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       setSelectedTier("tier_1");
       setMediaNames([]);
       setTitle(DEFAULT_POST_TITLE);
+      setBody("");
       setSendEmail(false);
       setEmailSubject(`Новый пост в Lumina: ${DEFAULT_POST_TITLE}`);
       setEmailBody(
@@ -558,27 +577,26 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
           <label className="mb-2 block text-sm text-white/60">Название</label>
-          <input
-            name="title"
-            value={title}
-            onChange={(event) => {
-              const nextTitle = event.target.value;
-              setTitle(nextTitle);
-
-              if (!subjectEdited) {
-                setEmailSubject(`Новый пост в Lumina: ${nextTitle || DEFAULT_POST_TITLE}`);
-              }
-
-              if (!bodyEdited) {
-                setEmailBody(
-                  `Привет, {{name}}!\n\nВ клубе вышел новый пост: ${
-                    nextTitle || DEFAULT_POST_TITLE
-                  }.\n\nОткрыть пост: {{post_url}}\n\nДо встречи внутри клуба.`
-                );
-              }
-            }}
-            required
-          />
+          <div className="relative">
+            <input
+              name="title"
+              value={title}
+              onChange={(event) => updateTitle(event.target.value)}
+              className="pr-12"
+              required
+            />
+            {title.trim() ? (
+              <button
+                type="button"
+                onClick={() => updateTitle("")}
+                className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/25 text-white/60 transition hover:border-white/20 hover:bg-black/35 hover:text-white"
+                aria-label="Очистить название"
+                title="Очистить название"
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
         </div>
         <div>
           <label className="mb-2 block text-sm text-white/60">Кому показать</label>
@@ -651,11 +669,52 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
           name="body"
           placeholder="Основной текст поста."
           className="min-h-[180px]"
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
         />
         <div className="mt-3">
           <EmojiToolbar targetId="admin-post-body" label="Эмодзи для текста публикации" />
         </div>
       </div>
+
+      <section className="rounded-2xl border border-white/10 bg-black/10 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">Предпросмотр</p>
+            <h3 className="mt-1 text-lg font-semibold text-white">Как пост увидят в ленте</h3>
+          </div>
+          <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/55">
+            {TIER_LABELS[selectedTier]}
+          </span>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-[#191a22]">
+          <div className="h-28 border-b border-white/10 bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.14),transparent_26%),linear-gradient(180deg,rgba(24,24,32,0.98),rgba(18,18,26,0.98))]" />
+          <div className="px-4 py-4">
+            <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.14em] text-white/58">
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Объявление</span>
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+                {TIER_LABELS[selectedTier]}
+              </span>
+            </div>
+            <h4 className="mt-3 font-display text-[1.4rem] font-semibold leading-[1.05] text-white">
+              {title || DEFAULT_POST_TITLE}
+            </h4>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/60">
+              {body.trim() ? body : "Здесь появится текст публикации до отправки в ленту."}
+            </p>
+            <div className="mt-4 rounded-[20px] border border-white/10 bg-black/20 px-4 py-3 backdrop-blur-sm">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-white/40">Закрытый вид</p>
+              <div className="mt-3 select-none space-y-2 opacity-75 blur-sm">
+                <div className="h-4 w-5/6 rounded-full bg-white/12" />
+                <div className="h-4 w-full rounded-full bg-white/10" />
+                <div className="h-4 w-4/6 rounded-full bg-white/12" />
+                <div className="mt-4 h-24 rounded-[18px] bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div>
         <label className="mb-2 block text-sm text-white/60">Автоудаление</label>

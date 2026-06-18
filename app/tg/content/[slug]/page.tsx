@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
+import type { Route } from "next";
+import { deletePostAction } from "@/app/actions";
+import { ConfirmActionForm } from "@/components/admin/confirm-action-form";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { MiniAppBackButton } from "@/components/telegram/mini-app-back-button";
+import { PostNavLink } from "@/components/posts/post-nav-link";
 import { PostComments } from "@/components/posts/post-comments";
 import { PostReactions } from "@/components/posts/post-reactions";
 import { ProtectedMedia } from "@/components/posts/protected-media";
@@ -9,6 +13,27 @@ import { getCommentsForPost, getReactionSummariesForComments } from "@/lib/data/
 import { getPostBySlugForViewer, getSignedMediaUrls } from "@/lib/data/posts";
 import { getReactionSummaryForPost } from "@/lib/data/reactions";
 import { TIER_LABELS } from "@/lib/utils/tier";
+
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M6 6l1 14h10l1-14" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
+}
 
 export default async function TelegramContentPostPage({
   params
@@ -33,7 +58,18 @@ export default async function TelegramContentPostPage({
   if (post.is_locked) {
     return (
       <MiniAppShell profile={profile} title={post.title}>
-        <MiniAppBackButton />
+        <div className="flex items-center justify-between gap-3">
+          <MiniAppBackButton />
+          {profile.role === "admin" ? (
+            <ConfirmActionForm
+              action={deletePostAction}
+              confirmMessage={`Удалить пост "${post.title}"?`}
+              buttonLabel={<TrashIcon />}
+              buttonClassName="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200/14 bg-rose-500/8 text-rose-100 transition hover:bg-rose-500/12"
+              hiddenFields={[{ name: "postId", value: post.id }]}
+            />
+          ) : null}
+        </div>
         {thumbnailUrl ? (
           <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/5 shadow-glow">
             <ProtectedMedia kind="image" src={thumbnailUrl} alt={post.title} className="w-full blur-[2px]" />
@@ -54,6 +90,23 @@ export default async function TelegramContentPostPage({
           <h3 className="mt-2 text-xl font-semibold text-white">{TIER_LABELS[post.required_tier]}</h3>
           {post.description ? <p className="mt-3 text-sm leading-6 text-white/65">{post.description}</p> : null}
         </section>
+
+        <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+          <p className="text-xs uppercase tracking-[0.24em] text-white/45">Превью</p>
+          <div className="mt-3 select-none space-y-2 opacity-75 blur-[2px]">
+            <div className="h-4 w-5/6 rounded-full bg-white/12" />
+            <div className="h-4 w-full rounded-full bg-white/10" />
+            <div className="h-4 w-4/6 rounded-full bg-white/12" />
+            <div className="mt-4 h-28 rounded-[22px] bg-[linear-gradient(135deg,rgba(255,255,255,0.1),rgba(255,255,255,0.02))]" />
+          </div>
+        </section>
+
+        <PostNavLink
+          href={`/tg/support?tier=${post.required_tier}&postTitle=${encodeURIComponent(post.title)}` as Route}
+          className="inline-flex w-full items-center justify-center rounded-[22px] border border-fuchsia-200/18 bg-fuchsia-400/12 px-4 py-3 text-sm font-semibold text-white transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/16"
+        >
+          Купить пост
+        </PostNavLink>
       </MiniAppShell>
     );
   }
@@ -67,7 +120,18 @@ export default async function TelegramContentPostPage({
 
   return (
     <MiniAppShell profile={profile} title={post.title}>
-      <MiniAppBackButton />
+      <div className="flex items-center justify-between gap-3">
+        <MiniAppBackButton />
+        {profile.role === "admin" ? (
+          <ConfirmActionForm
+            action={deletePostAction}
+            confirmMessage={`Удалить пост "${post.title}"?`}
+            buttonLabel={<TrashIcon />}
+            buttonClassName="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200/14 bg-rose-500/8 text-rose-100 transition hover:bg-rose-500/12"
+            hiddenFields={[{ name: "postId", value: post.id }]}
+          />
+        ) : null}
+      </div>
       <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
         <p className="text-xs uppercase tracking-[0.24em] text-accentSoft">{post.post_type}</p>
         {post.description ? <p className="mt-3 text-sm leading-6 text-white/65">{post.description}</p> : null}

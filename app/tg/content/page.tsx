@@ -39,6 +39,7 @@ export default async function TelegramContentPage() {
             commentCount={commentCounts.get(post.id) ?? 0}
             reactionSummary={reactionSummaries.get(post.id)!}
             routeBase="/tg/content"
+            canDelete={profile.role === "admin"}
           />
         ))
       ) : (

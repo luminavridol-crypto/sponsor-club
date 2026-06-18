@@ -1,11 +1,34 @@
 import Image from "next/image";
 import { Route } from "next";
+import { deletePostAction } from "@/app/actions";
+import { ConfirmActionForm } from "@/components/admin/confirm-action-form";
 import { PostNavLink } from "@/components/posts/post-nav-link";
 import { PostReactions } from "@/components/posts/post-reactions";
 import { ReactionSummary } from "@/lib/data/reactions";
 import { FeedPost, Tier } from "@/lib/types";
 import { formatDate } from "@/lib/utils/format";
 import { TIER_LABELS } from "@/lib/utils/tier";
+
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M6 6l1 14h10l1-14" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
+}
 
 const POST_TYPE_LABELS: Record<string, string> = {
   announcement: "Объявление",
@@ -52,12 +75,14 @@ export function PostCard({
   post,
   commentCount = 0,
   reactionSummary,
-  routeBase = "/club"
+  routeBase = "/club",
+  canDelete = false
 }: {
   post: FeedPost;
   commentCount?: number;
   reactionSummary: ReactionSummary;
   routeBase?: string;
+  canDelete?: boolean;
 }) {
   const locked = Boolean(post.is_locked);
   const tierStyle = TIER_CARD_STYLES[post.required_tier];
@@ -68,6 +93,18 @@ export function PostCard({
         tierStyle.frame ?? "shadow-[0_12px_28px_rgba(0,0,0,0.12)]"
       }`}
     >
+      {canDelete ? (
+        <div className="absolute right-3 top-3 z-10">
+          <ConfirmActionForm
+            action={deletePostAction}
+            confirmMessage={`Удалить пост "${post.title}"?`}
+            buttonLabel={<TrashIcon />}
+            buttonClassName="inline-flex h-10 w-10 items-center justify-center rounded-full border border-rose-200/14 bg-rose-500/8 text-rose-100 transition hover:bg-rose-500/12"
+            hiddenFields={[{ name: "postId", value: post.id }]}
+          />
+        </div>
+      ) : null}
+
       {post.required_tier === "tier_4" ? (
         <>
           <div className="pointer-events-none absolute inset-0 opacity-80">
@@ -140,6 +177,15 @@ export function PostCard({
           >
             {locked ? "Смотреть условия" : "Открыть пост"}
           </PostNavLink>
+
+          {locked ? (
+            <PostNavLink
+              href={`/tg/support?tier=${post.required_tier}&postTitle=${encodeURIComponent(post.title)}` as Route}
+              className="inline-flex rounded-[18px] border border-fuchsia-200/18 bg-fuchsia-400/10 px-4 py-2 text-[13px] font-medium text-white/90 transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/14"
+            >
+              Купить пост
+            </PostNavLink>
+          ) : null}
 
           {!locked ? (
             <PostNavLink

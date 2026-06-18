@@ -46,14 +46,14 @@ function SummaryCard({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-[22px] border px-4 py-3 text-left transition ${
+      className={`flex min-h-[96px] flex-col items-start justify-between rounded-[22px] border px-4 py-4 text-left transition ${
         active
           ? "border-white/18 bg-white/[0.08] shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
           : "border-white/10 bg-black/18 hover:border-white/16 hover:bg-white/[0.04]"
       }`}
     >
       <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">{label}</p>
-      <p className="mt-2 text-lg font-semibold text-white">{value}</p>
+      <p className="mt-3 text-[1.5rem] font-semibold leading-none text-white">{value}</p>
     </button>
   );
 }

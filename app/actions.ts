@@ -344,6 +344,7 @@ export async function updatePasswordAction(formData: FormData) {
 export async function createPurchaseRequestAction(formData: FormData) {
   const contactMethod = formValue(formData.get("contactMethod"));
   const contactHandle = formValue(formData.get("contactHandle"));
+  const postTitle = formValue(formData.get("postTitle"));
   const parsed = purchaseRequestSchema.safeParse({
     tier: formValue(formData.get("tier")),
     displayName: formValue(formData.get("displayName")),
@@ -359,7 +360,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
   }
 
   const admin = createAdminSupabaseClient();
-  const contact = `${parsed.data.contactMethod}: ${parsed.data.contactHandle}`;
+  const contact = `${parsed.data.contactMethod}: ${parsed.data.contactHandle}${postTitle ? ` | Post: ${postTitle}` : ""}`;
   const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data: recentRequest } = await admin
     .from("purchase_requests")
@@ -414,6 +415,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
 export async function createTelegramPurchaseRequestAction(formData: FormData) {
   const profile = await requireAnyProfile();
   const tier = formValue(formData.get("tier")) as Tier;
+  const postTitle = formValue(formData.get("postTitle"));
 
   if (!["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier)) {
     redirect("/tg/support?error=1");
@@ -447,7 +449,7 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
     display_name: displayName,
     email: profile.email,
     country: "Telegram Mini App",
-    contact: `Telegram ID: ${telegramId} | Username: ${telegramHandle}`
+    contact: `Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}`
   };
 
   const { error } = await admin.from("purchase_requests").insert(requestPayload);
@@ -457,7 +459,7 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
       tier,
       email: profile.email,
       country: "Telegram Mini App",
-      contact: `РРјСЏ: ${displayName}\nРЎРІСЏР·СЊ: Telegram ID: ${telegramId} | Username: ${telegramHandle}`
+      contact: `РРјСЏ: ${displayName}\nРЎРІСЏР·СЊ: Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}`
     });
 
     if (fallbackError) {

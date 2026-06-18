@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { signOutTelegramAction } from "@/app/tg/actions";
+import { ClearAppCacheButton } from "@/components/telegram/clear-app-cache-button";
 import { MiniAppNav } from "@/components/telegram/mini-app-nav";
 import { MiniAppNotifications } from "@/components/telegram/mini-app-notifications";
 import { TelegramMiniAppBridge } from "@/components/telegram/telegram-mini-app-bridge";
@@ -35,11 +36,14 @@ export function MiniAppShell({
                 {title}
               </h1>
             </div>
-            <form action={signOutTelegramAction}>
-              <button className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70 transition hover:border-white/16 hover:text-white">
-                Выйти
-              </button>
-            </form>
+            <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+              <ClearAppCacheButton />
+              <form action={signOutTelegramAction}>
+                <button className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70 transition hover:border-white/16 hover:text-white">
+                  Выйти
+                </button>
+              </form>
+            </div>
           </div>
         </header>
 
