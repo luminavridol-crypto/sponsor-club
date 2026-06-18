@@ -17,6 +17,7 @@ import {
   updateAccessExpiryEmailSettings
 } from "@/lib/email/access-reminders";
 import { savePostEmailTemplate } from "@/lib/email/local-store";
+import { saveTierLandingContent, type TierLandingContent } from "@/lib/data/tier-landing";
 import { getManualEmailRecipients, getPostEmailRecipients, ManualEmailAudience } from "@/lib/email/recipients";
 import { sendEmailCampaign } from "@/lib/email/service";
 import { deleteR2Objects, isR2StoragePath } from "@/lib/r2/server";
@@ -115,6 +116,42 @@ const commentReactionSchema = z.object({
   commentId: z.string().uuid(),
   postSlug: z.string().min(1),
   reaction: z.enum(reactionOptions.map((item) => item.key) as [PostReactionType, ...PostReactionType[]])
+});
+
+const tierLandingSectionSchema = z.object({
+  title: z.string().trim().optional().nullable(),
+  label: z.string().trim().optional().nullable(),
+  icon: z
+    .enum([
+      "star",
+      "spark",
+      "crown",
+      "moon",
+      "flame",
+      "diamond",
+      "message",
+      "vote",
+      "stream",
+      "gift",
+      "status",
+      "dot"
+    ])
+    .optional()
+    .nullable(),
+  titleClassName: z.string().trim().optional().nullable(),
+  sectionClassName: z.string().trim().optional().nullable(),
+  items: z.array(z.string().trim().min(1)).min(1)
+});
+
+const tierLandingContentSchema = z.object({
+  label: z.string().trim().min(2).max(120),
+  level: z.string().trim().min(2).max(180),
+  price: z.string().trim().min(2).max(80),
+  teaser: z.string().trim().min(2).max(500),
+  description: z.string().trim().max(500).optional().nullable(),
+  statusBadge: z.string().trim().max(80).optional().nullable(),
+  noteBadge: z.string().trim().max(80).optional().nullable(),
+  sections: z.array(tierLandingSectionSchema).min(1)
 });
 
 function formValue(value: FormDataEntryValue | null) {
@@ -580,6 +617,61 @@ export async function savePostEmailTemplateAction(formData: FormData) {
 
   revalidatePath("/admin/email");
   redirectToAdminEmail({ savedTemplate: 1, post: parsed.data.postId });
+}
+
+export async function updateTierLandingAction(formData: FormData) {
+  const profile = await requireAdmin();
+  const tier = formValue(formData.get("tier"));
+  const sectionsJson = formValue(formData.get("sectionsJson"));
+
+  if (!["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier)) {
+    redirect("/tg/tiers?error=1");
+  }
+
+  let sectionsPayload: unknown;
+
+  try {
+    sectionsPayload = JSON.parse(sectionsJson);
+  } catch {
+    redirect(`/tg/tiers?error=1&tier=${tier}`);
+  }
+
+  const parsed = tierLandingContentSchema.safeParse({
+    label: formValue(formData.get("label")),
+    level: formValue(formData.get("level")),
+    price: formValue(formData.get("price")),
+    teaser: formValue(formData.get("teaser")),
+    description: formValue(formData.get("description")) || null,
+    statusBadge: formValue(formData.get("statusBadge")) || null,
+    noteBadge: formValue(formData.get("noteBadge")) || null,
+    sections: sectionsPayload
+  });
+
+  if (!parsed.success) {
+    redirect(`/tg/tiers?error=1&tier=${tier}`);
+  }
+
+  const content: TierLandingContent = {
+    ...parsed.data,
+    description: parsed.data.description ?? null,
+    statusBadge: parsed.data.statusBadge ?? null,
+    noteBadge: parsed.data.noteBadge ?? null,
+    sections: parsed.data.sections.map((section) => ({
+      title: section.title ?? undefined,
+      label: section.label ?? undefined,
+      icon: section.icon ?? undefined,
+      titleClassName: section.titleClassName ?? undefined,
+      sectionClassName: section.sectionClassName ?? undefined,
+      items: section.items
+    }))
+  };
+
+  await saveTierLandingContent(tier as Tier, content, profile.id);
+
+  revalidatePath("/tg/tiers");
+  revalidatePath("/tg/support");
+
+  redirect(`/tg/tiers?saved=1&tier=${tier}`);
 }
 
 export async function sendManualSponsorEmailAction(formData: FormData) {

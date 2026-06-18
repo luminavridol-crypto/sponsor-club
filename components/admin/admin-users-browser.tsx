@@ -1,10 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  ADMIN_BUTTON_SECONDARY_CLASS,
-  ADMIN_SUBPANEL_CLASS
-} from "@/components/admin/theme";
+import { ADMIN_BUTTON_SECONDARY_CLASS, ADMIN_SUBPANEL_CLASS } from "@/components/admin/theme";
 import { UserCard } from "@/components/admin/user-card";
 import { DonationEvent, Profile, PurchaseRequest } from "@/lib/types";
 
@@ -12,14 +9,7 @@ type BrowserUser = Profile & {
   donationEvents: DonationEvent[];
 };
 
-type FilterKey =
-  | "all"
-  | "active"
-  | "tier_4"
-  | "tier_3"
-  | "tier_2"
-  | "tier_1"
-  | "pending";
+type FilterKey = "all" | "active" | "tier_4" | "tier_3" | "tier_2" | "tier_1" | "pending";
 
 const FILTER_LABELS: Record<FilterKey, string> = {
   all: "Все",
@@ -58,11 +48,7 @@ function SummaryCard({
   );
 }
 
-function PendingRequestCard({
-  request
-}: {
-  request: PurchaseRequest;
-}) {
+function PendingRequestCard({ request }: { request: PurchaseRequest }) {
   return (
     <article className={ADMIN_SUBPANEL_CLASS}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -94,10 +80,9 @@ export function AdminUsersBrowser({
 }) {
   const [selectedFilter, setSelectedFilter] = useState<FilterKey | null>(null);
 
-  const activeUsers = useMemo(
-    () => users.filter((user) => user.access_status === "active"),
-    [users]
-  );
+  const activeUsers = useMemo(() => users.filter((user) => user.access_status === "active"), [users]);
+  const pendingUsers = useMemo(() => users.filter((user) => user.access_status !== "active"), [users]);
+
   const counts = useMemo(
     () => ({
       all: users.length,
@@ -106,9 +91,9 @@ export function AdminUsersBrowser({
       tier_3: activeUsers.filter((user) => user.tier === "tier_3").length,
       tier_2: activeUsers.filter((user) => user.tier === "tier_2").length,
       tier_1: activeUsers.filter((user) => user.tier === "tier_1").length,
-      pending: requests.length
+      pending: pendingUsers.length + requests.length
     }),
-    [activeUsers, requests.length, users.length]
+    [activeUsers, pendingUsers.length, requests.length, users.length]
   );
 
   const filteredUsers = useMemo(() => {
@@ -122,10 +107,12 @@ export function AdminUsersBrowser({
       case "tier_2":
       case "tier_1":
         return activeUsers.filter((user) => user.tier === selectedFilter);
+      case "pending":
+        return pendingUsers;
       default:
         return [];
     }
-  }, [activeUsers, selectedFilter, users]);
+  }, [activeUsers, pendingUsers, selectedFilter, users]);
 
   return (
     <section className="space-y-3">
@@ -173,21 +160,47 @@ export function AdminUsersBrowser({
                 {selectedFilter === "pending" ? counts.pending : filteredUsers.length}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setSelectedFilter(null)}
-              className={ADMIN_BUTTON_SECONDARY_CLASS}
-            >
+            <button type="button" onClick={() => setSelectedFilter(null)} className={ADMIN_BUTTON_SECONDARY_CLASS}>
               Назад
             </button>
           </div>
 
           {selectedFilter === "pending" ? (
-            requests.length ? (
-              requests.map((request) => <PendingRequestCard key={request.id} request={request} />)
-            ) : (
-              <div className={`${ADMIN_SUBPANEL_CLASS} text-sm text-white/60`}>Заявок пока нет.</div>
-            )
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-semibold text-white/90">Ожидают доступа</h4>
+                  <p className="text-xs text-white/45">{pendingUsers.length}</p>
+                </div>
+
+                {pendingUsers.length ? (
+                  pendingUsers.map((user) => (
+                    <UserCard
+                      key={`${user.id}-${user.tier}-${user.access_expires_at ?? "none"}-${(user.admin_badges ?? []).join(",")}`}
+                      user={user}
+                      isCurrentAdmin={user.id === currentAdminId}
+                      donationEvents={user.donationEvents}
+                      hideUnlimitedButton
+                    />
+                  ))
+                ) : (
+                  <div className={`${ADMIN_SUBPANEL_CLASS} text-sm text-white/60`}>Пока нет ожидающих пользователей.</div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-semibold text-white/90">Заявки на вход</h4>
+                  <p className="text-xs text-white/45">{requests.length}</p>
+                </div>
+
+                {requests.length ? (
+                  requests.map((request) => <PendingRequestCard key={request.id} request={request} />)
+                ) : (
+                  <div className={`${ADMIN_SUBPANEL_CLASS} text-sm text-white/60`}>Пока нет заявок на вход.</div>
+                )}
+              </div>
+            </div>
           ) : filteredUsers.length ? (
             filteredUsers.map((user) => (
               <UserCard

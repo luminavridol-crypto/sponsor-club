@@ -1,17 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Route } from "next";
 import { usePathname } from "next/navigation";
 
 type NavItem = {
-  href: Route;
+  href: string;
   label: string;
   featured?: boolean;
 };
 
 function isActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const baseHref = href.split("?")[0];
+  return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
 }
 
 export function MiniAppNav({
@@ -28,6 +28,7 @@ export function MiniAppNav({
         { href: "/tg/admin/posts", label: "Посты" },
         { href: "/tg/admin/users", label: "Люди" },
         { href: "/tg/content", label: "Лента" },
+        { href: "/tg/admin/users", label: "Чат" },
         { href: "/tg/admin/invites", label: "Инвайты" },
         { href: "/tg/tiers", label: "Тарифы" }
       ]
@@ -35,12 +36,10 @@ export function MiniAppNav({
       ? [
           { href: "/tg/content", label: "Лента" },
           { href: "/tg/tiers", label: "Уровни" },
-          { href: "/tg/support", label: "Чат" },
+          { href: "/tg/support?mode=chat", label: "Чат" },
           { href: "/tg/profile", label: "Профиль" }
         ]
-      : [
-          { href: "/tg/tiers", label: "Уровни", featured: true }
-        ];
+      : [{ href: "/tg/tiers", label: "Уровни", featured: true }];
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#14141c]/94 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-3 backdrop-blur-md">
@@ -53,7 +52,7 @@ export function MiniAppNav({
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href as never}
                 className={`min-w-[108px] shrink-0 rounded-2xl px-3 py-3 text-center text-xs font-medium transition ${
                   active
                     ? "bg-white text-slate-950"
