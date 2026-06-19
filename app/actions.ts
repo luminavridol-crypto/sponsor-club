@@ -166,6 +166,20 @@ function isMissingAfterDarkTierValue(message: string) {
   return message.includes('invalid input value for enum sponsor_tier') && message.includes('"tier_4"');
 }
 
+function isMissingPostSalesColumn(message: string) {
+  const normalizedMessage = message.toLowerCase();
+  const mentionsSalesField =
+    normalizedMessage.includes("is_sellable") || normalizedMessage.includes("sale_price");
+
+  return (
+    mentionsSalesField &&
+    (normalizedMessage.includes("posts") ||
+      normalizedMessage.includes("post") ||
+      normalizedMessage.includes("column") ||
+      normalizedMessage.includes("schema cache"))
+  );
+}
+
 function omitFavoriteLuminaCosplay<T extends { favorite_lumina_cosplay?: string | null }>(payload: T) {
   const rest = { ...payload };
   delete rest.favorite_lumina_cosplay;
@@ -1644,7 +1658,7 @@ export async function createPostAction(formData: FormData) {
 
   let { data: post, error } = await insertPost(postPayload);
 
-  if (error?.message?.includes("posts.is_sellable") || error?.message?.includes("posts.sale_price")) {
+  if (error?.message && isMissingPostSalesColumn(error.message)) {
     const legacyPostPayload = { ...postPayload } as Record<string, unknown>;
     delete legacyPostPayload.is_sellable;
     delete legacyPostPayload.sale_price;
@@ -1710,10 +1724,7 @@ export async function updatePostAction(formData: FormData) {
 
   let updateResult = await admin.from("posts").update(updatePayload).eq("id", formValue(formData.get("postId")));
 
-  if (
-    updateResult.error?.message?.includes("posts.is_sellable") ||
-    updateResult.error?.message?.includes("posts.sale_price")
-  ) {
+  if (updateResult.error?.message && isMissingPostSalesColumn(updateResult.error.message)) {
     const legacyUpdatePayload = { ...updatePayload } as Record<string, unknown>;
     delete legacyUpdatePayload.is_sellable;
     delete legacyUpdatePayload.sale_price;

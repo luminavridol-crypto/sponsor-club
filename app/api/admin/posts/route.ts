@@ -45,6 +45,20 @@ function humanizeStorageError(message: string) {
   return message;
 }
 
+function isMissingPostSalesColumn(message: string) {
+  const normalizedMessage = message.toLowerCase();
+  const mentionsSalesField =
+    normalizedMessage.includes("is_sellable") || normalizedMessage.includes("sale_price");
+
+  return (
+    mentionsSalesField &&
+    (normalizedMessage.includes("posts") ||
+      normalizedMessage.includes("post") ||
+      normalizedMessage.includes("column") ||
+      normalizedMessage.includes("schema cache"))
+  );
+}
+
 type EmailCampaignResultPayload = {
   enabled: boolean;
   sentCount: number;
@@ -180,10 +194,7 @@ export async function POST(request: Request) {
 
     let { data: post, error } = await insertPost(postPayload);
 
-    if (
-      error?.message?.includes("posts.is_sellable") ||
-      error?.message?.includes("posts.sale_price")
-    ) {
+    if (error?.message && isMissingPostSalesColumn(error.message)) {
       const legacyPostPayload = { ...postPayload } as Record<string, unknown>;
       delete legacyPostPayload.is_sellable;
       delete legacyPostPayload.sale_price;

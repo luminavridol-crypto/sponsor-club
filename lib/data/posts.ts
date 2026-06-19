@@ -4,6 +4,20 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { FeedPost, PostWithMedia, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
 
+function isMissingPostSalesColumn(message: string) {
+  const normalizedMessage = message.toLowerCase();
+  const mentionsSalesField =
+    normalizedMessage.includes("is_sellable") || normalizedMessage.includes("sale_price");
+
+  return (
+    mentionsSalesField &&
+    (normalizedMessage.includes("posts") ||
+      normalizedMessage.includes("post") ||
+      normalizedMessage.includes("column") ||
+      normalizedMessage.includes("schema cache"))
+  );
+}
+
 async function getPublishedPosts() {
   const admin = createAdminSupabaseClient();
   const { data } = await admin
@@ -33,7 +47,7 @@ async function getPublishedFeedPosts() {
 
   const posts = data
     ? (data as Array<FeedPost & { expires_at?: string | null }>)
-    : error?.message?.includes("posts.is_sellable") || error?.message?.includes("posts.sale_price")
+    : error?.message && isMissingPostSalesColumn(error.message)
       ? ((await admin
           .from("posts")
           .select(selectWithoutSales)
