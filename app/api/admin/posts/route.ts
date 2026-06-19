@@ -5,6 +5,7 @@ import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
 import { getPostEmailRecipients } from "@/lib/email/recipients";
 import { sendEmailCampaign } from "@/lib/email/service";
 import { assertUploadFile, getSafeFileExtension, getUploadMediaType } from "@/lib/security/file-uploads";
+import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
 import { R2_PROVIDER, toR2ObjectKey, uploadMediaToR2 } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { notifyTelegramUsersAboutNewPost } from "@/lib/telegram/notifications";
@@ -72,6 +73,7 @@ async function uploadPostMedia(file: File, folder: string) {
 
 export async function POST(request: Request) {
   try {
+    await assertSameOriginRequest();
     const profile = await requireActiveAdminSession();
 
     if (!profile) {
@@ -312,6 +314,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, emailCampaign, telegramCampaign });
   } catch (error) {
+    if (isInvalidRequestOriginError(error)) {
+      return NextResponse.json({ error: "Недопустимый источник запроса." }, { status: 403 });
+    }
+
     return NextResponse.json(
       {
         error: error instanceof Error ? humanizeStorageError(error.message) : "Ошибка загрузки."

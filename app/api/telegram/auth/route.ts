@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { hasClubAccess } from "@/lib/auth/access";
+import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
 import { upsertTelegramProfile } from "@/lib/telegram/auth";
 import { writeTelegramSession } from "@/lib/telegram/session";
 
 export async function POST(request: Request) {
   try {
+    await assertSameOriginRequest();
     const body = (await request.json()) as { initData?: string };
 
     if (!body.initData) {
@@ -40,6 +42,10 @@ export async function POST(request: Request) {
       }
     );
   } catch (error) {
+    if (isInvalidRequestOriginError(error)) {
+      return NextResponse.json({ error: "Недопустимый источник запроса." }, { status: 403 });
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Telegram auth failed" },
       {

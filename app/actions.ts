@@ -1084,7 +1084,6 @@ export async function redeemInviteAction(formData: FormData) {
 export async function updateProfileAction(formData: FormData) {
   const profile = await requireProfile();
   const telegramProfile = await getTelegramProfileFromSession();
-  const supabase = await createServerSupabaseClient();
   const admin = createAdminSupabaseClient();
   const avatarFile = formData.get("avatar");
   let nextAvatarUrl = profile.avatar_url;
@@ -1116,10 +1115,7 @@ export async function updateProfileAction(formData: FormData) {
 
   const updateProfileRow = (
     value: Partial<typeof payload> & { admin_note?: string | null }
-  ) =>
-    telegramProfile
-      ? admin.from("profiles").update(value).eq("id", profile.id)
-      : supabase.from("profiles").update(value).eq("id", profile.id);
+  ) => admin.from("profiles").update(value).eq("id", profile.id);
 
   let { error } = await updateProfileRow(payload);
 

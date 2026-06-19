@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireActiveAdminSession } from "@/lib/auth/admin-session";
+import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
 
 export const runtime = "nodejs";
 
@@ -130,6 +131,7 @@ function extractOutputText(data: unknown) {
 
 export async function POST(request: Request) {
   try {
+    await assertSameOriginRequest();
     const isAdmin = await requireActiveAdmin();
 
     if (!isAdmin) {
@@ -230,6 +232,10 @@ export async function POST(request: Request) {
       text: text || "AI не вернул текст. Попробуй уточнить запрос."
     });
   } catch (error) {
+    if (isInvalidRequestOriginError(error)) {
+      return NextResponse.json({ error: "Недопустимый источник запроса." }, { status: 403 });
+    }
+
     if (error instanceof Error && error.name === "AbortError") {
       return NextResponse.json(
         { error: "OpenAI слишком долго отвечает. Попробуй короче запрос или нажми ещё раз." },

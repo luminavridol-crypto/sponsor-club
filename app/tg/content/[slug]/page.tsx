@@ -50,13 +50,10 @@ export default async function TelegramContentPostPage({
     notFound();
   }
 
-  const mediaMap = await getSignedMediaUrls([
-    ...post.post_media.map((item) => item.storage_path),
-    ...(post.thumbnail_path ? [post.thumbnail_path] : [])
-  ]);
-  const thumbnailUrl = post.thumbnail_path ? mediaMap[post.thumbnail_path] ?? null : null;
-
   if (post.is_locked) {
+    const mediaMap = await getSignedMediaUrls(post.thumbnail_path ? [post.thumbnail_path] : []);
+    const thumbnailUrl = post.thumbnail_path ? mediaMap[post.thumbnail_path] ?? null : null;
+
     return (
       <MiniAppShell profile={profile} title={post.title}>
         <div className="flex items-center justify-between gap-3">
@@ -128,6 +125,12 @@ export default async function TelegramContentPostPage({
       </MiniAppShell>
     );
   }
+
+  const mediaMap = await getSignedMediaUrls([
+    ...post.post_media.map((item) => item.storage_path),
+    ...(post.thumbnail_path ? [post.thumbnail_path] : [])
+  ]);
+  const thumbnailUrl = post.thumbnail_path ? mediaMap[post.thumbnail_path] ?? null : null;
 
   const comments = await getCommentsForPost(post.id);
   const reactionSummary = await getReactionSummaryForPost(post.id, profile.id);
