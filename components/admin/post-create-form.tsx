@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
-import { Tier } from "@/lib/types";
+import { PostType, Tier } from "@/lib/types";
 import { formatEuroAmount } from "@/lib/utils/money";
 import { TIER_ACCESS_HINTS, TIER_LABELS } from "@/lib/utils/tier";
 
@@ -36,6 +36,12 @@ const MAX_IMAGE_DIMENSION = 2560;
 const SERVER_UPLOAD_FALLBACK_MAX_BYTES = 4 * 1024 * 1024;
 const SERVER_UPLOAD_CHUNK_BYTES = 6 * 1024 * 1024;
 const DEFAULT_POST_TITLE = "Lumina Secret Drop";
+const POST_TYPE_LABELS: Record<PostType, string> = {
+  announcement: "Объявление",
+  text: "Текст",
+  gallery: "Галерея",
+  video: "Видео"
+};
 const CLUB_DESTINATION_HINT = "Материал будет опубликован только внутри закрытого клуба.";
 
 function isCompressibleImage(file: File) {
@@ -411,6 +417,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
   const [status, setStatus] = useState<UploadState>("idle");
   const [message, setMessage] = useState("Файлы пока не загружаются.");
   const [selectedTier, setSelectedTier] = useState<Tier>("tier_1");
+  const [selectedPostType, setSelectedPostType] = useState<PostType>("text");
   const [mediaNames, setMediaNames] = useState<string[]>([]);
   const [title, setTitle] = useState(DEFAULT_POST_TITLE);
   const [body, setBody] = useState("");
@@ -462,6 +469,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
     try {
       const form = event.currentTarget;
       const formData = new FormData(form);
+      const postType = ((formData.get("postType") as string) || "announcement") as PostType;
       const isSellable = formData.get("isSellable") === "on";
       const salePriceValue = Number(formData.get("salePrice")) || 0;
 
@@ -469,12 +477,16 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
         throw new Error("Укажи цену для платного поста.");
       }
 
+      if (postType === "text" && !String(formData.get("body") || "").trim()) {
+        throw new Error("Добавь текст публикации, чтобы создать текстовый пост.");
+      }
+
       const mediaFiles = formData
         .getAll("media")
         .filter((item): item is File => item instanceof File && item.size > 0);
       const optimizedFiles: File[] = [];
 
-      for (const file of mediaFiles) {
+      for (const file of postType === "text" ? [] : mediaFiles) {
         if (file.type.startsWith("image/") && isCompressibleImage(file)) {
           setMessage(`Оптимизирую фото: ${file.name}`);
           optimizedFiles.push(await compressImageFile(file));
@@ -561,6 +573,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       }
       form.reset();
       setSelectedTier("tier_1");
+      setSelectedPostType("text");
       setMediaNames([]);
       setTitle(DEFAULT_POST_TITLE);
       setBody("");
@@ -584,7 +597,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 grid gap-3" encType="multipart/form-data">
-      <input type="hidden" name="postType" value="announcement" />
+      <input type="hidden" name="postType" value={selectedPostType} />
       <input type="hidden" name="status" value="published" />
       <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
@@ -624,6 +637,25 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
           </select>
           <p className="mt-2 text-xs leading-5 text-accentSoft">{TIER_ACCESS_HINTS[selectedTier]}</p>
         </div>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm text-white/60">Тип публикации</label>
+        <select
+          value={selectedPostType}
+          onChange={(event) => {
+            const nextType = event.target.value as PostType;
+            setSelectedPostType(nextType);
+            if (nextType === "text") {
+              setMediaNames([]);
+            }
+          }}
+        >
+          <option value="text">{POST_TYPE_LABELS.text}</option>
+          <option value="announcement">{POST_TYPE_LABELS.announcement}</option>
+          <option value="gallery">{POST_TYPE_LABELS.gallery}</option>
+          <option value="video">{POST_TYPE_LABELS.video}</option>
+        </select>
       </div>
 
       <section className="rounded-2xl border border-white/10 bg-black/10 p-4">
@@ -806,10 +838,16 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
           type="file"
           accept={mediaAccept}
           multiple
+          disabled={selectedPostType === "text"}
           onChange={(event) =>
             setMediaNames(Array.from(event.target.files ?? []).map((file) => file.name))
           }
         />
+        {selectedPostType === "text" ? (
+          <p className="mt-2 text-xs leading-5 text-white/45">
+            Для текстовой публикации медиа не требуется. Сейчас форма отправит только заголовок и текст.
+          </p>
+        ) : null}
         {mediaNames.length ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {mediaNames.map((name) => (

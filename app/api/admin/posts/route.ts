@@ -102,6 +102,8 @@ export async function POST(request: Request) {
     const emailBody = formValue(formData.get("emailBody"));
     const status = formValue(formData.get("status")) as PostStatus;
     const requiredTier = formValue(formData.get("requiredTier")) as Tier;
+    const postType = formValue(formData.get("postType")) as PostType;
+    const body = formValue(formData.get("body")) || null;
 
     const slug = buildContentSlug(title);
     const thumbnailFile = formData.get("thumbnail");
@@ -135,6 +137,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Укажи цену для платного поста." }, { status: 400 });
     }
 
+    if (postType === "text" && !body) {
+      return NextResponse.json({ error: "Добавь текст публикации, чтобы создать текстовый пост." }, { status: 400 });
+    }
+
     if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
       const uploaded = await uploadFile(thumbnailFile, "thumbnails");
       thumbnailPath = uploaded.storagePath;
@@ -149,8 +155,8 @@ export async function POST(request: Request) {
       title,
       slug,
       description: formValue(formData.get("description")) || null,
-      body: formValue(formData.get("body")) || null,
-      post_type: formValue(formData.get("postType")) as PostType,
+      body,
+      post_type: postType,
       required_tier: requiredTier,
       status,
       publish_at: publishAt,
