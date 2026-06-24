@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
-import { buildLocalPreviewProfile, isLocalTelegramPreviewEnabled } from "@/lib/telegram/local-preview";
+import { isLocalTelegramPreviewEnabled, resolveLocalPreviewProfile } from "@/lib/telegram/local-preview";
 import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -15,7 +15,7 @@ async function resolveProfileId() {
   }
 
   if (await isLocalTelegramPreviewEnabled()) {
-    return buildLocalPreviewProfile().id;
+    return (await resolveLocalPreviewProfile()).id;
   }
 
   const supabase = await createServerSupabaseClient();

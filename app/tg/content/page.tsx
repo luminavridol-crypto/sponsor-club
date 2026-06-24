@@ -5,16 +5,16 @@ import { FeedScrollRestoration } from "@/components/telegram/feed-scroll-restora
 import { FeedSeenMarker } from "@/components/telegram/feed-seen-marker";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { hasClubAccess } from "@/lib/auth/access";
-import { requireContentProfile } from "@/lib/auth/guards";
+import { requireAnyProfile } from "@/lib/auth/guards";
 import { getCommentCountsForPosts } from "@/lib/data/comments";
 import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
-import { getFeedPostsForProfile, getSignedMediaUrls } from "@/lib/data/posts";
+import { getFeedPostsForProfile, getSignedMediaUrls, getTeaserFeedPosts } from "@/lib/data/posts";
 import { getReactionSummariesForPosts } from "@/lib/data/reactions";
 
 export default async function TelegramContentPage() {
-  const profile = await requireContentProfile();
-  const posts = await getFeedPostsForProfile(profile);
+  const profile = await requireAnyProfile();
   const hasContentAccess = hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile));
+  const posts = hasContentAccess ? await getFeedPostsForProfile(profile) : await getTeaserFeedPosts();
 
   const [commentCounts, reactionSummaries, thumbnailMap] = await Promise.all([
     getCommentCountsForPosts(posts.map((post) => post.id)),

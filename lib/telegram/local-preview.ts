@@ -27,24 +27,82 @@ export async function isLocalTelegramPreviewEnabled() {
   return isLocalHost(host);
 }
 
-function getPreviewRole(): Profile["role"] {
+type PreviewOverrides = Partial<
+  Pick<Profile, "role" | "tier" | "access_status" | "access_expires_at" | "display_name">
+>;
+
+function getPreviewOverridesForHost(host: string | null): PreviewOverrides {
+  if (!host) {
+    return {};
+  }
+
+  if (host.includes(":3003")) {
+    return {
+      role: "admin",
+      tier: "tier_4",
+      access_status: "active",
+      access_expires_at: null,
+      display_name: "Admin Preview"
+    };
+  }
+
+  if (host.includes(":3002")) {
+    return {
+      role: "member",
+      tier: "tier_1",
+      access_status: "disabled",
+      access_expires_at: null,
+      display_name: "Guest Preview"
+    };
+  }
+
+  if (host.includes(":3001")) {
+    return {
+      role: "member",
+      tier: "tier_1",
+      access_status: "active",
+      access_expires_at: null,
+      display_name: "Наблюдатель Preview"
+    };
+  }
+
+  return {};
+}
+
+function getPreviewRole(overrides?: PreviewOverrides): Profile["role"] {
+  if (overrides?.role) {
+    return overrides.role;
+  }
+
   return process.env.LOCAL_TELEGRAM_PREVIEW_ROLE === "admin" ? "admin" : "member";
 }
 
-function getPreviewTier(): Profile["tier"] {
+function getPreviewTier(role: Profile["role"], overrides?: PreviewOverrides): Profile["tier"] {
+  if (overrides?.tier) {
+    return overrides.tier;
+  }
+
   const tier = process.env.LOCAL_TELEGRAM_PREVIEW_TIER;
   if (tier === "tier_1" || tier === "tier_2" || tier === "tier_3" || tier === "tier_4") {
     return tier;
   }
 
-  return getPreviewRole() === "admin" ? "tier_4" : "tier_1";
+  return role === "admin" ? "tier_4" : "tier_1";
 }
 
-function getPreviewAccessStatus(): Profile["access_status"] {
+function getPreviewAccessStatus(overrides?: PreviewOverrides): Profile["access_status"] {
+  if (overrides?.access_status) {
+    return overrides.access_status;
+  }
+
   return process.env.LOCAL_TELEGRAM_PREVIEW_ACCESS_STATUS === "active" ? "active" : "disabled";
 }
 
-function getPreviewAccessExpiresAt() {
+function getPreviewAccessExpiresAt(overrides?: PreviewOverrides) {
+  if (overrides && "access_expires_at" in overrides) {
+    return overrides.access_expires_at ?? null;
+  }
+
   const raw = process.env.LOCAL_TELEGRAM_PREVIEW_ACCESS_EXPIRES_AT?.trim();
 
   if (!raw) {
@@ -60,14 +118,17 @@ function getPreviewAccessExpiresAt() {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
-export function buildLocalPreviewProfile(): Profile {
+export function buildLocalPreviewProfile(overrides?: PreviewOverrides): Profile {
   const now = new Date().toISOString();
-  const role = getPreviewRole();
-  const tier = getPreviewTier();
+  const role = getPreviewRole(overrides);
+  const tier = getPreviewTier(role, overrides);
   const isAdmin = role === "admin";
-  const displayName = process.env.LOCAL_TELEGRAM_PREVIEW_NAME?.trim() || (isAdmin ? "Preview Admin" : "Preview Guest");
-  const accessStatus = getPreviewAccessStatus();
-  const accessExpiresAt = getPreviewAccessExpiresAt();
+  const displayName =
+    overrides?.display_name ||
+    process.env.LOCAL_TELEGRAM_PREVIEW_NAME?.trim() ||
+    (isAdmin ? "Preview Admin" : "Preview Guest");
+  const accessStatus = getPreviewAccessStatus(overrides);
+  const accessExpiresAt = getPreviewAccessExpiresAt(overrides);
 
   return {
     id: isAdmin ? "local-preview-admin" : "local-preview-member",
@@ -98,4 +159,11 @@ export function buildLocalPreviewProfile(): Profile {
     last_content_seen_at: now,
     created_at: now
   };
+}
+
+export async function resolveLocalPreviewProfile() {
+  const headerStore = await headers();
+  const forwardedHost = headerStore.get("x-forwarded-host");
+  const host = forwardedHost ?? headerStore.get("host");
+  return buildLocalPreviewProfile(getPreviewOverridesForHost(host));
 }

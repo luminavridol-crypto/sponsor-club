@@ -78,6 +78,16 @@ export async function getFeedPostsForTier(tier: Tier) {
   }));
 }
 
+export async function getTeaserFeedPosts() {
+  noStore();
+  const posts = await getPublishedFeedPosts();
+
+  return posts.map((post) => ({
+    ...post,
+    is_locked: true
+  }));
+}
+
 export async function getFeedPostsForProfile(
   profile: Pick<Profile, "role" | "tier" | "email" | "access_status" | "access_expires_at">
 ) {
@@ -145,6 +155,28 @@ export async function getPostBySlugForViewer(slug: string, tier: Tier) {
   return {
     ...post,
     is_locked: !canAccessTier(tier, post.required_tier)
+  };
+}
+
+export async function getPostBySlugForTeaser(slug: string) {
+  noStore();
+  const admin = createAdminSupabaseClient();
+  const normalizedSlug = decodeURIComponent(slug);
+  const { data } = await admin
+    .from("posts")
+    .select("*, post_media(*)")
+    .eq("slug", normalizedSlug)
+    .single();
+
+  const post = data as PostWithMedia | null;
+  if (!post) return null;
+  if (post.status !== "published") return null;
+  if (new Date(post.publish_at) > new Date()) return null;
+  if (post.expires_at && new Date(post.expires_at) <= new Date()) return null;
+
+  return {
+    ...post,
+    is_locked: true
   };
 }
 

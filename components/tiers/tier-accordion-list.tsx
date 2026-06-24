@@ -321,12 +321,18 @@ export function TierAccordionList({
   cards,
   isAdmin = false,
   initialOpenTier,
-  paymentContext
+  paymentContext,
+  showPaymentButton = true,
+  paymentButtonLabel = "Оплатить",
+  paymentHrefBuilder
 }: {
   cards: TierAccordionCard[];
   isAdmin?: boolean;
   initialOpenTier?: Tier;
   paymentContext?: PaymentContext;
+  showPaymentButton?: boolean;
+  paymentButtonLabel?: string;
+  paymentHrefBuilder?: (tier: Tier) => string;
 }) {
   const [openId, setOpenId] = useState<string>(() => cards.find((card) => card.tier === initialOpenTier)?.id ?? "");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -354,7 +360,9 @@ export function TierAccordionList({
 
         {cards.map((card) => {
           const isOpen = openId === card.id;
-          const paymentHref = `/tg/support?tier=${card.tier}${
+          const paymentHref =
+            paymentHrefBuilder?.(card.tier) ??
+            `/tg/support?tier=${card.tier}${
             paymentContext?.postSlug ? `&postSlug=${encodeURIComponent(paymentContext.postSlug)}` : ""
           }${
             paymentContext?.postTitle ? `&postTitle=${encodeURIComponent(paymentContext.postTitle)}` : ""
@@ -552,12 +560,14 @@ export function TierAccordionList({
                         </div>
                       ) : null}
 
-                      <Link
-                        href={paymentHref as Route}
-                        className="flex w-full items-center justify-center rounded-[20px] border border-white/16 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/28 hover:bg-white/14"
-                      >
-                        {paymentContext?.postTitle ? "Открыть оплату" : "Оплатить"}
-                      </Link>
+                      {showPaymentButton ? (
+                        <Link
+                          href={paymentHref as Route}
+                          className="flex w-full items-center justify-center rounded-[20px] border border-white/16 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/28 hover:bg-white/14"
+                        >
+                          {paymentContext?.postTitle ? "Открыть оплату" : paymentButtonLabel}
+                        </Link>
+                      ) : null}
                     </div>
                   </div>
                 </div>

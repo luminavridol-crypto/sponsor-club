@@ -9,10 +9,10 @@ import { PostComments } from "@/components/posts/post-comments";
 import { PostReactions } from "@/components/posts/post-reactions";
 import { ProtectedMedia } from "@/components/posts/protected-media";
 import { hasClubAccess } from "@/lib/auth/access";
-import { requireContentProfile } from "@/lib/auth/guards";
+import { requireAnyProfile } from "@/lib/auth/guards";
 import { getCommentsForPost, getReactionSummariesForComments } from "@/lib/data/comments";
 import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
-import { getPostBySlugForProfile, getSignedMediaUrls } from "@/lib/data/posts";
+import { getPostBySlugForProfile, getPostBySlugForTeaser, getSignedMediaUrls } from "@/lib/data/posts";
 import { getReactionSummaryForPost } from "@/lib/data/reactions";
 import { formatEuroAmount } from "@/lib/utils/money";
 import { TIER_LABELS } from "@/lib/utils/tier";
@@ -43,10 +43,10 @@ export default async function TelegramContentPostPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const profile = await requireContentProfile();
+  const profile = await requireAnyProfile();
   const { slug } = await params;
-  const post = await getPostBySlugForProfile(slug, profile);
   const hasContentAccess = hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile));
+  const post = hasContentAccess ? await getPostBySlugForProfile(slug, profile) : await getPostBySlugForTeaser(slug);
 
   if (!post) {
     notFound();

@@ -94,6 +94,11 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
               {typeof request.requested_post_price === "number" ? (
                 <p className="mt-1 text-white/80">Цена: {request.requested_post_price.toFixed(2)} EUR</p>
               ) : null}
+              {request.already_has_post_access ? (
+                <p className="mt-2 text-white/80">
+                  У пользователя уже есть доступ к этому посту по текущему тарифу.
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -109,7 +114,9 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
             <input type="hidden" name="requestId" value={request.id} />
             <input type="hidden" name="status" value="completed" />
             <input type="hidden" name="accessMode" value="post" />
-            <button className={ADMIN_BUTTON_PRIMARY_CLASS}>Открыть только этот пост</button>
+            <button className={ADMIN_BUTTON_PRIMARY_CLASS}>
+              {request.already_has_post_access ? "Отметить как выданный" : "Открыть только этот пост"}
+            </button>
           </form>
         ) : null}
 

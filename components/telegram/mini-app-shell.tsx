@@ -28,10 +28,10 @@ export function MiniAppShell({
 }) {
   return (
     <div
-      className={`min-h-screen bg-[linear-gradient(180deg,#17151d_0%,#111119_42%,#0c0d13_100%)] pl-[108px] text-white ${shellClassName ?? ""}`}
+      className={`min-h-screen bg-[linear-gradient(180deg,#17151d_0%,#111119_42%,#0c0d13_100%)] text-white lg:pl-[108px] ${shellClassName ?? ""}`}
     >
       <TelegramMiniAppBridge />
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-6 pt-3">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-6 pt-16 sm:px-4 sm:pt-3">
         <header
           className={`rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(34,31,44,0.96),rgba(24,22,32,0.94))] px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.16)] backdrop-blur-md ${headerClassName ?? ""}`}
         >

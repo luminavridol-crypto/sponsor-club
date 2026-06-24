@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { buildLocalPreviewProfile, isLocalTelegramPreviewEnabled } from "@/lib/telegram/local-preview";
+import { isLocalTelegramPreviewEnabled, resolveLocalPreviewProfile } from "@/lib/telegram/local-preview";
 import { getApprovedPurchasedPostIds } from "@/lib/data/post-purchases";
 import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -40,7 +40,7 @@ async function resolveProfile(): Promise<NotificationProfile | null> {
   }
 
   if (await isLocalTelegramPreviewEnabled()) {
-    return buildLocalPreviewProfile();
+    return resolveLocalPreviewProfile();
   }
 
   const supabase = await createServerSupabaseClient();

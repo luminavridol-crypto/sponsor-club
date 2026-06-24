@@ -14,11 +14,12 @@ import {
   ADMIN_SHELL_CLASS
 } from "@/components/admin/theme";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
+import { hasClubAccess } from "@/lib/auth/access";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { DonationEvent, Profile, PurchaseRequest } from "@/lib/types";
-import { normalizeProfileTier } from "@/lib/utils/tier";
+import { canAccessTier, normalizeProfileTier } from "@/lib/utils/tier";
 
 function getTierSortWeight(user: Profile) {
   if (user.tier === "tier_4") return 4;
@@ -69,6 +70,35 @@ export default async function TelegramAdminUsersPage() {
 
   const donationEvents = (donationEventsData ?? []) as DonationEvent[];
   const purchaseRequests = (purchaseRequestsData ?? []) as PurchaseRequest[];
+  const requestedPostIds = [...new Set(purchaseRequests.map((request) => request.requested_post_id).filter(Boolean))];
+  const { data: requestedPostsData } = requestedPostIds.length
+    ? await admin.from("posts").select("id, required_tier").in("id", requestedPostIds)
+    : { data: [] as Array<{ id: string; required_tier: Profile["tier"] }> };
+  const requestedPostTierMap = new Map(
+    ((requestedPostsData ?? []) as Array<{ id: string; required_tier: Profile["tier"] }>).map((post) => [
+      post.id,
+      post.required_tier
+    ])
+  );
+  const profileByEmail = new Map(users.map((user) => [user.email, user] as const));
+  const purchaseRequestsWithAccessHints = purchaseRequests.map((request) => {
+    const matchingProfile = profileByEmail.get(request.email);
+    const requestedPostRequiredTier = request.requested_post_id
+      ? requestedPostTierMap.get(request.requested_post_id) ?? null
+      : null;
+    const alreadyHasPostAccess = Boolean(
+      matchingProfile &&
+        requestedPostRequiredTier &&
+        hasClubAccess(matchingProfile) &&
+        canAccessTier(matchingProfile.tier, requestedPostRequiredTier)
+    );
+
+    return {
+      ...request,
+      requested_post_required_tier: requestedPostRequiredTier,
+      already_has_post_access: alreadyHasPostAccess
+    };
+  });
   const donationMap = new Map<string, DonationEvent[]>();
 
   donationEvents.forEach((event) => {
@@ -94,7 +124,7 @@ export default async function TelegramAdminUsersPage() {
               donationEvents: donationMap.get(user.id) ?? []
             }))}
             currentAdminId={profile.id}
-            requests={purchaseRequests}
+            requests={purchaseRequestsWithAccessHints}
           />
         </div>
       </section>

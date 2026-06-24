@@ -175,6 +175,8 @@ export interface PurchaseRequest {
   requested_post_slug?: string | null;
   requested_post_title?: string | null;
   requested_post_price?: number | null;
+  requested_post_required_tier?: Tier | null;
+  already_has_post_access?: boolean;
   created_at: string;
   updated_at: string;
 }
