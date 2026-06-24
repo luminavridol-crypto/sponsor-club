@@ -87,6 +87,9 @@ export function PostCard({
 }) {
   const locked = Boolean(post.is_locked);
   const tierStyle = TIER_CARD_STYLES[post.required_tier];
+  const tiersHref = `/tg/tiers?openTier=${post.required_tier}&postSlug=${encodeURIComponent(post.slug)}${
+    post.title ? `&postTitle=${encodeURIComponent(post.title)}` : ""
+  }${post.sale_price != null ? `&postPrice=${encodeURIComponent(String(post.sale_price))}` : ""}`;
 
   return (
     <article
@@ -174,7 +177,7 @@ export function PostCard({
 
         <div className="flex flex-wrap gap-2.5">
           <PostNavLink
-            href={`${routeBase}/${post.slug}` as Route}
+            href={(locked ? tiersHref : `${routeBase}/${post.slug}`) as Route}
             className={`inline-flex rounded-[18px] px-4 py-2 text-[13px] font-medium transition ${
               locked
                 ? "border border-white/10 bg-white/[0.03] text-white/72 hover:border-white/16 hover:bg-white/[0.05]"
@@ -187,7 +190,7 @@ export function PostCard({
           {locked && post.is_sellable ? (
             <PostNavLink
               href={
-                `/tg/support?tier=${post.required_tier}&postTitle=${encodeURIComponent(post.title)}${
+                `/tg/support?tier=${post.required_tier}&postSlug=${encodeURIComponent(post.slug)}&postTitle=${encodeURIComponent(post.title)}${
                   post.sale_price != null
                     ? `&postPrice=${encodeURIComponent(String(post.sale_price))}`
                     : ""

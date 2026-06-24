@@ -28,7 +28,7 @@ export async function isLocalTelegramPreviewEnabled() {
 }
 
 function getPreviewRole(): Profile["role"] {
-  return process.env.LOCAL_TELEGRAM_PREVIEW_ROLE === "member" ? "member" : "admin";
+  return process.env.LOCAL_TELEGRAM_PREVIEW_ROLE === "admin" ? "admin" : "member";
 }
 
 function getPreviewTier(): Profile["tier"] {
@@ -41,7 +41,7 @@ function getPreviewTier(): Profile["tier"] {
 }
 
 function getPreviewAccessStatus(): Profile["access_status"] {
-  return process.env.LOCAL_TELEGRAM_PREVIEW_ACCESS_STATUS === "disabled" ? "disabled" : "active";
+  return process.env.LOCAL_TELEGRAM_PREVIEW_ACCESS_STATUS === "active" ? "active" : "disabled";
 }
 
 function getPreviewAccessExpiresAt() {
@@ -65,7 +65,7 @@ export function buildLocalPreviewProfile(): Profile {
   const role = getPreviewRole();
   const tier = getPreviewTier();
   const isAdmin = role === "admin";
-  const displayName = process.env.LOCAL_TELEGRAM_PREVIEW_NAME?.trim() || (isAdmin ? "Preview Admin" : "Preview User");
+  const displayName = process.env.LOCAL_TELEGRAM_PREVIEW_NAME?.trim() || (isAdmin ? "Preview Admin" : "Preview Guest");
   const accessStatus = getPreviewAccessStatus();
   const accessExpiresAt = getPreviewAccessExpiresAt();
 
@@ -91,9 +91,9 @@ export function buildLocalPreviewProfile(): Profile {
     favorite_lumina_cosplay: "2B",
     admin_note: isAdmin
       ? "Temporary localhost admin preview profile."
-      : "Temporary localhost member preview profile.",
+      : "Temporary localhost guest preview profile.",
     admin_badges: [],
-    total_donations: 50,
+    total_donations: isAdmin ? 50 : 0,
     access_expires_at: accessExpiresAt,
     last_content_seen_at: now,
     created_at: now

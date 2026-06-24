@@ -1,7 +1,9 @@
 import { unstable_cache, unstable_noStore as noStore } from "next/cache";
+import { hasClubAccess } from "@/lib/auth/access";
+import { getApprovedPurchasedPostIds } from "@/lib/data/post-purchases";
 import { getMediaUrl, isR2StoragePath } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { FeedPost, PostWithMedia, Tier } from "@/lib/types";
+import { FeedPost, PostWithMedia, Profile, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
 
 function isMissingPostSalesColumn(message: string) {
@@ -76,6 +78,35 @@ export async function getFeedPostsForTier(tier: Tier) {
   }));
 }
 
+export async function getFeedPostsForProfile(
+  profile: Pick<Profile, "role" | "tier" | "email" | "access_status" | "access_expires_at">
+) {
+  noStore();
+
+  if (profile.role === "admin") {
+    return getFeedPostsForTier("tier_4");
+  }
+
+  if (hasClubAccess(profile as Profile)) {
+    return getFeedPostsForTier(profile.tier);
+  }
+
+  const grantedPostIds = await getApprovedPurchasedPostIds(profile as Pick<Profile, "email">);
+
+  if (!grantedPostIds.length) {
+    return [];
+  }
+
+  const posts = await getPublishedFeedPosts();
+
+  return posts
+    .filter((post) => grantedPostIds.includes(post.id))
+    .map((post) => ({
+      ...post,
+      is_locked: false
+    }));
+}
+
 export async function getPostBySlugForTier(slug: string, tier: Tier) {
   noStore();
   const admin = createAdminSupabaseClient();
@@ -114,6 +145,51 @@ export async function getPostBySlugForViewer(slug: string, tier: Tier) {
   return {
     ...post,
     is_locked: !canAccessTier(tier, post.required_tier)
+  };
+}
+
+export async function getPostBySlugForProfile(
+  slug: string,
+  profile: Pick<Profile, "role" | "tier" | "email" | "access_status" | "access_expires_at">
+) {
+  noStore();
+  const admin = createAdminSupabaseClient();
+  const normalizedSlug = decodeURIComponent(slug);
+  const { data } = await admin
+    .from("posts")
+    .select("*, post_media(*)")
+    .eq("slug", normalizedSlug)
+    .single();
+
+  const post = data as PostWithMedia | null;
+  if (!post) return null;
+  if (post.status !== "published") return null;
+  if (new Date(post.publish_at) > new Date()) return null;
+  if (post.expires_at && new Date(post.expires_at) <= new Date()) return null;
+
+  if (profile.role === "admin") {
+    return {
+      ...post,
+      is_locked: false
+    };
+  }
+
+  if (hasClubAccess(profile as Profile)) {
+    return {
+      ...post,
+      is_locked: !canAccessTier(profile.tier, post.required_tier)
+    };
+  }
+
+  const grantedPostIds = await getApprovedPurchasedPostIds(profile as Pick<Profile, "email">);
+
+  if (!grantedPostIds.includes(post.id)) {
+    return null;
+  }
+
+  return {
+    ...post,
+    is_locked: false
   };
 }
 

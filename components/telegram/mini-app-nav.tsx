@@ -1,17 +1,33 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 type NavItem = {
   href: string;
   label: string;
+  shortLabel: string;
   featured?: boolean;
 };
 
-function isActive(pathname: string, href: string) {
-  const baseHref = href.split("?")[0];
-  return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
+function isActive(pathname: string, searchParams: URLSearchParams, href: string) {
+  const [baseHref, queryString] = href.split("?");
+  const samePath = pathname === baseHref || pathname.startsWith(`${baseHref}/`);
+
+  if (!samePath) {
+    return false;
+  }
+
+  if (!queryString) {
+    if (baseHref === "/tg/support") {
+      return searchParams.get("mode") !== "chat";
+    }
+
+    return true;
+  }
+
+  const expectedParams = new URLSearchParams(queryString);
+  return Array.from(expectedParams.entries()).every(([key, value]) => searchParams.get(key) === value);
 }
 
 export function MiniAppNav({
@@ -22,46 +38,54 @@ export function MiniAppNav({
   hasAccess?: boolean;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const items: NavItem[] = admin
     ? [
-        { href: "/tg/admin/posts", label: "Посты" },
-        { href: "/tg/admin/users", label: "Люди" },
-        { href: "/tg/content", label: "Лента" },
-        { href: "/tg/admin/users", label: "Чат" },
-        { href: "/tg/admin/invites", label: "Инвайты" },
-        { href: "/tg/tiers", label: "Тарифы" }
+        { href: "/tg/admin/calendar", label: "Календарь", shortLabel: "Календ." },
+        { href: "/tg/admin/posts", label: "Посты", shortLabel: "Посты" },
+        { href: "/tg/admin/users", label: "Люди", shortLabel: "Люди" },
+        { href: "/tg/admin/chat", label: "Чат", shortLabel: "Чат" },
+        { href: "/tg/admin/invites", label: "Инвайты", shortLabel: "Коды" },
+        { href: "/tg/tiers", label: "Тарифы", shortLabel: "Тарифы" },
+        { href: "/tg/admin/support", label: "Реквизиты", shortLabel: "Оплата" }
       ]
     : hasAccess
       ? [
-          { href: "/tg/content", label: "Лента" },
-          { href: "/tg/tiers", label: "Уровни" },
-          { href: "/tg/support?mode=chat", label: "Чат" },
-          { href: "/tg/profile", label: "Профиль" }
+          { href: "/tg/content", label: "Лента", shortLabel: "Лента" },
+          { href: "/tg/tiers", label: "Уровни", shortLabel: "Уровни" },
+          { href: "/tg/achievements", label: "Достижения", shortLabel: "Достиж." },
+          { href: "/tg/support", label: "Реквизиты", shortLabel: "Оплата" },
+          { href: "/tg/support?mode=chat", label: "Чат", shortLabel: "Чат" },
+          { href: "/tg/profile", label: "Профиль", shortLabel: "Профиль" }
         ]
-      : [{ href: "/tg/tiers", label: "Уровни", featured: true }];
+      : [
+          { href: "/tg/tiers", label: "Уровни", shortLabel: "Уровни", featured: true },
+          { href: "/tg/support", label: "Реквизиты", shortLabel: "Оплата" }
+        ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#14141c]/94 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-3 backdrop-blur-md">
-      <div className="mx-auto max-w-xl overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-full gap-2">
+    <nav className="fixed left-3 top-1/2 z-40 w-[92px] -translate-y-1/2">
+      <div className="rounded-[28px] border border-white/10 bg-[#14141c]/92 p-2 shadow-[0_18px_46px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+        <div className="flex flex-col gap-2">
           {items.map((item) => {
-            const active = isActive(pathname, item.href);
+            const active = isActive(pathname, searchParams, item.href);
             const featured = Boolean(item.featured);
 
             return (
               <Link
                 key={item.href}
                 href={item.href as never}
-                className={`min-w-[108px] shrink-0 rounded-2xl px-3 py-3 text-center text-xs font-medium transition ${
+                title={item.label}
+                className={`rounded-[20px] px-3 py-3 text-center text-[11px] font-medium leading-4 transition ${
                   active
-                    ? "bg-white text-slate-950"
+                    ? "bg-white text-slate-950 shadow-[0_8px_24px_rgba(255,255,255,0.16)]"
                     : featured
                       ? "border border-white/16 bg-white/[0.05] text-white"
-                      : "border border-white/10 bg-white/[0.03] text-white/65"
+                      : "border border-white/10 bg-white/[0.03] text-white/68 hover:border-white/18 hover:bg-white/[0.06] hover:text-white"
                 }`}
               >
-                {item.label}
+                {item.shortLabel}
               </Link>
             );
           })}

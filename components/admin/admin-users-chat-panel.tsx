@@ -1,21 +1,41 @@
 import Link from "next/link";
 import { AdminChatComposer } from "@/components/chat/admin-chat-composer";
 import { MessageThread } from "@/components/chat/message-thread";
-import { ADMIN_BUTTON_SECONDARY_CLASS, ADMIN_PANEL_CLASS, ADMIN_PANEL_GLOW_CLASS } from "@/components/admin/theme";
-import { getRecentChatMessages, getSignedChatMediaUrls } from "@/lib/data/chat";
+import { ADMIN_PANEL_CLASS, ADMIN_PANEL_GLOW_CLASS } from "@/components/admin/theme";
+import { getRecentChatMessages, getSignedChatMediaUrls, markChatReadByAdmin } from "@/lib/data/chat";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { MemberChatMessage, Profile } from "@/lib/types";
 
 type ChatSummary = {
   profileId: string;
   label: string;
-  lastAt: string;
+  lastAt: string | null;
   unreadCount: number;
   active: boolean;
 };
 
 function summarizeLabel(profile: Pick<Profile, "display_name" | "nickname" | "email" | "telegram_username"> | null) {
   return profile?.display_name || profile?.nickname || profile?.telegram_username || profile?.email || "Пользователь";
+}
+
+function getInitials(label: string) {
+  return (
+    label
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "U"
+  );
+}
+
+function formatThreadTime(value: string) {
+  return new Date(value).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 export async function AdminUsersChatPanel({
@@ -64,14 +84,46 @@ export async function AdminUsersChatPanel({
     threadMap.set(message.profile_id, existing);
   }
 
-  const summaries = [...threadMap.values()].sort(
-    (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()
-  );
+  const summaries = profiles
+    .map((profile) => {
+      const existing = threadMap.get(profile.id);
 
-  const fallbackProfileId = profiles[0]?.id ?? summaries[0]?.profileId ?? null;
-  const activeProfileId = selectedProfileId && profileMap.has(selectedProfileId) ? selectedProfileId : fallbackProfileId;
+      return (
+        existing ?? {
+          profileId: profile.id,
+          label: summarizeLabel(profile),
+          lastAt: null,
+          unreadCount: 0,
+          active: true
+        }
+      );
+    })
+    .sort((a, b) => {
+      if (a.lastAt && b.lastAt) {
+        return new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime();
+      }
+
+      if (a.lastAt) {
+        return -1;
+      }
+
+      if (b.lastAt) {
+        return 1;
+      }
+
+      return a.label.localeCompare(b.label, "ru");
+    });
+
+  const activeProfileId = selectedProfileId && profileMap.has(selectedProfileId) ? selectedProfileId : null;
   const threadProfile = activeProfileId ? profileMap.get(activeProfileId) ?? null : null;
   const threadLabel = summarizeLabel(threadProfile);
+  const threadSubtitle = threadProfile?.telegram_username
+    ? `@${threadProfile.telegram_username.replace(/^@/, "")}`
+    : threadProfile?.email || "Личный чат";
+
+  if (activeProfileId) {
+    await markChatReadByAdmin(admin, activeProfileId);
+  }
 
   const threadMessages = activeProfileId ? await getRecentChatMessages(admin, activeProfileId) : [];
   const signedMediaUrls = await getSignedChatMediaUrls(
@@ -81,95 +133,106 @@ export async function AdminUsersChatPanel({
     ...message,
     media_url: message.media_path ? signedMediaUrls[message.media_path] ?? null : null
   }));
+  const summariesWithReadState = summaries.map((summary) =>
+    summary.profileId === activeProfileId ? { ...summary, unreadCount: 0 } : summary
+  );
 
   return (
     <section className={ADMIN_PANEL_CLASS}>
       <div className={ADMIN_PANEL_GLOW_CLASS} />
-      <div className="relative flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-display text-[1.15rem] font-semibold text-white">Чат с пользователями</h2>
-            <p className="mt-1 text-sm text-white/45">Обсуждение внутренней покупки и быстрые ответы прямо из админки.</p>
-          </div>
-          {activeProfileId ? (
-            <Link href={`/tg/admin/users?chat=${activeProfileId}`} className={ADMIN_BUTTON_SECONDARY_CLASS}>
-              Открыть диалог
-            </Link>
-          ) : null}
-        </div>
-
-        <div className="grid gap-3 xl:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="space-y-2 rounded-[22px] border border-white/10 bg-black/12 p-3">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Диалоги</p>
-            {summaries.length ? (
-              <div className="space-y-2">
-                {summaries.map((summary) => (
-                  <Link
-                    key={summary.profileId}
-                    href={`/tg/admin/users?chat=${summary.profileId}`}
-                    className={`block rounded-[18px] border px-3 py-3 text-sm transition ${
-                      summary.profileId === activeProfileId
-                        ? "border-white/18 bg-white/[0.08] text-white"
-                        : "border-white/10 bg-white/[0.03] text-white/72 hover:border-white/16 hover:bg-white/[0.05]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="truncate">{summary.label}</span>
-                      {summary.unreadCount ? (
-                        <span className="rounded-full border border-cyanGlow/30 bg-cyanGlow/10 px-2 py-0.5 text-[11px] text-cyanGlow">
-                          {summary.unreadCount}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-xs text-white/42">
-                      {new Date(summary.lastAt).toLocaleString("ru-RU", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                      })}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-[18px] border border-dashed border-white/10 px-3 py-4 text-sm text-white/45">
-                Пока нет переписки.
-              </div>
-            )}
-          </aside>
-
-          <div className="space-y-4">
-            <div className="rounded-[22px] border border-white/10 bg-black/10 p-3 sm:p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Активный диалог</p>
-                  <h3 className="mt-1 font-display text-[1.1rem] font-semibold text-white">{threadLabel}</h3>
-                </div>
-                {activeProfileId ? (
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/55">
-                    ID: {activeProfileId}
-                  </span>
-                ) : null}
-              </div>
+      <div className="relative">
+        <div className="grid gap-3 xl:grid-cols-[290px_minmax(0,1fr)]">
+          <aside className={`overflow-hidden rounded-[28px] border border-white/10 bg-black/18 ${activeProfileId ? "order-2 xl:order-1" : ""}`}>
+            <div className="border-b border-white/8 px-4 py-4">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-white/38">Участники</p>
+              <h2 className="mt-2 font-display text-[1.2rem] font-semibold text-white">Все участники клуба</h2>
             </div>
 
-            {activeProfileId ? (
+            <div className="space-y-2 p-3">
+              {summariesWithReadState.length ? (
+                summariesWithReadState.map((summary) => (
+                  <Link
+                    key={summary.profileId}
+                    href={summary.profileId === activeProfileId ? "/tg/admin/chat" : `/tg/admin/chat?chat=${summary.profileId}`}
+                    className={`flex items-center gap-3 rounded-[22px] border px-3 py-3 transition ${
+                      summary.profileId === activeProfileId
+                        ? "border-white/14 bg-white/[0.05] shadow-[0_16px_34px_rgba(0,0,0,0.12)]"
+                        : summary.unreadCount
+                          ? "border-cyanGlow/22 bg-cyanGlow/10"
+                        : "border-white/8 bg-white/[0.03] hover:border-white/14 hover:bg-white/[0.05]"
+                    }`}
+                  >
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-sm font-semibold text-white">
+                      {getInitials(summary.label)}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="truncate text-sm font-semibold text-white">{summary.label}</p>
+                        <p className="shrink-0 text-[11px] text-white/38">
+                          {summary.lastAt ? formatThreadTime(summary.lastAt) : ""}
+                        </p>
+                      </div>
+
+                      <div className="mt-1 flex items-center justify-between gap-3">
+                        <p className="truncate text-xs text-white/42">
+                          {summary.profileId === activeProfileId
+                            ? "Свернуть чат"
+                            : summary.lastAt
+                              ? "Открыть диалог"
+                              : "Без сообщений"}
+                        </p>
+                        {summary.unreadCount ? (
+                          <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-cyanGlow px-2 py-0.5 text-[11px] font-semibold text-slate-950">
+                            {summary.unreadCount}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className="rounded-[22px] border border-dashed border-white/10 px-4 py-5 text-sm text-white/45">
+                  Пока нет участников.
+                </div>
+              )}
+            </div>
+          </aside>
+
+          {activeProfileId ? (
+            <div className="order-1 overflow-hidden rounded-[28px] border border-white/10 bg-[#171923] xl:order-2">
               <>
-                <MessageThread
-                  messages={messagesWithMedia}
-                  memberLabel={threadLabel}
-                  emptyLabel="Напиши первым, если нужно обсудить внутреннюю покупку."
-                  refreshIntervalMs={15000}
-                />
-                <AdminChatComposer profileId={activeProfileId} memberLabel={threadLabel} />
+                <div className="flex items-center gap-3 border-b border-white/8 bg-black/18 px-4 py-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-cyanGlow/20 to-white/8 text-sm font-semibold text-white">
+                    {getInitials(threadLabel)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-[1rem] font-semibold text-white">{threadLabel}</h3>
+                    <p className="truncate text-sm text-white/45">{threadSubtitle}</p>
+                  </div>
+                  <Link
+                    href="/tg/admin/chat"
+                    className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/70 transition hover:border-cyanGlow/30 hover:bg-cyanGlow/10 hover:text-white"
+                  >
+                    Свернуть
+                  </Link>
+                  <div className="hidden rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/45 sm:block">
+                    {activeProfileId}
+                  </div>
+                </div>
+
+                <div className="bg-[radial-gradient(circle_at_top,rgba(90,117,173,0.12),transparent_28%),linear-gradient(180deg,#1a1d27_0%,#151821_100%)] p-3 sm:p-4">
+                  <MessageThread
+                    messages={messagesWithMedia}
+                    memberLabel={threadLabel}
+                    emptyLabel="Здесь появится переписка с участником."
+                    refreshIntervalMs={15000}
+                  />
+                  <AdminChatComposer profileId={activeProfileId} memberLabel={threadLabel} />
+                </div>
               </>
-            ) : (
-              <div className="rounded-[22px] border border-dashed border-white/10 px-4 py-6 text-sm text-white/50">
-                Выбери пользователя слева, чтобы открыть чат.
-              </div>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

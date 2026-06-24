@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasClubAccess } from "@/lib/auth/access";
+import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
 import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
 import { upsertTelegramProfile } from "@/lib/telegram/auth";
 import { writeTelegramSession } from "@/lib/telegram/session";
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     const nextPath =
       profile.role === "admin"
         ? "/tg/admin/posts"
-        : hasClubAccess(profile)
+        : hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile))
           ? "/tg/content"
           : "/tg/support";
 

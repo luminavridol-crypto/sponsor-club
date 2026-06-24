@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 
 import { createInviteAction, deleteInviteAction, disableInviteAction } from "@/app/actions";
 import {
@@ -18,7 +18,7 @@ import {
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { buildTelegramInviteLink, buildTelegramMiniAppLink } from "@/lib/telegram/links";
+import { buildTelegramInviteLink } from "@/lib/telegram/links";
 import { Invite } from "@/lib/types";
 import { formatDate } from "@/lib/utils/format";
 import { buildInviteLink, TIER_LABELS } from "@/lib/utils/tier";
@@ -67,7 +67,6 @@ export default async function TelegramAdminInvitesPage() {
   await cleanupInvites();
 
   const admin = createAdminSupabaseClient();
-  const telegramMiniAppLink = buildTelegramMiniAppLink();
   const { data } = await admin.from("invites").select("*").order("created_at", { ascending: false });
   const invites = (data ?? []) as Invite[];
 
@@ -79,18 +78,6 @@ export default async function TelegramAdminInvitesPage() {
       headerClassName={ADMIN_HEADER_CLASS}
       eyebrowClassName={ADMIN_EYEBROW_CLASS}
     >
-      <section className={ADMIN_PANEL_CLASS}>
-        <div className={ADMIN_PANEL_GLOW_CLASS} />
-        <div className="relative">
-          <h2 className={ADMIN_SECTION_TITLE_CLASS}>Главная ссылка</h2>
-          <div className="mt-4 rounded-[22px] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/82">
-            <p className="break-all">
-              {telegramMiniAppLink || "Добавь TELEGRAM_BOT_USERNAME в Vercel, чтобы здесь появилась Telegram-ссылка."}
-            </p>
-          </div>
-        </div>
-      </section>
-
       <section className={ADMIN_PANEL_CLASS}>
         <div className={ADMIN_PANEL_GLOW_CLASS} />
         <div className="relative">
@@ -141,7 +128,7 @@ export default async function TelegramAdminInvitesPage() {
                       {invite.used_at ? "Использован" : invite.disabled_at ? "Отключён" : "Активен"}
                     </span>
                   </div>
-                  <h3 className="font-display mt-3 text-[1.35rem] font-semibold text-white">{invite.code}</h3>
+                  <h3 className="mt-3 font-display text-[1.35rem] font-semibold text-white">{invite.code}</h3>
                   <p className="mt-2 text-sm text-white/55">
                     {invite.email || "Без привязки к email"} • создано {formatDate(invite.created_at)}
                   </p>

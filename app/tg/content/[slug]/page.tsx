@@ -8,9 +8,11 @@ import { PostNavLink } from "@/components/posts/post-nav-link";
 import { PostComments } from "@/components/posts/post-comments";
 import { PostReactions } from "@/components/posts/post-reactions";
 import { ProtectedMedia } from "@/components/posts/protected-media";
-import { requireProfile } from "@/lib/auth/guards";
+import { hasClubAccess } from "@/lib/auth/access";
+import { requireContentProfile } from "@/lib/auth/guards";
 import { getCommentsForPost, getReactionSummariesForComments } from "@/lib/data/comments";
-import { getPostBySlugForViewer, getSignedMediaUrls } from "@/lib/data/posts";
+import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
+import { getPostBySlugForProfile, getSignedMediaUrls } from "@/lib/data/posts";
 import { getReactionSummaryForPost } from "@/lib/data/reactions";
 import { formatEuroAmount } from "@/lib/utils/money";
 import { TIER_LABELS } from "@/lib/utils/tier";
@@ -41,10 +43,10 @@ export default async function TelegramContentPostPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const profile = await requireProfile();
+  const profile = await requireContentProfile();
   const { slug } = await params;
-  const visibleTier = profile.role === "admin" ? "tier_4" : profile.tier;
-  const post = await getPostBySlugForViewer(slug, visibleTier);
+  const post = await getPostBySlugForProfile(slug, profile);
+  const hasContentAccess = hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile));
 
   if (!post) {
     notFound();
@@ -53,9 +55,12 @@ export default async function TelegramContentPostPage({
   if (post.is_locked) {
     const mediaMap = await getSignedMediaUrls(post.thumbnail_path ? [post.thumbnail_path] : []);
     const thumbnailUrl = post.thumbnail_path ? mediaMap[post.thumbnail_path] ?? null : null;
+    const tiersHref = `/tg/tiers?openTier=${post.required_tier}&postSlug=${encodeURIComponent(post.slug)}${
+      post.title ? `&postTitle=${encodeURIComponent(post.title)}` : ""
+    }${post.sale_price != null ? `&postPrice=${encodeURIComponent(String(post.sale_price))}` : ""}`;
 
     return (
-      <MiniAppShell profile={profile} title={post.title}>
+      <MiniAppShell profile={profile} title={post.title} hasAccess={hasContentAccess}>
         <div className="flex items-center justify-between gap-3">
           <MiniAppBackButton />
           {profile.role === "admin" ? (
@@ -76,7 +81,8 @@ export default async function TelegramContentPostPage({
                 <p className="text-3xl">🔒</p>
                 <h2 className="mt-3 text-xl font-semibold text-white">Контент закрыт</h2>
                 <p className="mt-3 text-sm leading-6 text-white/70">
-                  Этот пост доступен только для уровня {TIER_LABELS[post.required_tier]}. В ленте он виден как анонс, но открыть содержимое пока нельзя.
+                  Этот пост доступен только для уровня {TIER_LABELS[post.required_tier]}. В ленте он виден как анонс,
+                  но открыть содержимое пока нельзя.
                 </p>
               </div>
             </div>
@@ -104,24 +110,32 @@ export default async function TelegramContentPostPage({
           </div>
         </section>
 
-        {post.is_sellable ? (
+        <div className="grid gap-3">
           <PostNavLink
-            href={
-              `/tg/support?tier=${post.required_tier}&postTitle=${encodeURIComponent(post.title)}${
-                post.sale_price != null
-                  ? `&postPrice=${encodeURIComponent(String(post.sale_price))}`
-                  : ""
-              }` as Route
-            }
-            className="inline-flex w-full items-center justify-center rounded-[22px] border border-fuchsia-200/18 bg-fuchsia-400/12 px-4 py-3 text-sm font-semibold text-white transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/16"
+            href={tiersHref as Route}
+            className="inline-flex w-full items-center justify-center rounded-[22px] border border-white/12 bg-white/[0.05] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/22 hover:bg-white/[0.08]"
           >
-            Купить пост
+            Смотреть условия уровня
           </PostNavLink>
-        ) : (
-          <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
-            Покупка для этого поста отключена.
-          </div>
-        )}
+          {post.is_sellable ? (
+            <PostNavLink
+              href={
+                `/tg/support?tier=${post.required_tier}&postSlug=${encodeURIComponent(post.slug)}&postTitle=${encodeURIComponent(post.title)}${
+                  post.sale_price != null
+                    ? `&postPrice=${encodeURIComponent(String(post.sale_price))}`
+                    : ""
+                }` as Route
+              }
+              className="inline-flex w-full items-center justify-center rounded-[22px] border border-fuchsia-200/18 bg-fuchsia-400/12 px-4 py-3 text-sm font-semibold text-white transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/16"
+            >
+              Купить пост
+            </PostNavLink>
+          ) : (
+            <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
+              Покупка для этого поста отключена.
+            </div>
+          )}
+        </div>
       </MiniAppShell>
     );
   }
@@ -140,7 +154,7 @@ export default async function TelegramContentPostPage({
   );
 
   return (
-    <MiniAppShell profile={profile} title={post.title}>
+    <MiniAppShell profile={profile} title={post.title} hasAccess={hasContentAccess}>
       <div className="flex items-center justify-between gap-3">
         <MiniAppBackButton />
         {profile.role === "admin" ? (

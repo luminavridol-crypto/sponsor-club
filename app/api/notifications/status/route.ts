@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { buildLocalPreviewProfile, isLocalTelegramPreviewEnabled } from "@/lib/telegram/local-preview";
+import { getApprovedPurchasedPostIds } from "@/lib/data/post-purchases";
 import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -12,7 +13,15 @@ import { getMembershipAlert } from "@/lib/auth/membership-alerts";
 
 type NotificationProfile = Pick<
   Profile,
-  "id" | "role" | "tier" | "admin_badges" | "access_status" | "access_expires_at" | "last_content_seen_at" | "telegram_id"
+  | "id"
+  | "email"
+  | "role"
+  | "tier"
+  | "admin_badges"
+  | "access_status"
+  | "access_expires_at"
+  | "last_content_seen_at"
+  | "telegram_id"
 >;
 
 function json(data: unknown) {
@@ -45,7 +54,7 @@ async function resolveProfile(): Promise<NotificationProfile | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role, tier, admin_badges, access_status, access_expires_at, last_content_seen_at, telegram_id")
+    .select("id, email, role, tier, admin_badges, access_status, access_expires_at, last_content_seen_at, telegram_id")
     .eq("id", user.id)
     .single();
 
@@ -53,16 +62,19 @@ async function resolveProfile(): Promise<NotificationProfile | null> {
 }
 
 async function getUnreadEligiblePostStatus(profile: NotificationProfile) {
-  if (profile.role !== "admin" && !hasClubAccess(profile as Profile)) {
+  const admin = createAdminSupabaseClient();
+  const lastSeenAt = profile.last_content_seen_at ?? new Date(0).toISOString();
+  const nowIso = new Date().toISOString();
+  const hasFullClubAccess = profile.role === "admin" || hasClubAccess(profile as Profile);
+  const grantedPostIds = hasFullClubAccess ? [] : await getApprovedPurchasedPostIds(profile);
+
+  if (!hasFullClubAccess && !grantedPostIds.length) {
     return {
       unreadPostCount: 0,
       latestPublishedPostAt: null
     };
   }
 
-  const admin = createAdminSupabaseClient();
-  const lastSeenAt = profile.last_content_seen_at ?? new Date(0).toISOString();
-  const nowIso = new Date().toISOString();
   const { data: posts } = await admin
     .from("posts")
     .select("id, publish_at, required_tier, expires_at")
@@ -77,7 +89,11 @@ async function getUnreadEligiblePostStatus(profile: NotificationProfile) {
       return false;
     }
 
-    return canAccessTier(getEffectiveTier(profile as Profile), post.required_tier as Tier);
+    if (hasFullClubAccess) {
+      return canAccessTier(getEffectiveTier(profile as Profile), post.required_tier as Tier);
+    }
+
+    return grantedPostIds.includes(String(post.id));
   });
 
   return {

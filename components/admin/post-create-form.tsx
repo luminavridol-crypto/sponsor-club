@@ -58,11 +58,13 @@ async function uploadFileToSignedUrl(
   {
     uploadUrl,
     contentType,
-    method = "PUT"
+    method = "PUT",
+    onProgress
   }: {
     uploadUrl: string;
     contentType: string;
     method?: "PUT";
+    onProgress?: (loadedBytes: number, totalBytes: number) => void;
   }
 ) {
   return new Promise<void>((resolve, reject) => {
@@ -71,6 +73,13 @@ async function uploadFileToSignedUrl(
     xhr.responseType = "text";
     xhr.timeout = 5 * 60 * 1000;
     xhr.setRequestHeader("Content-Type", contentType || "application/octet-stream");
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) {
+        return;
+      }
+
+      onProgress?.(event.loaded, event.total);
+    };
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -109,10 +118,12 @@ async function uploadFileInChunks(
   file: File,
   {
     onProgress,
-    onMessage
+    onMessage,
+    onTransferredBytes
   }: {
     onProgress?: (percent: number) => void;
     onMessage?: (message: string) => void;
+    onTransferredBytes?: (loadedBytes: number, totalBytes: number) => void;
   } = {}
 ) {
   async function safeJson<T>(response: Response) {
@@ -214,6 +225,7 @@ async function uploadFileInChunks(
         partNumber
       });
       onProgress?.(Math.round((partNumber / totalParts) * 100));
+      onTransferredBytes?.(end, file.size);
     }
 
     const completeResponse = await fetch(startPayload.worker_complete_url, {
@@ -354,7 +366,10 @@ async function compressImageFile(file: File) {
   });
 }
 
-async function uploadFileThroughServer(file: File) {
+async function uploadFileThroughServer(
+  file: File,
+  { onProgress }: { onProgress?: (loadedBytes: number, totalBytes: number) => void } = {}
+) {
   const body = new FormData();
   body.set("mode", "direct");
   body.set("kind", "media");
@@ -381,7 +396,8 @@ async function uploadFileThroughServer(file: File) {
     await uploadFileToSignedUrl(file, {
       uploadUrl: payload.upload_url,
       contentType: payload.mime_type || file.type || "application/octet-stream",
-      method: payload.upload_method || "PUT"
+      method: payload.upload_method || "PUT",
+      onProgress
     });
 
     return payload;
@@ -411,9 +427,15 @@ async function uploadFileThroughServer(file: File) {
   }
 }
 
+function formatMegabytes(bytes: number) {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
   const router = useRouter();
   const [progress, setProgress] = useState(0);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [totalUploadBytes, setTotalUploadBytes] = useState(0);
   const [status, setStatus] = useState<UploadState>("idle");
   const [message, setMessage] = useState("Файлы пока не загружаются.");
   const [selectedTier, setSelectedTier] = useState<Tier>("tier_1");
@@ -454,6 +476,8 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       setStatus("idle");
       setMessage("Файлы пока не загружаются.");
       setProgress(0);
+      setUploadedBytes(0);
+      setTotalUploadBytes(0);
     }, 3500);
 
     return () => window.clearTimeout(timeout);
@@ -464,6 +488,8 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
 
     setStatus("uploading");
     setProgress(0);
+    setUploadedBytes(0);
+    setTotalUploadBytes(0);
     setMessage("Готовлю публикацию...");
 
     try {
@@ -495,7 +521,11 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
         }
       }
 
+      const totalBytes = optimizedFiles.reduce((sum, file) => sum + file.size, 0);
+      setTotalUploadBytes(totalBytes);
+
       const mediaEntries: ServerUploadResponse[] = [];
+      let completedBytes = 0;
 
       for (let index = 0; index < optimizedFiles.length; index += 1) {
         const file = optimizedFiles[index];
@@ -516,10 +546,19 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
                   ((index + Math.min(percent, 100) / 100) / Math.max(optimizedFiles.length, 1)) * 90
                 );
                 setProgress(overall);
+              },
+              onTransferredBytes: (loadedBytes, fileTotalBytes) => {
+                setUploadedBytes(completedBytes + Math.min(loadedBytes, fileTotalBytes));
               }
             })
-          : await uploadFileThroughServer(file);
+          : await uploadFileThroughServer(file, {
+              onProgress: (loadedBytes, fileTotalBytes) => {
+                setUploadedBytes(completedBytes + Math.min(loadedBytes, fileTotalBytes));
+              }
+            });
         mediaEntries.push(uploaded);
+        completedBytes += file.size;
+        setUploadedBytes(completedBytes);
         setProgress(Math.round(((index + 1) / Math.max(optimizedFiles.length, 1)) * 90));
       }
 
@@ -560,6 +599,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
 
       setStatus("success");
       setProgress(100);
+      setUploadedBytes(totalBytes);
       if (payload.emailCampaign?.enabled) {
         if (payload.emailCampaign.skippedReason) {
           setMessage(`Публикация создана. Рассылка пропущена: ${payload.emailCampaign.skippedReason}`);
@@ -665,10 +705,6 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
             <h3 className="mt-1 text-lg font-semibold text-white">
               {sellEnabled ? "Пост продаётся отдельно" : "Продать пост"}
             </h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">
-              Включай эту опцию только для материалов, которые можно открыть без тарифа. После оплаты ты сможешь
-              вручную открыть доступ и вести общение внутри приложения.
-            </p>
           </div>
 
           <button
@@ -705,7 +741,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
               />
             </div>
             <div className="rounded-2xl border border-fuchsia-300/15 bg-fuchsia-400/10 px-4 py-3 text-sm text-fuchsia-50">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-fuchsia-100/50">Превью цены</p>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-fuchsia-100/50">Цена</p>
               <p className="mt-2 font-display text-[1.35rem] leading-none text-white">
                 {formatEuroAmount(salePrice) ?? "Укажи цену"}
               </p>
@@ -777,50 +813,6 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
         </div>
       </div>
 
-      <section className="rounded-2xl border border-white/10 bg-black/10 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.22em] text-white/42">Предпросмотр</p>
-            <h3 className="mt-1 text-lg font-semibold text-white">Как пост увидят в ленте</h3>
-          </div>
-          <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/55">
-            {TIER_LABELS[selectedTier]}
-          </span>
-        </div>
-
-        <div className="mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-[#191a22]">
-          <div className="h-28 border-b border-white/10 bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.14),transparent_26%),linear-gradient(180deg,rgba(24,24,32,0.98),rgba(18,18,26,0.98))]" />
-          <div className="px-4 py-4">
-            <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.14em] text-white/58">
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Объявление</span>
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
-                {TIER_LABELS[selectedTier]}
-              </span>
-              {sellEnabled ? (
-                <span className="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-1 text-fuchsia-50">
-                  {formatEuroAmount(salePrice) ?? "Цена продажи"}
-                </span>
-              ) : null}
-            </div>
-            <h4 className="mt-3 font-display text-[1.4rem] font-semibold leading-[1.05] text-white">
-              {title || DEFAULT_POST_TITLE}
-            </h4>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/60">
-              {body.trim() ? body : "Здесь появится текст публикации до отправки в ленту."}
-            </p>
-            <div className="mt-4 rounded-[20px] border border-white/10 bg-black/20 px-4 py-3 backdrop-blur-sm">
-              <p className="text-[11px] uppercase tracking-[0.24em] text-white/40">Закрытый вид</p>
-              <div className="mt-3 select-none space-y-2 opacity-75 blur-sm">
-                <div className="h-4 w-5/6 rounded-full bg-white/12" />
-                <div className="h-4 w-full rounded-full bg-white/10" />
-                <div className="h-4 w-4/6 rounded-full bg-white/12" />
-                <div className="mt-4 h-24 rounded-[18px] bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <div>
         <label className="mb-2 block text-sm text-white/60">Автоудаление</label>
         <select name="retentionDays" defaultValue="30">
@@ -839,15 +831,13 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
           accept={mediaAccept}
           multiple
           disabled={selectedPostType === "text"}
-          onChange={(event) =>
-            setMediaNames(Array.from(event.target.files ?? []).map((file) => file.name))
-          }
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
+            setMediaNames(files.map((file) => file.name));
+            setTotalUploadBytes(files.reduce((sum, file) => sum + file.size, 0));
+            setUploadedBytes(0);
+          }}
         />
-        {selectedPostType === "text" ? (
-          <p className="mt-2 text-xs leading-5 text-white/45">
-            Для текстовой публикации медиа не требуется. Сейчас форма отправит только заголовок и текст.
-          </p>
-        ) : null}
         {mediaNames.length ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {mediaNames.map((name) => (
@@ -866,6 +856,9 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
         <div className="mb-2 flex items-center justify-between text-sm text-white/70">
           <span>Загрузка через сервер в R2</span>
           <span>{progress}%</span>
+        </div>
+        <div className="mb-3 text-xs text-white/48">
+          {totalUploadBytes > 0 ? `${formatMegabytes(uploadedBytes)} / ${formatMegabytes(totalUploadBytes)}` : "0.0 MB / 0.0 MB"}
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-white/10">
           <div
@@ -887,3 +880,4 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
     </form>
   );
 }
+

@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
 import { AdminUsersBrowser } from "@/components/admin/admin-users-browser";
@@ -6,8 +6,6 @@ import {
   AdminUsersCleanupPanel,
   AdminUsersCleanupPanelFallback
 } from "@/components/admin/admin-users-cleanup-panel";
-import { AdminUsersChatPanel } from "@/components/admin/admin-users-chat-panel";
-import { BirthdayCalendar } from "@/components/admin/birthday-calendar";
 import {
   ADMIN_EYEBROW_CLASS,
   ADMIN_HEADER_CLASS,
@@ -20,7 +18,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { DonationEvent, Profile, PurchaseRequest } from "@/lib/types";
-import { normalizeProfileTier, TIER_LABELS } from "@/lib/utils/tier";
+import { normalizeProfileTier } from "@/lib/utils/tier";
 
 function getTierSortWeight(user: Profile) {
   if (user.tier === "tier_4") return 4;
@@ -41,15 +39,9 @@ function sortUsers(users: Profile[]) {
   });
 }
 
-export default async function TelegramAdminUsersPage({
-  searchParams
-}: {
-  searchParams?: Promise<{ chat?: string | string[] }>;
-}) {
+export default async function TelegramAdminUsersPage() {
   const profile = await requireAdmin();
   const admin = createAdminSupabaseClient();
-  const params = (await searchParams) ?? {};
-  const selectedChatId = typeof params.chat === "string" ? params.chat : Array.isArray(params.chat) ? params.chat[0] : undefined;
 
   const [{ data: profilesData }, { data: donationEventsData }, { data: purchaseRequestsData }] =
     await Promise.all([
@@ -57,7 +49,7 @@ export default async function TelegramAdminUsersPage({
       admin.from("donation_events").select("*").order("created_at", { ascending: false }),
       admin
         .from("purchase_requests")
-        .select("id, tier, display_name, email, country, contact, status, approved_for_club, created_at, updated_at")
+        .select("id, tier, display_name, email, country, contact, status, approved_for_club, approved_for_post, requested_post_id, requested_post_slug, requested_post_title, requested_post_price, created_at, updated_at")
         .in("status", ["new", "in_progress"])
         .order("created_at", { ascending: false })
     ]);
@@ -85,53 +77,31 @@ export default async function TelegramAdminUsersPage({
     donationMap.set(event.profile_id, existing);
   });
 
-  const activeUsers = users.filter((user) => user.access_status === "active");
-  const birthdayPeople = activeUsers
-    .filter((person) => Boolean(person.birth_date))
-    .map((person) => ({
-      id: person.id,
-      displayName: person.display_name || person.email || "Участник",
-      birthDate: person.birth_date as string,
-      tierLabel: TIER_LABELS[person.tier],
-      tierKey: person.tier
-    }));
-
   return (
     <MiniAppShell
       profile={profile}
-      title="Пользователи"
+      title="Люди"
       shellClassName={ADMIN_SHELL_CLASS}
       headerClassName={ADMIN_HEADER_CLASS}
       eyebrowClassName={ADMIN_EYEBROW_CLASS}
     >
       <section className={ADMIN_PANEL_CLASS}>
         <div className={ADMIN_PANEL_GLOW_CLASS} />
-        <div className="relative">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="font-display text-[1.2rem] font-semibold text-white">Сводка</h2>
-            </div>
-          </div>
-          <div className="mt-4">
-            <AdminUsersBrowser
-              users={usersWithAvatars.map((user) => ({
-                ...user,
-                donationEvents: donationMap.get(user.id) ?? []
-              }))}
-              currentAdminId={profile.id}
-              requests={purchaseRequests}
-            />
-          </div>
+        <div className="relative mt-4">
+          <AdminUsersBrowser
+            users={usersWithAvatars.map((user) => ({
+              ...user,
+              donationEvents: donationMap.get(user.id) ?? []
+            }))}
+            currentAdminId={profile.id}
+            requests={purchaseRequests}
+          />
         </div>
       </section>
-
-      <BirthdayCalendar birthdays={birthdayPeople} />
 
       <Suspense fallback={<AdminUsersCleanupPanelFallback />}>
         <AdminUsersCleanupPanel />
       </Suspense>
-
-      <AdminUsersChatPanel selectedProfileId={selectedChatId} />
     </MiniAppShell>
   );
 }

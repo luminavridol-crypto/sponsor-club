@@ -169,7 +169,12 @@ export interface PurchaseRequest {
   country: string;
   contact: string;
   status: PurchaseRequestStatus;
-   approved_for_club?: boolean;
+  approved_for_club?: boolean;
+  approved_for_post?: boolean;
+  requested_post_id?: string | null;
+  requested_post_slug?: string | null;
+  requested_post_title?: string | null;
+  requested_post_price?: number | null;
   created_at: string;
   updated_at: string;
 }

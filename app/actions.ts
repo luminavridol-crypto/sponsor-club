@@ -9,6 +9,7 @@ import { z } from "zod";
 import { requireAdmin, requireAnyProfile, requireProfile } from "@/lib/auth/guards";
 import { hasClubAccess } from "@/lib/auth/access";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
+import { hasApprovedPurchasedPostAccess } from "@/lib/data/post-purchases";
 import { deleteExpiredOrDraftPosts, removePostStorage } from "@/lib/data/post-cleanup";
 import { reactionOptions } from "@/lib/data/reactions";
 import { cleanupOrphanedStorage, getOrphanedStorageReport } from "@/lib/data/storage-cleanup";
@@ -16,6 +17,10 @@ import {
   runAutomaticAccessExpiryReminders,
   updateAccessExpiryEmailSettings
 } from "@/lib/email/access-reminders";
+import {
+  deleteTelegramSupportMethod,
+  saveTelegramSupportMethod
+} from "@/lib/data/telegram-support";
 import { savePostEmailTemplate } from "@/lib/email/local-store";
 import { saveTierLandingContent, type TierLandingContent } from "@/lib/data/tier-landing";
 import { getManualEmailRecipients, getPostEmailRecipients, ManualEmailAudience } from "@/lib/email/recipients";
@@ -100,6 +105,14 @@ const accessExpiryEmailSettingsSchema = z.object({
   body: z.string().trim().min(10).max(20000)
 });
 
+const telegramSupportMethodSchema = z.object({
+  methodId: z.string().trim().uuid().optional().or(z.literal("")),
+  label: z.string().trim().min(2).max(80),
+  value: z.string().trim().min(1).max(600),
+  note: z.string().trim().max(600).optional().default(""),
+  sortOrder: z.coerce.number().int().min(0).max(999).default(0)
+});
+
 const commentSchema = z.object({
   postId: z.string().uuid(),
   postSlug: z.string().min(1),
@@ -158,6 +171,21 @@ function formValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function redirectToTelegramSupport(params: { saved?: boolean; error?: string }): never {
+  const searchParams = new URLSearchParams();
+
+  if (params.saved) {
+    searchParams.set("saved", "1");
+  }
+
+  if (params.error) {
+    searchParams.set("error", params.error);
+  }
+
+  const query = searchParams.toString();
+  redirect(`/tg/admin/support${query ? `?${query}` : ""}#top` as Route);
+}
+
 function isMissingFavoriteLuminaCosplayColumn(message: string) {
   return message.includes("favorite_lumina_cosplay") && message.includes("schema cache");
 }
@@ -207,6 +235,44 @@ function parseDaysBefore(value: FormDataEntryValue | null) {
     .filter((item) => Number.isInteger(item) && item > 0);
 }
 
+async function resolveRequestedPostFields(admin: ReturnType<typeof createAdminSupabaseClient>, rawSlug: string) {
+  const requestedPostSlug = rawSlug ? decodeURIComponent(rawSlug) : "";
+
+  if (!requestedPostSlug) {
+    return {
+      requested_post_id: null,
+      requested_post_slug: null,
+      requested_post_title: null,
+      requested_post_price: null
+    };
+  }
+
+  const { data, error } = await admin
+    .from("posts")
+    .select("id, slug, title, sale_price")
+    .eq("slug", requestedPostSlug)
+    .maybeSingle();
+
+  const post: { id?: string | null; slug?: string | null; title?: string | null; sale_price?: number | null } | null = data
+    ? data
+    : error?.message && isMissingPostSalesColumn(error.message)
+      ? (
+          await admin
+            .from("posts")
+            .select("id, slug, title")
+            .eq("slug", requestedPostSlug)
+            .maybeSingle()
+        ).data
+      : null;
+
+  return {
+    requested_post_id: post?.id ?? null,
+    requested_post_slug: post?.slug ?? requestedPostSlug,
+    requested_post_title: post?.title ?? null,
+    requested_post_price: typeof post?.sale_price === "number" ? Number(post.sale_price) : null
+  };
+}
+
 function currentDonationPeriod() {
   const now = new Date();
 
@@ -214,6 +280,20 @@ function currentDonationPeriod() {
     donationYear: now.getUTCFullYear(),
     donationMonth: now.getUTCMonth() + 1
   };
+}
+
+async function canInteractWithPostAccess(params: {
+  profile: Awaited<ReturnType<typeof requireAnyProfile>>;
+  postId: string;
+  requiredTier: Tier;
+}) {
+  const { profile, postId, requiredTier } = params;
+
+  if (hasClubAccess(profile) && canAccessTier(profile.tier, requiredTier)) {
+    return true;
+  }
+
+  return hasApprovedPurchasedPostAccess(profile, postId);
 }
 
 async function getSiteUrl() {
@@ -240,11 +320,11 @@ function redirectToAdminEmail(params: Record<string, string | number>): never {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function humanizeStorageError(message: string) {
   if (message.includes("The object exceeded the maximum allowed size")) {
-    return "Р¤Р°Р№Р» СЃР»РёС€РєРѕРј Р±РѕР»СЊС€РѕР№ РґР»СЏ С‚РµРєСѓС‰РµРіРѕ Р»РёРјРёС‚Р° РІ Supabase Storage. РЈРІРµР»РёС‡СЊ Р»РёРјРёС‚ РЅСѓР¶РЅРѕРіРѕ bucket.";
+    return "Файл слишком большой для текущего лимита в Supabase Storage. Увеличь лимит нужного bucket.";
   }
 
   if (message.includes("Bucket not found")) {
-    return "РќСѓР¶РЅС‹Р№ bucket РЅРµ РЅР°Р№РґРµРЅ РІ Supabase Storage.";
+    return "Нужный bucket не найден в Supabase Storage.";
   }
 
   return message;
@@ -395,6 +475,7 @@ export async function updatePasswordAction(formData: FormData) {
 export async function createPurchaseRequestAction(formData: FormData) {
   const contactMethod = formValue(formData.get("contactMethod"));
   const contactHandle = formValue(formData.get("contactHandle"));
+  const postSlug = formValue(formData.get("postSlug"));
   const postTitle = formValue(formData.get("postTitle"));
   const postPrice = formValue(formData.get("postPrice"));
   const parsed = purchaseRequestSchema.safeParse({
@@ -412,6 +493,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
   }
 
   const admin = createAdminSupabaseClient();
+  const requestedPostFields = await resolveRequestedPostFields(admin, postSlug);
   const contact = `${parsed.data.contactMethod}: ${parsed.data.contactHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`;
   const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data: recentRequest } = await admin
@@ -431,7 +513,8 @@ export async function createPurchaseRequestAction(formData: FormData) {
     display_name: parsed.data.displayName,
     email: parsed.data.email,
     country: parsed.data.country,
-    contact
+    contact,
+    ...requestedPostFields
   };
 
   const { error } = await admin.from("purchase_requests").insert(requestPayload);
@@ -441,7 +524,8 @@ export async function createPurchaseRequestAction(formData: FormData) {
       tier: parsed.data.tier,
       email: parsed.data.email,
       country: parsed.data.country,
-      contact: `РРјСЏ: ${parsed.data.displayName}\nРЎРІСЏР·СЊ: ${contact}`
+      contact: `Имя: ${parsed.data.displayName}\nСвязь: ${contact}`,
+      ...requestedPostFields
     });
 
     if (fallbackError) {
@@ -467,6 +551,7 @@ export async function createPurchaseRequestAction(formData: FormData) {
 export async function createTelegramPurchaseRequestAction(formData: FormData) {
   const profile = await requireAnyProfile();
   const tier = formValue(formData.get("tier")) as Tier;
+  const postSlug = formValue(formData.get("postSlug"));
   const postTitle = formValue(formData.get("postTitle"));
   const postPrice = formValue(formData.get("postPrice"));
 
@@ -475,6 +560,7 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
   }
 
   const admin = createAdminSupabaseClient();
+  const requestedPostFields = await resolveRequestedPostFields(admin, postSlug);
   const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data: recentRequest } = await admin
     .from("purchase_requests")
@@ -495,14 +581,15 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
     "Telegram user";
   const telegramHandle = profile.telegram_username
     ? `@${profile.telegram_username.replace(/^@/, "")}`
-    : "Р±РµР· username";
+    : "без username";
   const telegramId = profile.telegram_id || "unknown";
   const requestPayload = {
     tier,
     display_name: displayName,
     email: profile.email,
     country: "Telegram Mini App",
-    contact: `Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`
+    contact: `Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`,
+    ...requestedPostFields
   };
 
   const { error } = await admin.from("purchase_requests").insert(requestPayload);
@@ -512,7 +599,8 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
       tier,
       email: profile.email,
       country: "Telegram Mini App",
-      contact: `РРјСЏ: ${displayName}\nРЎРІСЏР·СЊ: Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`
+      contact: `Имя: ${displayName}\nСвязь: Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`,
+      ...requestedPostFields
     });
 
     if (fallbackError) {
@@ -587,7 +675,7 @@ export async function sendPostEmailCampaignAction(formData: FormData) {
 
   const result = await sendEmailCampaign({
     kind: "post",
-    title: `РџРѕСЃС‚: ${post.title}`,
+    title: `Пост: ${post.title}`,
     subject: data.subject,
     body: data.body,
     postId: post.id,
@@ -688,6 +776,76 @@ export async function updateTierLandingAction(formData: FormData) {
   redirect(`/tg/tiers?saved=1&tier=${tier}`);
 }
 
+export async function saveTelegramSupportMethodAction(formData: FormData) {
+  const profile = await requireAdmin();
+  const parsed = telegramSupportMethodSchema.safeParse({
+    methodId: formValue(formData.get("methodId")) || undefined,
+    label: formValue(formData.get("label")),
+    value: formValue(formData.get("value")),
+    note: formValue(formData.get("note")),
+    sortOrder: formData.get("sortOrder")
+  });
+
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const message =
+      issue?.path[0] === "label"
+        ? "Укажи название способа оплаты."
+        : issue?.path[0] === "value"
+          ? "Заполни реквизиты, ссылку или текст."
+          : issue?.path[0] === "sortOrder"
+            ? "Порядок должен быть числом от 0 до 999."
+            : "Проверь заполнение формы.";
+    redirectToTelegramSupport({ error: message });
+  }
+
+  const data = parsed.data;
+
+  try {
+    await saveTelegramSupportMethod(
+      {
+        id: data.methodId || undefined,
+        label: data.label,
+        value: data.value,
+        note: data.note,
+        sortOrder: data.sortOrder
+      },
+      profile.id
+    );
+  } catch (error) {
+    const message = error instanceof Error && error.message ? error.message : "Не удалось сохранить реквизиты.";
+    redirectToTelegramSupport({ error: message });
+  }
+
+  revalidatePath("/tg/support");
+  revalidatePath("/tg/tiers");
+  revalidatePath("/tg/admin/support");
+
+  redirectToTelegramSupport({ saved: true });
+}
+
+export async function deleteTelegramSupportMethodAction(formData: FormData) {
+  await requireAdmin();
+  const methodId = formValue(formData.get("methodId"));
+
+  if (!methodId) {
+    redirectToTelegramSupport({ error: "Не найден способ оплаты для удаления." });
+  }
+
+  try {
+    await deleteTelegramSupportMethod(methodId);
+  } catch (error) {
+    const message = error instanceof Error && error.message ? error.message : "Не удалось удалить способ оплаты.";
+    redirectToTelegramSupport({ error: message });
+  }
+
+  revalidatePath("/tg/support");
+  revalidatePath("/tg/tiers");
+  revalidatePath("/tg/admin/support");
+
+  redirectToTelegramSupport({ saved: true });
+}
+
 export async function sendManualSponsorEmailAction(formData: FormData) {
   const profile = await requireAdmin();
   const parsed = manualEmailCampaignSchema.safeParse({
@@ -709,7 +867,7 @@ export async function sendManualSponsorEmailAction(formData: FormData) {
 
   const result = await sendEmailCampaign({
     kind: "manual",
-    title: `Р СѓС‡РЅР°СЏ СЂР°СЃСЃС‹Р»РєР°: ${data.subject}`,
+    title: `Ручная рассылка: ${data.subject}`,
     subject: data.subject,
     body: data.body,
     targetScope: data.audience,
@@ -763,13 +921,16 @@ export async function updatePurchaseRequestStatusAction(formData: FormData) {
   const admin = createAdminSupabaseClient();
   const requestId = formValue(formData.get("requestId"));
   const status = formValue(formData.get("status"));
-  const allowClubAccess = formValue(formData.get("allowClubAccess")) === "on";
+  const accessMode = formValue(formData.get("accessMode"));
 
   if (!requestId || !["new", "in_progress", "completed"].includes(status)) {
     revalidatePath("/admin");
     revalidatePath("/admin/requests");
     return;
   }
+
+  const allowClubAccess = accessMode === "club";
+  const allowPostAccess = accessMode === "post";
 
   if (allowClubAccess) {
     const { data: request } = await admin
@@ -795,7 +956,7 @@ export async function updatePurchaseRequestStatusAction(formData: FormData) {
           .eq("id", existingProfile.id);
       } else {
         const defaultExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-        const note = `Р—Р°СЏРІРєР°: ${request.display_name || "Р±РµР· РёРјРµРЅРё"} вЂў ${request.country} вЂў ${request.contact}`;
+        const note = `Заявка: ${request.display_name || "без имени"} • ${request.country} • ${request.contact}`;
         const { data: activeInvite } = await admin
           .from("invites")
           .select("id")
@@ -829,11 +990,25 @@ export async function updatePurchaseRequestStatusAction(formData: FormData) {
     }
   }
 
+  if (allowPostAccess) {
+    const { data: request } = await admin
+      .from("purchase_requests")
+      .select("id, requested_post_id")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (!request?.requested_post_id) {
+      revalidatePath("/tg/admin/users");
+      return;
+    }
+  }
+
   await admin
     .from("purchase_requests")
     .update({
       status,
-      approved_for_club: allowClubAccess
+      approved_for_club: allowClubAccess,
+      approved_for_post: allowPostAccess
     })
     .eq("id", requestId);
 
@@ -995,7 +1170,7 @@ export async function redeemInviteAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirectToInviteError("РџСЂРѕРІРµСЂСЊС‚Рµ РїРѕР»СЏ С„РѕСЂРјС‹");
+    redirectToInviteError("Проверьте поля формы");
   }
 
   const inviteInput = parsed.data!;
@@ -1010,15 +1185,15 @@ export async function redeemInviteAction(formData: FormData) {
     .single();
 
   if (inviteError || !invite) {
-    redirectToInviteError("РџСЂРёРіР»Р°С€РµРЅРёРµ РЅРµ РЅР°Р№РґРµРЅРѕ, СѓР¶Рµ РёСЃРїРѕР»СЊР·РѕРІР°РЅРѕ РёР»Рё РѕС‚РєР»СЋС‡РµРЅРѕ", inviteInput.code);
+    redirectToInviteError("Приглашение не найдено, уже использовано или отключено", inviteInput.code);
   }
 
   if (invite.email && invite.email.toLowerCase() !== inviteInput.email) {
-    redirectToInviteError("Р­С‚Рѕ РїСЂРёРіР»Р°С€РµРЅРёРµ РїСЂРёРІСЏР·Р°РЅРѕ Рє РґСЂСѓРіРѕРјСѓ email", inviteInput.code);
+    redirectToInviteError("Это приглашение привязано к другому email", inviteInput.code);
   }
 
   if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-    redirectToInviteError("РЎСЂРѕРє РґРµР№СЃС‚РІРёСЏ РїСЂРёРіР»Р°С€РµРЅРёСЏ РёСЃС‚С‘Рє", inviteInput.code);
+    redirectToInviteError("Срок действия приглашения истёк", inviteInput.code);
   }
 
   const { data: existingUsers } = await admin.auth.admin.listUsers();
@@ -1027,7 +1202,7 @@ export async function redeemInviteAction(formData: FormData) {
   );
 
   if (existingUser) {
-    redirectToInviteError("РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃ С‚Р°РєРёРј email СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓРµС‚", inviteInput.code);
+    redirectToInviteError("Пользователь с таким email уже существует", inviteInput.code);
   }
 
   const createdUser = await admin.auth.admin.createUser({
@@ -1039,7 +1214,7 @@ export async function redeemInviteAction(formData: FormData) {
   const user = createdUser.data.user!;
 
   if (createdUser.error || !user) {
-    redirectToInviteError("РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ Р°РєРєР°СѓРЅС‚", inviteInput.code);
+    redirectToInviteError("Не удалось создать аккаунт", inviteInput.code);
   }
 
   const { error: profileError } = await admin.from("profiles").insert({
@@ -1058,7 +1233,7 @@ export async function redeemInviteAction(formData: FormData) {
       // no-op
     }
 
-    redirectToInviteError("РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РїСЂРѕС„РёР»СЊ", inviteInput.code);
+    redirectToInviteError("Не удалось создать профиль", inviteInput.code);
   }
 
   const usedAt = new Date().toISOString();
@@ -1083,7 +1258,7 @@ export async function redeemInviteAction(formData: FormData) {
       // Cleanup problems should not break the invite screen UX.
     }
 
-    redirectToInviteError("Р­С‚Рѕ РїСЂРёРіР»Р°С€РµРЅРёРµ СѓР¶Рµ РёСЃРїРѕР»СЊР·РѕРІР°РЅРѕ РёР»Рё РѕС‚РєР»СЋС‡РµРЅРѕ", inviteInput.code);
+    redirectToInviteError("Это приглашение уже использовано или отключено", inviteInput.code);
   }
 
   const supabase = await createServerSupabaseClient();
@@ -1144,7 +1319,7 @@ export async function updateProfileAction(formData: FormData) {
   }
 
   if (error) {
-    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РїСЂРѕС„РёР»СЊ: ${error?.message ?? "unknown error"}`);
+    throw new Error(`Не удалось обновить профиль: ${error?.message ?? "unknown error"}`);
   }
 
   if (telegramProfile) {
@@ -1188,8 +1363,11 @@ export async function createPostCommentAction(formData: FormData) {
     post.status === "published" &&
     new Date(post.publish_at) <= new Date() &&
     (!post.expires_at || new Date(post.expires_at) > new Date()) &&
-    hasClubAccess(profile) &&
-    canAccessTier(profile.tier, post.required_tier);
+    (await canInteractWithPostAccess({
+      profile,
+      postId: post.id,
+      requiredTier: post.required_tier as Tier
+    }));
 
   if (!postIsAvailable) {
     revalidatePostSpace(parsed.data.postSlug);
@@ -1265,8 +1443,11 @@ export async function togglePostReactionAction(formData: FormData) {
     post.status === "published" &&
     new Date(post.publish_at) <= new Date() &&
     (!post.expires_at || new Date(post.expires_at) > new Date()) &&
-    hasClubAccess(profile) &&
-    canAccessTier(profile.tier, post.required_tier);
+    (await canInteractWithPostAccess({
+      profile,
+      postId: post.id,
+      requiredTier: post.required_tier as Tier
+    }));
 
   if (!postIsAvailable) {
     revalidatePostSpace(parsed.data.postSlug);
@@ -1325,8 +1506,11 @@ export async function togglePostCommentReactionAction(formData: FormData) {
     post.status === "published" &&
     new Date(post.publish_at) <= new Date() &&
     (!post.expires_at || new Date(post.expires_at) > new Date()) &&
-    hasClubAccess(profile) &&
-    canAccessTier(profile.tier, post.required_tier as Tier);
+    (await canInteractWithPostAccess({
+      profile,
+      postId: comment.post_id,
+      requiredTier: post.required_tier as Tier
+    }));
 
   if (!commentIsAvailable) {
     revalidatePostSpace(parsed.data.postSlug);
@@ -1391,29 +1575,102 @@ export async function sendMemberChatMessageAction(formData: FormData) {
   const profile = await requireAnyProfile();
   const admin = createAdminSupabaseClient();
   const body = formValue(formData.get("body"));
+  const tier = formValue(formData.get("tier")) as Tier;
+  const postSlug = formValue(formData.get("postSlug"));
+  const postTitle = formValue(formData.get("postTitle"));
+  const postPrice = formValue(formData.get("postPrice"));
+  const createRequest = formValue(formData.get("createRequest")) === "1";
+  const mediaFile =
+    formData.get("media") instanceof File && (formData.get("media") as File).size > 0
+      ? (formData.get("media") as File)
+      : null;
 
   await cleanupOldChatMessages(admin);
 
-  if (!body) {
+  if (!body && !mediaFile) {
     revalidatePath("/profile");
     revalidatePath("/chat");
     revalidatePath("/tg/support");
     return;
   }
 
+  let mediaPath: string | null = null;
+  let mediaType: "image" | "video" | "file" | null = null;
+
+  if (mediaFile) {
+    if (!mediaFile.type.startsWith("image/")) {
+      redirect(`/tg/support?error=1${tier ? `&tier=${tier}` : ""}`);
+    }
+
+    const uploadedChatMedia = await uploadChatFile(mediaFile, profile.id);
+    mediaPath = uploadedChatMedia.storagePath;
+    mediaType = "image";
+  }
+
   await admin.from("member_chat_messages").insert({
     profile_id: profile.id,
     sender_role: "member",
-    body,
+    body: body || null,
+    media_path: mediaPath,
+    media_type: mediaType,
     read_by_admin_at: null,
     read_by_member_at: new Date().toISOString()
   });
+
+  if (createRequest && ["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier)) {
+    const requestedPostFields = await resolveRequestedPostFields(admin, postSlug);
+    const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: recentRequest } = await admin
+      .from("purchase_requests")
+      .select("id")
+      .eq("email", profile.email)
+      .gte("created_at", recentCutoff)
+      .limit(1)
+      .maybeSingle();
+
+    if (!recentRequest) {
+      const displayName =
+        profile.display_name ||
+        profile.telegram_first_name ||
+        profile.telegram_username ||
+        "Telegram user";
+      const telegramHandle = profile.telegram_username
+        ? `@${profile.telegram_username.replace(/^@/, "")}`
+        : "без username";
+      const telegramId = profile.telegram_id || "unknown";
+
+      const requestPayload = {
+        tier,
+        display_name: displayName,
+        email: profile.email,
+        country: "Telegram Mini App",
+        contact: `Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`,
+        ...requestedPostFields
+      };
+
+      const { error } = await admin.from("purchase_requests").insert(requestPayload);
+
+      if (error?.message.includes("display_name")) {
+        await admin.from("purchase_requests").insert({
+          tier,
+          email: profile.email,
+          country: "Telegram Mini App",
+          contact: `Имя: ${displayName}\nСвязь: Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`,
+          ...requestedPostFields
+        });
+      }
+    }
+  }
 
   revalidatePath("/profile");
   revalidatePath("/chat");
   revalidatePath("/tg/support");
   revalidatePath("/admin/users");
   revalidatePath("/admin/chat");
+
+  if (createRequest && ["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier)) {
+    redirect(`/tg/support?sent=1&tier=${tier}`);
+  }
 }
 
 export async function sendAdminChatMessageAction(formData: FormData) {
@@ -1440,7 +1697,7 @@ export async function sendAdminChatMessageAction(formData: FormData) {
 
   if (mediaFile) {
     if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("video/")) {
-      throw new Error("Р’ С‡Р°С‚ РјРѕР¶РЅРѕ Р·Р°РіСЂСѓР·РёС‚СЊ С‚РѕР»СЊРєРѕ С„РѕС‚Рѕ РёР»Рё РІРёРґРµРѕ.");
+      throw new Error("В чат можно загрузить только фото или видео.");
     }
 
     uploadedChatMedia = await uploadChatFile(mediaFile, profileId);
@@ -1809,17 +2066,17 @@ export async function checkStorageCleanupAction(
       status: "success",
       message:
         report.totalCount > 0
-          ? `РџСЂРѕРІРµСЂРєР° РІС‹РїРѕР»РЅРµРЅР°. РќР°Р№РґРµРЅРѕ ${report.totalCount} С„Р°Р№Р»РѕРІ. РњРѕР¶РЅРѕ РѕС‡РёСЃС‚РёС‚СЊ ${
+          ? `Проверка выполнена. Найдено ${report.totalCount} файлов. Можно очистить ${
               megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)
             } MB.`
-          : "РџСЂРѕРІРµСЂРєР° РІС‹РїРѕР»РЅРµРЅР°. Р›РёС€РЅРёС… С„Р°Р№Р»РѕРІ РЅРµ РЅР°Р№РґРµРЅРѕ.",
+          : "Проверка выполнена. Лишних файлов не найдено.",
       fileCount: report.totalCount,
       totalBytes: report.totalBytes
     };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕРІРµСЂРёС‚СЊ С…СЂР°РЅРёР»РёС‰Рµ.",
+      message: error instanceof Error ? error.message : "Не удалось проверить хранилище.",
       fileCount: 0,
       totalBytes: 0
     };
@@ -2071,7 +2328,7 @@ export async function updateUserDetailsAction(formData: FormData) {
   }
 
   if (safeResult.error) {
-    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ: ${safeResult.error.message}`);
+    throw new Error(`Не удалось обновить пользователя: ${safeResult.error.message}`);
   }
 
   revalidatePath("/admin/users");
@@ -2111,7 +2368,7 @@ export async function addUserDonationAction(formData: FormData) {
     .eq("id", userId);
 
   if (profileError) {
-    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ СЃСѓРјРјСѓ РґРѕРЅР°С‚РѕРІ: ${profileError.message}`);
+    throw new Error(`Не удалось обновить сумму донатов: ${profileError.message}`);
   }
 
   const { error: donationError } = await admin.from("donation_events").insert({
@@ -2123,7 +2380,7 @@ export async function addUserDonationAction(formData: FormData) {
   });
 
   if (donationError) {
-    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РґРѕРЅР°С‚: ${donationError.message}`);
+    throw new Error(`Не удалось сохранить донат: ${donationError.message}`);
   }
 
   revalidatePath("/admin/users");
@@ -2172,7 +2429,7 @@ export async function addUserDonationForMonthAction(formData: FormData) {
     .eq("id", userId);
 
   if (profileError) {
-    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ СЃСѓРјРјСѓ РґРѕРЅР°С‚РѕРІ: ${profileError.message}`);
+    throw new Error(`Не удалось обновить сумму донатов: ${profileError.message}`);
   }
 
   const donationMonth = monthIndex + 1;
@@ -2188,7 +2445,7 @@ export async function addUserDonationForMonthAction(formData: FormData) {
   });
 
   if (donationError) {
-    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РґРѕРЅР°С‚ Р·Р° РјРµСЃСЏС†: ${donationError.message}`);
+    throw new Error(`Не удалось сохранить донат за месяц: ${donationError.message}`);
   }
 
   revalidatePath("/admin/users");
@@ -2309,4 +2566,3 @@ export async function deleteUserAction(formData: FormData) {
   revalidatePath("/tg/admin/users");
   revalidatePath("/dashboard");
 }
-

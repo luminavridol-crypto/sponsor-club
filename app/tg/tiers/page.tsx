@@ -1,14 +1,24 @@
 export const dynamic = "force-dynamic";
 
-import { TierEditor } from "@/components/tiers/tier-editor";
 import { TierAccordionList } from "@/components/tiers/tier-accordion-list";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
+import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
 import { getTierLandingCards } from "@/lib/data/tier-landing";
 
 function readParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function parseTier(value: string | string[] | undefined) {
+  const normalized = readParam(value);
+
+  if (normalized === "tier_1" || normalized === "tier_2" || normalized === "tier_3" || normalized === "tier_4") {
+    return normalized;
+  }
+
+  return undefined;
 }
 
 export default async function TelegramTiersPage({
@@ -22,11 +32,16 @@ export default async function TelegramTiersPage({
   const saved = readParam(params.saved) === "1";
   const error = readParam(params.error) === "1";
   const savedTier = readParam(params.tier);
+  const openTier = parseTier(params.openTier);
+  const postSlug = readParam(params.postSlug);
+  const postTitle = readParam(params.postTitle);
+  const postPrice = readParam(params.postPrice);
+  const hasContentAccess = hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile));
   const tierCards = await getTierLandingCards();
   const savedLabel = tierCards.find((card) => card.tier === savedTier)?.label;
 
   return (
-    <MiniAppShell profile={profile} title="Закрытый клуб">
+    <MiniAppShell profile={profile} title="Добро пожаловать в закрытый клуб" hasAccess={hasContentAccess}>
       {saved ? (
         <section className="rounded-[28px] border border-emerald-400/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100 shadow-[0_18px_46px_rgba(0,0,0,0.18)]">
           {savedLabel ? `Тариф «${savedLabel}» сохранён.` : "Тариф сохранён."}
@@ -42,18 +57,26 @@ export default async function TelegramTiersPage({
       {!accessOpen ? (
         <section className="rounded-[28px] border border-white/12 bg-white/[0.04] px-5 py-5 text-white shadow-[0_18px_46px_rgba(0,0,0,0.22)]">
           <p className="text-[11px] uppercase tracking-[0.26em] text-white/45">Welcome</p>
-          <h2 className="mt-2 font-display text-[1.6rem] leading-none text-white sm:text-[2rem]">
-            Добро пожаловать в закрытый клуб
-          </h2>
           <p className="mt-3 max-w-[34rem] text-sm leading-6 text-white/72 sm:text-[0.96rem]">
             Выбери уровень доступа ниже. После подтверждения здесь откроются лента, профиль и весь закрытый контент клуба.
           </p>
         </section>
       ) : null}
 
-      {profile.role === "admin" ? <TierEditor cards={tierCards} /> : null}
-
-      <TierAccordionList cards={tierCards} />
+      <TierAccordionList
+        cards={tierCards}
+        isAdmin={profile.role === "admin"}
+        initialOpenTier={openTier}
+        paymentContext={
+          postSlug || postTitle || postPrice
+            ? {
+                postSlug: postSlug ?? undefined,
+                postTitle: postTitle ?? undefined,
+                postPrice: postPrice ?? undefined
+              }
+            : undefined
+        }
+      />
     </MiniAppShell>
   );
 }

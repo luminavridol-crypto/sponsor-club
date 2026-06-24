@@ -1,21 +1,99 @@
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 
-import Link from "next/link";
-import { createTelegramPurchaseRequestAction, sendMemberChatMessageAction } from "@/app/actions";
-import { MessageThread } from "@/components/chat/message-thread";
+import Image from "next/image";
+import { sendMemberChatMessageAction } from "@/app/actions";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
 import { getRecentChatMessages, getSignedChatMediaUrls, markChatReadByMember } from "@/lib/data/chat";
-import { getSignedAvatarUrls } from "@/lib/data/profiles";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { getSupportDetails } from "@/lib/telegram/env";
-import { Profile, Tier } from "@/lib/types";
-import { formatEuroAmount } from "@/lib/utils/money";
-import { normalizeProfileTier, TIER_LABELS } from "@/lib/utils/tier";
+import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
+import { getTelegramSupportSettings } from "@/lib/data/telegram-support";
 import { getTierLandingCards } from "@/lib/data/tier-landing";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { Tier } from "@/lib/types";
+import { formatEuroAmount } from "@/lib/utils/money";
 
-const tierOrder: Tier[] = ["tier_1", "tier_2", "tier_3", "tier_4"];
+const SUPPORT_THEME: Record<
+  Tier,
+  {
+    shell: string;
+    panel: string;
+    statusBadge: string;
+    tierCardIdle: string;
+    tierCardActive: string;
+    tierPriceActive: string;
+    section: string;
+    infoCard: string;
+    infoLabel: string;
+    accentText: string;
+    submitButton: string;
+  }
+> = {
+  tier_1: {
+    shell:
+      "bg-[radial-gradient(circle_at_top,rgba(146,163,191,0.14),transparent_22%),radial-gradient(circle_at_82%_12%,rgba(90,124,170,0.12),transparent_18%),linear-gradient(180deg,#12151d_0%,#0d1118_52%,#090c12_100%)]",
+    panel:
+      "border-slate-200/10 bg-[radial-gradient(circle_at_top,rgba(203,213,225,0.06),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))]",
+    statusBadge: "bg-slate-200/10 text-slate-100",
+    tierCardIdle: "bg-slate-400/[0.08] text-white/78 hover:bg-slate-300/[0.14] hover:text-white",
+    tierCardActive: "bg-[linear-gradient(180deg,#f8fafc,#dbe7f5)] text-slate-950 shadow-[0_12px_32px_rgba(163,191,223,0.18)]",
+    tierPriceActive: "text-slate-700",
+    section: "bg-slate-950/28 border border-slate-200/10",
+    infoCard: "border-slate-200/10 bg-slate-950/34",
+    infoLabel: "text-slate-200/52",
+    accentText: "text-slate-100",
+    submitButton: "bg-[linear-gradient(135deg,#f8fafc,#dbeafe)] text-slate-950 hover:opacity-95"
+  },
+  tier_2: {
+    shell:
+      "bg-[radial-gradient(circle_at_top,rgba(161,55,176,0.2),transparent_24%),radial-gradient(circle_at_82%_10%,rgba(111,64,192,0.16),transparent_18%),linear-gradient(180deg,#160d1d_0%,#100b18_52%,#0b0a12_100%)]",
+    panel:
+      "border-fuchsia-300/12 bg-[radial-gradient(circle_at_top,rgba(217,70,239,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))]",
+    statusBadge: "bg-fuchsia-400/14 text-fuchsia-100",
+    tierCardIdle: "bg-fuchsia-400/[0.08] text-white/78 hover:bg-fuchsia-300/[0.14] hover:text-white",
+    tierCardActive: "bg-[linear-gradient(135deg,#f5d0fe,#e879f9)] text-[#2d1236] shadow-[0_12px_32px_rgba(217,70,239,0.2)]",
+    tierPriceActive: "text-[#5b1d63]",
+    section: "bg-fuchsia-950/18 border border-fuchsia-300/12",
+    infoCard: "border-fuchsia-300/12 bg-black/22",
+    infoLabel: "text-fuchsia-100/58",
+    accentText: "text-fuchsia-100",
+    submitButton: "bg-[linear-gradient(135deg,#f0abfc,#d946ef)] text-white hover:opacity-95"
+  },
+  tier_3: {
+    shell:
+      "bg-[radial-gradient(circle_at_top,rgba(196,131,33,0.22),transparent_22%),radial-gradient(circle_at_78%_8%,rgba(184,91,17,0.14),transparent_18%),linear-gradient(180deg,#1a130d_0%,#130e0a_52%,#0c0a09_100%)]",
+    panel:
+      "border-amber-300/12 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))]",
+    statusBadge: "bg-amber-300/16 text-amber-50",
+    tierCardIdle: "bg-amber-300/[0.08] text-white/78 hover:bg-amber-200/[0.14] hover:text-white",
+    tierCardActive: "bg-[linear-gradient(135deg,#fde68a,#f59e0b)] text-[#3b2106] shadow-[0_12px_32px_rgba(245,158,11,0.18)]",
+    tierPriceActive: "text-[#6a3b08]",
+    section: "bg-amber-950/18 border border-amber-300/12",
+    infoCard: "border-amber-300/12 bg-black/22",
+    infoLabel: "text-amber-100/58",
+    accentText: "text-amber-100",
+    submitButton: "bg-[linear-gradient(135deg,#fde68a,#f59e0b)] text-[#3b2106] hover:opacity-95"
+  },
+  tier_4: {
+    shell:
+      "bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.28),transparent_18%),radial-gradient(circle_at_84%_12%,rgba(217,70,239,0.24),transparent_18%),radial-gradient(circle_at_18%_88%,rgba(76,29,149,0.24),transparent_20%),radial-gradient(circle_at_52%_38%,rgba(91,33,182,0.12),transparent_24%),linear-gradient(180deg,#09040f_0%,#05030a_48%,#020204_100%)]",
+    panel:
+      "border-fuchsia-400/16 bg-[radial-gradient(circle_at_top,rgba(192,132,252,0.1),transparent_22%),radial-gradient(circle_at_86%_16%,rgba(217,70,239,0.12),transparent_18%),linear-gradient(180deg,rgba(255,255,255,0.028),rgba(255,255,255,0.012))]",
+    statusBadge: "bg-fuchsia-400/16 text-fuchsia-50 shadow-[0_0_24px_rgba(192,38,211,0.18)]",
+    tierCardIdle: "bg-violet-400/[0.08] text-white/80 hover:bg-fuchsia-400/[0.14] hover:text-white",
+    tierCardActive: "bg-[linear-gradient(135deg,#f5d0fe,#c084fc_58%,#7c3aed)] text-white shadow-[0_14px_38px_rgba(168,85,247,0.34),0_0_24px_rgba(217,70,239,0.18)]",
+    tierPriceActive: "text-fuchsia-50/90",
+    section: "bg-[linear-gradient(180deg,rgba(37,11,61,0.46),rgba(10,6,18,0.78))] border border-fuchsia-400/14",
+    infoCard: "border-violet-300/14 bg-[linear-gradient(180deg,rgba(19,10,32,0.92),rgba(8,6,14,0.96))]",
+    infoLabel: "text-violet-100/60",
+    accentText: "text-fuchsia-50",
+    submitButton: "bg-[linear-gradient(135deg,#f0abfc,#a855f7_58%,#6d28d9)] text-white shadow-[0_12px_30px_rgba(168,85,247,0.28)] hover:opacity-95"
+  }
+};
+
+function readParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 function parseTier(value: string | string[] | undefined): Tier {
   const normalized = Array.isArray(value) ? value[0] : value;
@@ -24,38 +102,57 @@ function parseTier(value: string | string[] | undefined): Tier {
     : "tier_1";
 }
 
-function readParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
+function SupportMessages({
+  messages
+}: {
+  messages: Array<{
+    id: string;
+    sender_role: "admin" | "member";
+    body: string | null;
+    media_url?: string | null;
+    media_type: string | null;
+    created_at: string;
+  }>;
+}) {
+  if (!messages.length) {
+    return null;
+  }
 
-function getProfileLabel(profile: Pick<Profile, "display_name" | "nickname" | "telegram_username" | "email">) {
-  return profile.display_name || profile.nickname || profile.telegram_username || profile.email || "Участник";
-}
+  return (
+    <div className="space-y-2">
+      {messages.map((message) => {
+        const isAdmin = message.sender_role === "admin";
 
-function getTierWeight(tier: Tier) {
-  return tierOrder.indexOf(tier) + 1;
-}
-
-function formatCompactDate(value: string | null) {
-  if (!value) return "Без срока";
-
-  return new Date(value).toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit"
-  });
-}
-
-function sortMembers(users: Profile[]) {
-  return [...users].sort((a, b) => {
-    const tierDiff = getTierWeight(b.tier) - getTierWeight(a.tier);
-    if (tierDiff !== 0) return tierDiff;
-
-    const accessDiff = Number(b.access_status === "active") - Number(a.access_status === "active");
-    if (accessDiff !== 0) return accessDiff;
-
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+        return (
+          <div
+            key={message.id}
+            className={`rounded-[20px] px-4 py-3 ${
+              isAdmin ? "bg-white/[0.05] text-white/88" : "bg-white/[0.08] text-white"
+            }`}
+          >
+            {message.body ? <p className="whitespace-pre-wrap text-sm leading-6">{message.body}</p> : null}
+            {message.media_url ? (
+              <a
+                href={message.media_url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 block overflow-hidden rounded-[18px] border border-white/10 bg-black/20"
+              >
+                <Image
+                  src={message.media_url}
+                  width={1600}
+                  height={1200}
+                  unoptimized
+                  alt="Скрин оплаты"
+                  className="max-h-[360px] w-full object-contain"
+                />
+              </a>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default async function TelegramSupportPage({
@@ -69,137 +166,13 @@ export default async function TelegramSupportPage({
   const selectedTier = parseTier(params.tier);
   const sent = readParam(params.sent) === "1";
   const error = readParam(params.error) === "1";
+  const postSlug = readParam(params.postSlug);
   const postTitle = readParam(params.postTitle);
   const postPrice = readParam(params.postPrice);
-  const mode = readParam(params.mode);
-  const chatMode = mode === "chat";
-  const support = getSupportDetails();
+  const hasContentAccess = hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile));
 
-  if (profile.role === "admin") {
-    const { data: profilesData } = await admin
-      .from("profiles")
-      .select("id, display_name, nickname, email, role, tier, access_status, avatar_url, telegram_username, access_expires_at, created_at")
-      .neq("role", "admin")
-      .order("created_at", { ascending: false });
-
-    const members = sortMembers(
-      (((profilesData ?? []) as Profile[]) ?? []).map((user) => normalizeProfileTier(user))
-    );
-
-    const avatarMap = await getSignedAvatarUrls(
-      members.map((user) => user.avatar_url).filter((value): value is string => Boolean(value))
-    );
-
-    const membersWithAvatars = members.map((user) => ({
-      ...user,
-      avatar_url: user.avatar_url ? avatarMap[user.avatar_url] ?? user.avatar_url : null
-    }));
-
-    const totalCount = membersWithAvatars.length;
-    const activeCount = membersWithAvatars.filter((user) => user.access_status === "active").length;
-    const tierCounts = {
-      tier_2: membersWithAvatars.filter((user) => user.tier === "tier_2").length,
-      tier_3: membersWithAvatars.filter((user) => user.tier === "tier_3").length,
-      tier_4: membersWithAvatars.filter((user) => user.tier === "tier_4").length
-    };
-
-    return (
-      <MiniAppShell profile={profile} title="Пользователи">
-        <section className="rounded-[28px] border border-white/12 bg-white/[0.04] px-5 py-5 text-white shadow-[0_18px_46px_rgba(0,0,0,0.22)]">
-          <p className="text-[11px] uppercase tracking-[0.26em] text-white/45">Admin</p>
-          <h2 className="mt-2 font-display text-[1.6rem] leading-none text-white sm:text-[2rem]">
-            Список участников
-          </h2>
-          <p className="mt-3 max-w-[34rem] text-sm leading-6 text-white/72 sm:text-[0.96rem]">
-            Здесь видны все участники клуба. Нажми на человека, чтобы открыть чат в админке.
-          </p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-[18px] border border-white/10 bg-black/12 px-3 py-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">Всего</p>
-              <p className="mt-1 text-xl font-semibold text-white">{totalCount}</p>
-            </div>
-            <div className="rounded-[18px] border border-white/10 bg-black/12 px-3 py-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">Активные</p>
-              <p className="mt-1 text-xl font-semibold text-white">{activeCount}</p>
-            </div>
-            <div className="rounded-[18px] border border-white/10 bg-black/12 px-3 py-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">VIP</p>
-              <p className="mt-1 text-xl font-semibold text-white">{tierCounts.tier_3}</p>
-            </div>
-            <div className="rounded-[18px] border border-white/10 bg-black/12 px-3 py-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">After Dark</p>
-              <p className="mt-1 text-xl font-semibold text-white">{tierCounts.tier_4}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-[28px] border border-white/12 bg-white/[0.03] p-4 shadow-[0_18px_46px_rgba(0,0,0,0.16)]">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Участники</p>
-              <h3 className="mt-1 font-display text-[1.2rem] leading-none text-white">Кто сейчас в клубе</h3>
-            </div>
-            <Link
-              href="/tg/admin/users"
-              className="shrink-0 rounded-2xl border border-white/12 bg-white/[0.05] px-3 py-2 text-xs font-medium text-white/82 transition hover:border-white/20 hover:bg-white/[0.08]"
-            >
-              Полный чат
-            </Link>
-          </div>
-
-          <div className="mt-4 max-h-[58vh] space-y-2 overflow-y-auto pr-1">
-            {membersWithAvatars.length ? (
-              membersWithAvatars.map((member) => (
-                <Link
-                  key={member.id}
-                  href={`/tg/admin/users?chat=${member.id}`}
-                  className="flex items-center gap-3 rounded-[18px] border border-white/10 bg-black/12 px-3 py-3 transition hover:border-white/18 hover:bg-white/[0.05]"
-                >
-                  {member.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={member.avatar_url}
-                      alt={getProfileLabel(member)}
-                      className="h-10 w-10 shrink-0 rounded-full border border-white/10 object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-semibold text-white">
-                      {getProfileLabel(member).slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-medium text-white">{getProfileLabel(member)}</p>
-                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-white/55">
-                        {TIER_LABELS[member.tier]}
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-xs text-white/45">
-                      {member.telegram_username || member.email || "Без Telegram"}
-                    </p>
-                  </div>
-
-                  <div className="shrink-0 text-right">
-                    <p className="text-xs font-medium text-white/90">
-                      {member.access_status === "active" ? "Активен" : "Отключён"}
-                    </p>
-                    <p className="mt-1 text-[11px] text-white/42">До {formatCompactDate(member.access_expires_at)}</p>
-                  </div>
-                </Link>
-              ))
-            ) : (
-              <div className="rounded-[18px] border border-dashed border-white/10 px-3 py-4 text-sm text-white/45">
-                Пока участников нет.
-              </div>
-            )}
-          </div>
-        </section>
-      </MiniAppShell>
-    );
-  }
-
-  const [messages, , tierCards] = await Promise.all([
+  const [support, messages, , tierCards] = await Promise.all([
+    getTelegramSupportSettings(),
     getRecentChatMessages(admin, profile.id),
     markChatReadByMember(admin, profile.id),
     getTierLandingCards().catch(() => [])
@@ -214,134 +187,132 @@ export default async function TelegramSupportPage({
     media_url: message.media_path ? mediaMap[message.media_path] ?? null : null
   }));
 
-  const profileName =
-    profile.display_name || profile.telegram_first_name || profile.telegram_username || "Вы";
-
   const tier = tierCards.find((card) => card.tier === selectedTier) ?? tierCards[0];
+  const priceLabel = postPrice ? formatEuroAmount(postPrice) ?? postPrice : tier?.price ?? "";
+  const theme = SUPPORT_THEME[selectedTier];
 
-  const paymentSection = (
-    <>
-      {!hasClubAccess(profile) ? (
-        <section className="rounded-[28px] border border-white/12 bg-white/[0.04] px-5 py-5 text-white shadow-[0_18px_46px_rgba(0,0,0,0.22)]">
-          <p className="text-[11px] uppercase tracking-[0.26em] text-white/45">Private access</p>
-          <h2 className="mt-2 font-display text-[1.6rem] leading-none text-white sm:text-[2rem]">
-            Оплата и чат со мной
-          </h2>
-          <p className="mt-3 max-w-[34rem] text-sm leading-6 text-white/72 sm:text-[0.96rem]">
-            Здесь можно открыть оплату по выбранному уровню и сразу написать мне внутри приложения, если Telegram-личка закрыта.
-          </p>
-        </section>
-      ) : null}
-
+  return (
+    <MiniAppShell
+      profile={profile}
+      title="Оплата"
+      showHeaderActions={false}
+      hasAccess={hasContentAccess}
+      shellClassName={theme.shell}
+    >
       {sent ? (
-        <section className="rounded-[28px] border border-emerald-400/25 bg-emerald-400/10 p-4 text-sm text-emerald-100 shadow-glow">
-          Заявка по оплате отправлена. Напиши в чат ниже, если хочешь сразу уточнить детали.
+        <section className="rounded-[24px] bg-emerald-400/12 px-4 py-4 text-emerald-50">
+          <p className="text-sm font-medium">Спасибо за поддержку 💜</p>
+          <p className="mt-1 text-sm text-emerald-100/80">Я проверю оплату и открою доступ вручную.</p>
         </section>
       ) : null}
 
       {error ? (
-        <section className="rounded-[28px] border border-rose-400/25 bg-rose-400/10 p-4 text-sm text-rose-100 shadow-glow">
-          Не удалось отправить заявку. Попробуй ещё раз или напиши в чат ниже.
+        <section className="rounded-[24px] bg-rose-400/12 px-4 py-4 text-sm text-rose-100">
+          Не удалось отправить заявку. Попробуй ещё раз.
         </section>
       ) : null}
 
-      <section className={`rounded-[28px] border px-5 py-5 text-white shadow-[0_18px_46px_rgba(0,0,0,0.22)] ${tier.accentClass}`}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-white/45">Выбранный уровень</p>
-            <h2 className="mt-2 font-display text-[1.6rem] leading-none text-white sm:text-[2rem]">{tier.label}</h2>
-            <p className="mt-3 text-sm leading-6 text-white/72">{tier.teaser}</p>
+      <section className={`rounded-[28px] border px-5 py-5 text-white ${theme.panel}`}>
+        <div className="space-y-3">
+          <div className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${theme.statusBadge}`}>
+            Тариф отключён
           </div>
-          <div className="shrink-0 rounded-[22px] border border-white/12 bg-black/20 px-4 py-3 text-center">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">Стоимость</p>
-            <p className="mt-2 font-display text-[1.4rem] leading-none text-white">{tier.price}</p>
-          </div>
+          <p className="max-w-[34rem] text-sm leading-6 text-white/72">
+            Выбери тариф, оплати доступ и отправь скрин оплаты. После проверки я открою доступ вручную.
+          </p>
         </div>
 
-        {postTitle ? (
-          <div className="mt-4 rounded-[22px] border border-white/10 bg-black/12 px-4 py-3 text-sm text-white/72">
-            Оплата для поста: <span className="font-medium text-white">{postTitle}</span>
-          </div>
-        ) : null}
+        <div className="mt-6 space-y-4">
+          <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
+            <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Тариф</p>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {tierCards.map((card) => {
+                const active = card.tier === selectedTier;
 
-        {postPrice ? (
-          <div className="mt-3 rounded-[22px] border border-fuchsia-300/15 bg-fuchsia-400/10 px-4 py-3 text-sm text-fuchsia-50">
-            Цена поста: <span className="font-medium text-white">{formatEuroAmount(postPrice) ?? postPrice}</span>
-          </div>
-        ) : null}
+                return (
+                  <form key={card.tier} method="get" action="/tg/support">
+                    <input type="hidden" name="tier" value={card.tier} />
+                    {postSlug ? <input type="hidden" name="postSlug" value={postSlug} /> : null}
+                    {postTitle ? <input type="hidden" name="postTitle" value={postTitle} /> : null}
+                    {postPrice ? <input type="hidden" name="postPrice" value={postPrice} /> : null}
+                    <button
+                      type="submit"
+                      className={`w-full rounded-[16px] px-3 py-3 text-left text-sm transition ${
+                        active
+                          ? theme.tierCardActive
+                          : theme.tierCardIdle
+                      }`}
+                    >
+                      <span className="block font-medium">{card.label}</span>
+                      <span className={`mt-1 block text-xs ${active ? theme.tierPriceActive : theme.infoLabel}`}>
+                        {card.price}
+                      </span>
+                    </button>
+                  </form>
+                );
+              })}
+            </div>
 
-        <div className="mt-5 rounded-[24px] border border-white/10 bg-black/15 p-4">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-white/45">Оплата</p>
-          {support.cardNumber ? (
-            <>
-              <p className="mt-3 text-sm text-white/68">{support.cardLabel}</p>
-              <p className="mt-1 break-all font-mono text-lg text-white">{support.cardNumber}</p>
-            </>
-          ) : (
-            <p className="mt-3 text-sm leading-6 text-white/72">
-              Реквизиты для оплаты пришлю в этом чате внутри приложения.
-            </p>
-          )}
-          <p className="mt-3 text-sm leading-6 text-white/65">{support.note}</p>
+            <h2 className={`mt-4 font-display text-[1.5rem] leading-none ${theme.accentText}`}>{tier?.label ?? "Тариф"}</h2>
+            <p className={`mt-3 text-lg font-medium ${theme.accentText}`}>{priceLabel}</p>
+            {tier?.teaser ? <p className="mt-2 text-sm text-white/60">{tier.teaser}</p> : null}
+            {postTitle ? (
+              <p className="mt-2 text-sm text-white/60">
+                Пост: <span className="text-white/85">{postTitle}</span>
+              </p>
+            ) : null}
+          </section>
+
+          <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
+            <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Реквизиты</p>
+            <div className={`mt-3 min-h-[88px] rounded-[18px] px-4 py-3 ${theme.infoCard}`}>
+              <div className="space-y-3">
+                {support.methods.map((method) => (
+                  <div key={method.id} className={`rounded-[16px] border px-3 py-3 ${theme.infoCard}`}>
+                    <p className={`text-sm ${theme.infoLabel}`}>{method.label}</p>
+                    {method.value ? <p className={`mt-1 break-all font-mono text-base ${theme.accentText}`}>{method.value}</p> : null}
+                    {method.note ? <p className={`mt-2 text-sm leading-6 ${theme.infoLabel}`}>{method.note}</p> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
+            <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Чат</p>
+
+            <div className="mt-3">
+              <SupportMessages messages={threadMessages} />
+            </div>
+
+            <form action={sendMemberChatMessageAction} className="mt-3 space-y-3">
+              <input type="hidden" name="tier" value={selectedTier} />
+              <input type="hidden" name="createRequest" value="1" />
+              {postSlug ? <input type="hidden" name="postSlug" value={postSlug} /> : null}
+              {postTitle ? <input type="hidden" name="postTitle" value={postTitle} /> : null}
+              {postPrice ? <input type="hidden" name="postPrice" value={postPrice} /> : null}
+
+              <textarea
+                name="body"
+                rows={3}
+                placeholder="Короткое сообщение"
+                className={`w-full rounded-[20px] border-0 px-4 py-3 text-sm text-white outline-none placeholder:text-white/28 ${theme.infoCard}`}
+              />
+
+              <div className={`rounded-[20px] p-3 ${theme.infoCard}`}>
+                <label className={`flex cursor-pointer items-center justify-center rounded-[16px] border border-dashed px-4 py-3 text-sm transition ${theme.infoLabel} hover:border-white/22 hover:text-white`}>
+                  <input type="file" name="media" accept="image/*" className="hidden" />
+                  Прикрепить скрин оплаты
+                </label>
+              </div>
+
+              <button className={`flex w-full items-center justify-center rounded-[20px] px-4 py-3 text-sm font-semibold transition ${theme.submitButton}`}>
+                Отправить заявку
+              </button>
+            </form>
+          </section>
         </div>
-
-        <form action={createTelegramPurchaseRequestAction} className="mt-5">
-          <input type="hidden" name="tier" value={selectedTier} />
-          {postTitle ? <input type="hidden" name="postTitle" value={postTitle} /> : null}
-          {postPrice ? <input type="hidden" name="postPrice" value={postPrice} /> : null}
-          <button className="flex w-full items-center justify-center rounded-[20px] border border-white/16 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/28 hover:bg-white/14">
-            Я оплатила, отправить заявку
-          </button>
-        </form>
       </section>
-    </>
-  );
-
-  const chatSection = (
-    <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 shadow-[0_18px_46px_rgba(0,0,0,0.18)]">
-      <div className="mb-4">
-        <p className="text-[11px] uppercase tracking-[0.24em] text-white/45">Чат</p>
-        <h2 className="mt-2 font-display text-[1.35rem] leading-none text-white">Связь внутри приложения</h2>
-        <p className="mt-3 text-sm leading-6 text-white/68">
-          Если закрыты личные сообщения в Telegram, просто напиши сюда. Я увижу сообщение в админке клуба.
-        </p>
-      </div>
-
-      <MessageThread
-        messages={threadMessages}
-        memberLabel={profileName}
-        adminLabel="Lumina"
-        emptyLabel="Пока переписки нет. Напиши первое сообщение ниже."
-        refreshIntervalMs={8000}
-      />
-
-      <form action={sendMemberChatMessageAction} className="mt-4 space-y-3">
-        <textarea
-          name="body"
-          rows={4}
-          placeholder="Например: хочу оплатить VIP, подскажи реквизиты или подтверди перевод."
-          className="min-h-[120px] w-full rounded-[24px] border border-white/10 bg-black/15 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/28 focus:border-white/20 focus:bg-black/20"
-        />
-        <button className="flex w-full items-center justify-center rounded-[20px] border border-white/16 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/28 hover:bg-white/14">
-          Отправить сообщение
-        </button>
-      </form>
-    </section>
-  );
-
-  return (
-    <MiniAppShell profile={profile} title={chatMode ? "Чат" : "Оплата"}>
-      {chatMode ? (
-        <>
-          {chatSection}
-          <div className="pt-1">{paymentSection}</div>
-        </>
-      ) : (
-        <>
-          {paymentSection}
-          {chatSection}
-        </>
-      )}
     </MiniAppShell>
   );
 }

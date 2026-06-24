@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { hasClubAccess } from "@/lib/auth/access";
+import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
 import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
 
 export async function GET() {
   const profile = await getTelegramProfileFromSession();
+  const hasPostOnlyAccess = profile ? await hasApprovedPurchasedPosts(profile) : false;
 
   return NextResponse.json(
     {
@@ -23,7 +25,7 @@ export async function GET() {
       nextPath: profile
         ? profile.role === "admin"
           ? "/tg/admin/posts"
-          : hasClubAccess(profile)
+          : hasClubAccess(profile) || hasPostOnlyAccess
             ? "/tg/content"
             : "/tg/support"
         : "/tg"
