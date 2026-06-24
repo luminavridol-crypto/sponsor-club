@@ -44,6 +44,7 @@ export function MiniAppNav({
 
   const items: NavItem[] = admin
     ? [
+        { href: "/tg/content", label: "Лента", shortLabel: "Лента" },
         { href: "/tg/admin/calendar", label: "Календарь", shortLabel: "Календ." },
         { href: "/tg/admin/posts", label: "Посты", shortLabel: "Посты" },
         { href: "/tg/admin/users", label: "Люди", shortLabel: "Люди" },
