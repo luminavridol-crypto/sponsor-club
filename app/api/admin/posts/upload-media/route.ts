@@ -7,6 +7,7 @@ import {
   getMimeTypeFromFileName,
   getSafeFileExtension
 } from "@/lib/security/file-uploads";
+import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
 import {
   createR2SignedUploadUrl,
   toR2StoragePath,
@@ -29,6 +30,7 @@ function buildKey(kind: string, extension: string) {
 
 export async function POST(request: Request) {
   try {
+    await assertSameOriginRequest();
     const profile = await requireActiveAdminSession();
 
     if (!profile) {
@@ -142,6 +144,10 @@ export async function POST(request: Request) {
       media_type: mediaType
     });
   } catch (error) {
+    if (isInvalidRequestOriginError(error)) {
+      return NextResponse.json({ error: "Недопустимый источник запроса." }, { status: 403 });
+    }
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Ошибка загрузки файла."

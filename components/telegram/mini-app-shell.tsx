@@ -13,7 +13,9 @@ export function MiniAppShell({
   children,
   shellClassName,
   headerClassName,
-  eyebrowClassName
+  eyebrowClassName,
+  showHeaderActions = true,
+  hasAccess
 }: {
   profile: Profile;
   title: string;
@@ -21,29 +23,35 @@ export function MiniAppShell({
   shellClassName?: string;
   headerClassName?: string;
   eyebrowClassName?: string;
+  showHeaderActions?: boolean;
+  hasAccess?: boolean;
 }) {
   return (
-    <div className={`min-h-screen bg-[linear-gradient(180deg,#17151d_0%,#111119_42%,#0c0d13_100%)] pb-28 text-white ${shellClassName ?? ""}`}>
+    <div
+      className={`min-h-screen bg-[linear-gradient(180deg,#17151d_0%,#111119_42%,#0c0d13_100%)] text-white lg:pl-[108px] ${shellClassName ?? ""}`}
+    >
       <TelegramMiniAppBridge />
-      <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 pb-6 pt-3">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-6 pt-16 sm:px-4 sm:pt-3">
         <header
           className={`rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(34,31,44,0.96),rgba(24,22,32,0.94))] px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.16)] backdrop-blur-md ${headerClassName ?? ""}`}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className={`text-[10px] uppercase tracking-[0.2em] text-white/55 ${eyebrowClassName ?? ""}`}>Lumina Club</p>
-              <h1 className="font-display mt-1.5 text-[1.7rem] font-semibold leading-none text-white sm:text-[1.9rem]">
+              <h1 className="mt-1.5 font-display text-[1.7rem] font-semibold leading-none text-white sm:text-[1.9rem]">
                 {title}
               </h1>
             </div>
-            <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-              <ClearAppCacheButton />
-              <form action={signOutTelegramAction}>
-                <button className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70 transition hover:border-white/16 hover:text-white">
-                  Выйти
-                </button>
-              </form>
-            </div>
+            {showHeaderActions ? (
+              <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+                <ClearAppCacheButton />
+                <form action={signOutTelegramAction}>
+                  <button className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70 transition hover:border-white/16 hover:text-white">
+                    Выйти
+                  </button>
+                </form>
+              </div>
+            ) : null}
           </div>
         </header>
 
@@ -53,7 +61,7 @@ export function MiniAppShell({
         </main>
       </div>
 
-      <MiniAppNav admin={profile.role === "admin"} hasAccess={hasClubAccess(profile)} />
+      <MiniAppNav admin={profile.role === "admin"} hasAccess={hasAccess ?? hasClubAccess(profile)} />
     </div>
   );
 }

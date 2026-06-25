@@ -5,6 +5,7 @@ import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
 import { getPostEmailRecipients } from "@/lib/email/recipients";
 import { sendEmailCampaign } from "@/lib/email/service";
 import { assertUploadFile, getSafeFileExtension, getUploadMediaType } from "@/lib/security/file-uploads";
+import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
 import { R2_PROVIDER, toR2ObjectKey, uploadMediaToR2 } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { notifyTelegramUsersAboutNewPost } from "@/lib/telegram/notifications";
@@ -44,6 +45,24 @@ function humanizeStorageError(message: string) {
   return message;
 }
 
+function isMissingPostSalesColumn(message: string) {
+  const normalizedMessage = message.toLowerCase();
+  const mentionsSalesField =
+    normalizedMessage.includes("is_sellable") || normalizedMessage.includes("sale_price");
+
+  return (
+    mentionsSalesField &&
+    (normalizedMessage.includes("posts") ||
+      normalizedMessage.includes("post") ||
+      normalizedMessage.includes("column") ||
+      normalizedMessage.includes("schema cache"))
+  );
+}
+
+function postSalesSchemaError() {
+  return "В базе Supabase ещё не включена продажа постов. Примените миграцию `supabase/migrations/025_add_post_sales_fields.sql`.";
+}
+
 type EmailCampaignResultPayload = {
   enabled: boolean;
   sentCount: number;
@@ -72,6 +91,7 @@ async function uploadPostMedia(file: File, folder: string) {
 
 export async function POST(request: Request) {
   try {
+    await assertSameOriginRequest();
     const profile = await requireActiveAdminSession();
 
     if (!profile) {
@@ -102,6 +122,8 @@ export async function POST(request: Request) {
     const emailBody = formValue(formData.get("emailBody"));
     const status = formValue(formData.get("status")) as PostStatus;
     const requiredTier = formValue(formData.get("requiredTier")) as Tier;
+    const postType = formValue(formData.get("postType")) as PostType;
+    const body = formValue(formData.get("body")) || null;
 
     const slug = buildContentSlug(title);
     const thumbnailFile = formData.get("thumbnail");
@@ -128,6 +150,16 @@ export async function POST(request: Request) {
     let thumbnailObjectKey = uploadedThumbnailObjectKey;
     let thumbnailMimeType = uploadedThumbnailMimeType;
     let thumbnailSizeBytes = uploadedThumbnailSizeBytes;
+    const isSellable = formValue(formData.get("isSellable")) === "on";
+    const salePrice = isSellable ? Number(formValue(formData.get("salePrice"))) || 0 : 0;
+
+    if (isSellable && salePrice <= 0) {
+      return NextResponse.json({ error: "Укажи цену для платного поста." }, { status: 400 });
+    }
+
+    if (postType === "text" && !body) {
+      return NextResponse.json({ error: "Добавь текст публикации, чтобы создать текстовый пост." }, { status: 400 });
+    }
 
     if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
       const uploaded = await uploadFile(thumbnailFile, "thumbnails");
@@ -139,29 +171,44 @@ export async function POST(request: Request) {
       thumbnailSizeBytes = uploaded.sizeBytes;
     }
 
-    const { data: post, error } = await admin
-      .from("posts")
-      .insert({
-        title,
-        slug,
-        description: formValue(formData.get("description")) || null,
-        body: formValue(formData.get("body")) || null,
-        post_type: formValue(formData.get("postType")) as PostType,
-        required_tier: requiredTier,
-        status,
-        publish_at: publishAt,
-        retention_days: retentionDays || null,
-        expires_at: expiresAt,
-        thumbnail_path: thumbnailPath,
-        thumbnail_provider: thumbnailProvider || (thumbnailPath ? R2_PROVIDER : null),
-        thumbnail_bucket: thumbnailBucket,
-        thumbnail_object_key: thumbnailObjectKey || (thumbnailPath ? toR2ObjectKey(thumbnailPath) : null),
-        thumbnail_mime_type: thumbnailMimeType,
-        thumbnail_size_bytes: thumbnailSizeBytes,
-        author_id: profile.id
-      })
-      .select("id")
-      .single();
+    const postPayload = {
+      title,
+      slug,
+      description: formValue(formData.get("description")) || null,
+      body,
+      post_type: postType,
+      required_tier: requiredTier,
+      status,
+      publish_at: publishAt,
+      retention_days: retentionDays || null,
+      expires_at: expiresAt,
+      thumbnail_path: thumbnailPath,
+      thumbnail_provider: thumbnailProvider || (thumbnailPath ? R2_PROVIDER : null),
+      thumbnail_bucket: thumbnailBucket,
+      thumbnail_object_key: thumbnailObjectKey || (thumbnailPath ? toR2ObjectKey(thumbnailPath) : null),
+      thumbnail_mime_type: thumbnailMimeType,
+      thumbnail_size_bytes: thumbnailSizeBytes,
+      is_sellable: isSellable,
+      sale_price: isSellable ? Number(salePrice.toFixed(2)) : null,
+      author_id: profile.id
+    };
+
+    const insertPost = async (payload: Record<string, unknown>) =>
+      admin.from("posts").insert(payload).select("id").single();
+
+    let { data: post, error } = await insertPost(postPayload);
+
+    if (error?.message && isMissingPostSalesColumn(error.message)) {
+      if (isSellable) {
+        await cleanupOrphanedStorage(admin);
+        return NextResponse.json({ error: postSalesSchemaError() }, { status: 400 });
+      }
+
+      const legacyPostPayload = { ...postPayload } as Record<string, unknown>;
+      delete legacyPostPayload.is_sellable;
+      delete legacyPostPayload.sale_price;
+      ({ data: post, error } = await insertPost(legacyPostPayload));
+    }
 
     if (error || !post) {
       await cleanupOrphanedStorage(admin);
@@ -287,6 +334,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, emailCampaign, telegramCampaign });
   } catch (error) {
+    if (isInvalidRequestOriginError(error)) {
+      return NextResponse.json({ error: "Недопустимый источник запроса." }, { status: 403 });
+    }
+
     return NextResponse.json(
       {
         error: error instanceof Error ? humanizeStorageError(error.message) : "Ошибка загрузки."

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { hasClubAccess } from "@/lib/auth/access";
 import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
 
 export async function GET() {
@@ -23,9 +22,7 @@ export async function GET() {
       nextPath: profile
         ? profile.role === "admin"
           ? "/tg/admin/posts"
-          : hasClubAccess(profile)
-            ? "/tg/content"
-            : "/tg/support"
+          : "/tg/content"
         : "/tg"
     },
     {

@@ -1,8 +1,24 @@
 import { unstable_cache, unstable_noStore as noStore } from "next/cache";
+import { hasClubAccess } from "@/lib/auth/access";
+import { getApprovedPurchasedPostIds } from "@/lib/data/post-purchases";
 import { getMediaUrl, isR2StoragePath } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { FeedPost, PostWithMedia, Tier } from "@/lib/types";
+import { FeedPost, PostWithMedia, Profile, Tier } from "@/lib/types";
 import { canAccessTier } from "@/lib/utils/tier";
+
+function isMissingPostSalesColumn(message: string) {
+  const normalizedMessage = message.toLowerCase();
+  const mentionsSalesField =
+    normalizedMessage.includes("is_sellable") || normalizedMessage.includes("sale_price");
+
+  return (
+    mentionsSalesField &&
+    (normalizedMessage.includes("posts") ||
+      normalizedMessage.includes("post") ||
+      normalizedMessage.includes("column") ||
+      normalizedMessage.includes("schema cache"))
+  );
+}
 
 async function getPublishedPosts() {
   const admin = createAdminSupabaseClient();
@@ -19,14 +35,30 @@ async function getPublishedPosts() {
 
 async function getPublishedFeedPosts() {
   const admin = createAdminSupabaseClient();
-  const { data } = await admin
+  const selectWithSales =
+    "id, slug, title, description, post_type, required_tier, is_sellable, sale_price, publish_at, expires_at, thumbnail_path, post_media(id)";
+  const selectWithoutSales =
+    "id, slug, title, description, post_type, required_tier, publish_at, expires_at, thumbnail_path, post_media(id)";
+
+  const { data, error } = await admin
     .from("posts")
-    .select("id, slug, title, description, post_type, required_tier, publish_at, expires_at, thumbnail_path, post_media(id)")
+    .select(selectWithSales)
     .eq("status", "published")
     .lte("publish_at", new Date().toISOString())
     .order("publish_at", { ascending: false });
 
-  const posts = (data ?? []) as Array<FeedPost & { expires_at?: string | null }>;
+  const posts = data
+    ? (data as Array<FeedPost & { expires_at?: string | null }>)
+    : error?.message && isMissingPostSalesColumn(error.message)
+      ? ((await admin
+          .from("posts")
+          .select(selectWithoutSales)
+          .eq("status", "published")
+          .lte("publish_at", new Date().toISOString())
+          .order("publish_at", { ascending: false })).data ?? []) as Array<
+          FeedPost & { expires_at?: string | null }
+        >
+      : [];
   return posts.filter((post) => !(post.expires_at && new Date(post.expires_at) <= new Date()));
 }
 
@@ -43,6 +75,46 @@ export async function getFeedPostsForTier(tier: Tier) {
   return posts.map((post) => ({
     ...post,
     is_locked: !canAccessTier(tier, post.required_tier)
+  }));
+}
+
+export async function getTeaserFeedPosts() {
+  noStore();
+  const posts = await getPublishedFeedPosts();
+
+  return posts.map((post) => ({
+    ...post,
+    is_locked: true
+  }));
+}
+
+export async function getFeedPostsForProfile(
+  profile: Pick<Profile, "role" | "tier" | "email" | "access_status" | "access_expires_at">
+) {
+  noStore();
+
+  if (profile.role === "admin") {
+    return getFeedPostsForTier("tier_4");
+  }
+
+  const grantedPostIds = await getApprovedPurchasedPostIds(profile as Pick<Profile, "email">);
+  const grantedPostIdSet = new Set(grantedPostIds);
+  const posts = await getPublishedFeedPosts();
+
+  if (hasClubAccess(profile as Profile)) {
+    return posts.map((post) => ({
+      ...post,
+      is_locked: !canAccessTier(profile.tier, post.required_tier) && !grantedPostIdSet.has(post.id)
+    }));
+  }
+
+  if (!grantedPostIds.length) {
+    return [];
+  }
+
+  return posts.map((post) => ({
+    ...post,
+    is_locked: !grantedPostIdSet.has(post.id)
   }));
 }
 
@@ -84,6 +156,75 @@ export async function getPostBySlugForViewer(slug: string, tier: Tier) {
   return {
     ...post,
     is_locked: !canAccessTier(tier, post.required_tier)
+  };
+}
+
+export async function getPostBySlugForTeaser(slug: string) {
+  noStore();
+  const admin = createAdminSupabaseClient();
+  const normalizedSlug = decodeURIComponent(slug);
+  const { data } = await admin
+    .from("posts")
+    .select("*, post_media(*)")
+    .eq("slug", normalizedSlug)
+    .single();
+
+  const post = data as PostWithMedia | null;
+  if (!post) return null;
+  if (post.status !== "published") return null;
+  if (new Date(post.publish_at) > new Date()) return null;
+  if (post.expires_at && new Date(post.expires_at) <= new Date()) return null;
+
+  return {
+    ...post,
+    is_locked: true
+  };
+}
+
+export async function getPostBySlugForProfile(
+  slug: string,
+  profile: Pick<Profile, "role" | "tier" | "email" | "access_status" | "access_expires_at">
+) {
+  noStore();
+  const admin = createAdminSupabaseClient();
+  const normalizedSlug = decodeURIComponent(slug);
+  const { data } = await admin
+    .from("posts")
+    .select("*, post_media(*)")
+    .eq("slug", normalizedSlug)
+    .single();
+
+  const post = data as PostWithMedia | null;
+  if (!post) return null;
+  if (post.status !== "published") return null;
+  if (new Date(post.publish_at) > new Date()) return null;
+  if (post.expires_at && new Date(post.expires_at) <= new Date()) return null;
+
+  if (profile.role === "admin") {
+    return {
+      ...post,
+      is_locked: false
+    };
+  }
+
+  if (hasClubAccess(profile as Profile)) {
+    const grantedPostIds = await getApprovedPurchasedPostIds(profile as Pick<Profile, "email">);
+
+    return {
+      ...post,
+      is_locked: !canAccessTier(profile.tier, post.required_tier) && !grantedPostIds.includes(post.id)
+    };
+  }
+
+  const grantedPostIds = await getApprovedPurchasedPostIds(profile as Pick<Profile, "email">);
+
+  if (!grantedPostIds.includes(post.id)) {
+    return null;
+  }
+
+  return {
+    ...post,
+    is_locked: false
   };
 }
 

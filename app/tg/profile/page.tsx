@@ -1,8 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { updateProfileAction } from "@/app/actions";
+import { ProfileAvatarPicker } from "@/components/telegram/profile-avatar-picker";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
+import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
 import { getSignedAvatarUrls } from "@/lib/data/profiles";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -139,6 +142,11 @@ export default async function TelegramProfilePage({
   const params = searchParams ? await searchParams : undefined;
   const isSaved = params?.saved === "1";
   const profile = await requireAnyProfile();
+
+  if (!hasClubAccess(profile)) {
+    redirect("/tg/tiers");
+  }
+
   const theme = PROFILE_THEME[profile.tier];
   const admin = createAdminSupabaseClient();
   const [avatarMap, { data: donations }] = await Promise.all([
@@ -151,6 +159,7 @@ export default async function TelegramProfilePage({
     profile.favorite_lumina_cosplay,
     profile.admin_note
   );
+  const profileLetter = (profile.display_name || profile.email).slice(0, 1).toUpperCase();
 
   return (
     <MiniAppShell
@@ -175,7 +184,7 @@ export default async function TelegramProfilePage({
             />
           ) : (
             <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/10 text-2xl font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.22)]">
-              {(profile.display_name || profile.email).slice(0, 1).toUpperCase()}
+              {profileLetter}
             </div>
           )}
 
@@ -290,10 +299,11 @@ export default async function TelegramProfilePage({
               </label>
             </div>
 
-            <label className="block">
-              <span className="mb-2 block text-sm text-white/60">Аватар</span>
-              <input name="avatar" type="file" accept="image/*" />
-            </label>
+            <ProfileAvatarPicker
+              currentAvatarUrl={avatarUrl}
+              fallbackLetter={profileLetter}
+              className={theme.item}
+            />
           </div>
 
           <button

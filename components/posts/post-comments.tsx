@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createPostCommentAction, deletePostCommentAction } from "@/app/actions";
 import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
@@ -26,6 +26,67 @@ function getAuthorLabel(comment: PostCommentWithAuthor) {
   }
 
   return author.display_name || author.nickname || "Участник";
+}
+
+function parseReplyBody(body: string) {
+  const normalizedBody = body.replace(/\r\n/g, "\n").trim();
+  const match = normalizedBody.match(/^@([^\n]+)\n>\s?([\s\S]*?)\n\n([\s\S]+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const [, replyAuthor, replyPreview, message] = match;
+  return {
+    replyAuthor: replyAuthor.trim(),
+    replyPreview: replyPreview.trim(),
+    message: message.trim()
+  };
+}
+
+type CommentNode = {
+  comment: PostCommentWithAuthor;
+  authorLabel: string;
+  parsedReply: ReturnType<typeof parseReplyBody>;
+  children: CommentNode[];
+};
+
+function buildCommentThreads(comments: PostCommentWithAuthor[]) {
+  const roots: CommentNode[] = [];
+  const allNodes: CommentNode[] = [];
+
+  for (const comment of comments) {
+    const authorLabel = getAuthorLabel(comment);
+    const parsedReply = parseReplyBody(comment.body);
+    const node: CommentNode = {
+      comment,
+      authorLabel,
+      parsedReply,
+      children: []
+    };
+
+    if (parsedReply) {
+      const parent = [...allNodes]
+        .reverse()
+        .find(
+          (candidate) =>
+            candidate.authorLabel === parsedReply.replyAuthor &&
+            candidate.comment.body.trim().startsWith(parsedReply.replyPreview)
+        );
+
+      if (parent) {
+        parent.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    } else {
+      roots.push(node);
+    }
+
+    allNodes.push(node);
+  }
+
+  return roots;
 }
 
 function SubmitButton() {
@@ -57,10 +118,153 @@ export function PostComments({
   reactionSummaries: Map<string, ReactionSummary>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [body, setBody] = useState("");
+  const [replyTarget, setReplyTarget] = useState<{ id: string; author: string; preview: string } | null>(
+    null
+  );
+
+  const commentThreads = useMemo(() => buildCommentThreads(comments), [comments]);
+
+  const replyTemplate = useMemo(() => {
+    if (!replyTarget) {
+      return "";
+    }
+
+    return `@${replyTarget.author}\n> ${replyTarget.preview}\n\n`;
+  }, [replyTarget]);
 
   async function action(formData: FormData) {
     await createPostCommentAction(formData);
     formRef.current?.reset();
+    setBody("");
+    setReplyTarget(null);
+  }
+
+  function renderCommentNode(node: CommentNode, depth = 0) {
+    const { comment, authorLabel, parsedReply, children } = node;
+    const canDelete = admin || comment.profile_id === currentProfileId;
+    const displayBody = parsedReply ? parsedReply.message : comment.body;
+    const previewSource = displayBody.slice(0, 140);
+
+    return (
+      <div
+        key={comment.id}
+        className={
+          depth === 0
+            ? "rounded-3xl border border-white/10 bg-black/15 px-4 py-3"
+            : "relative ml-4 border-l border-white/10 pl-4 sm:ml-8 sm:pl-5"
+        }
+      >
+        <div
+          className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${
+            depth > 0 ? "rounded-[24px] border border-white/8 bg-white/[0.03] px-4 py-3" : ""
+          }`}
+        >
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium text-white">{authorLabel}</p>
+              {comment.profiles?.role === "admin" ? (
+                <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-accentSoft">
+                  Lumina
+                </span>
+              ) : null}
+              {depth > 0 ? (
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-white/45">
+                  Ответ
+                </span>
+              ) : null}
+            </div>
+
+            {parsedReply ? (
+              <div className="mt-3 rounded-2xl border border-white/10 bg-black/18 px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                  Ответ для {parsedReply.replyAuthor}
+                </p>
+                <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm leading-5 text-white/55">
+                  {parsedReply.replyPreview}
+                </p>
+              </div>
+            ) : null}
+
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-white/78">{displayBody}</p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const template = `@${authorLabel}\n> ${previewSource}\n\n`;
+                  setReplyTarget({
+                    id: comment.id,
+                    author: authorLabel,
+                    preview: previewSource
+                  });
+                  setBody((current) => (current.trim() ? `${current}\n\n${template}` : template));
+                  document.getElementById("post-comment-body")?.focus();
+                }}
+                className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/72 transition hover:border-accent/30 hover:bg-white/[0.06] hover:text-white"
+              >
+                Ответить
+              </button>
+            </div>
+
+            <CommentReactions
+              commentId={comment.id}
+              postSlug={postSlug}
+              summary={
+                reactionSummaries.get(comment.id) ?? {
+                  counts: { heart: 0, fire: 0, cry: 0, sparkles: 0, devil: 0 },
+                  selectedReaction: null
+                }
+              }
+            />
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2 self-end sm:self-start">
+            <time className="text-xs text-white/35" dateTime={comment.created_at}>
+              {formatCommentTime(comment.created_at)}
+            </time>
+            {canDelete ? (
+              <form
+                action={deletePostCommentAction}
+                onSubmit={(event) => {
+                  if (!window.confirm("Удалить этот комментарий?")) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                <input type="hidden" name="commentId" value={comment.id} />
+                <input type="hidden" name="postSlug" value={postSlug} />
+                <button
+                  type="submit"
+                  title="Удалить комментарий"
+                  aria-label="Удалить комментарий"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/5 text-rose-200/75 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-100"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v5" />
+                    <path d="M14 11v5" />
+                  </svg>
+                </button>
+              </form>
+            ) : null}
+          </div>
+        </div>
+
+        {children.length ? <div className="mt-3 space-y-3">{children.map((child) => renderCommentNode(child, depth + 1))}</div> : null}
+      </div>
+    );
   }
 
   return (
@@ -77,85 +281,8 @@ export function PostComments({
       </div>
 
       <div className="mt-5 space-y-3">
-        {comments.length ? (
-          comments.map((comment) => {
-            const canDelete = admin || comment.profile_id === currentProfileId;
-
-            return (
-              <article
-                key={comment.id}
-                className="rounded-3xl border border-white/10 bg-black/15 px-4 py-3"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-white">{getAuthorLabel(comment)}</p>
-                      {comment.profiles?.role === "admin" ? (
-                        <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-accentSoft">
-                          Lumina
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/78">
-                      {comment.body}
-                    </p>
-                    <CommentReactions
-                      commentId={comment.id}
-                      postSlug={postSlug}
-                      summary={
-                        reactionSummaries.get(comment.id) ?? {
-                          counts: { heart: 0, fire: 0, cry: 0, sparkles: 0, devil: 0 },
-                          selectedReaction: null
-                        }
-                      }
-                    />
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-2 self-end sm:self-start">
-                    <time className="text-xs text-white/35" dateTime={comment.created_at}>
-                      {formatCommentTime(comment.created_at)}
-                    </time>
-                    {canDelete ? (
-                      <form
-                        action={deletePostCommentAction}
-                        onSubmit={(event) => {
-                          if (!window.confirm("Удалить этот комментарий?")) {
-                            event.preventDefault();
-                          }
-                        }}
-                      >
-                        <input type="hidden" name="commentId" value={comment.id} />
-                        <input type="hidden" name="postSlug" value={postSlug} />
-                        <button
-                          type="submit"
-                          title="Удалить комментарий"
-                          aria-label="Удалить комментарий"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-400/20 bg-rose-400/5 text-rose-200/75 transition hover:border-rose-300/40 hover:bg-rose-400/15 hover:text-rose-100"
-                        >
-                          <svg
-                            aria-hidden="true"
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M3 6h18" />
-                            <path d="M8 6V4h8v2" />
-                            <path d="M19 6l-1 14H6L5 6" />
-                            <path d="M10 11v5" />
-                            <path d="M14 11v5" />
-                          </svg>
-                        </button>
-                      </form>
-                    ) : null}
-                  </div>
-                </div>
-              </article>
-            );
-          })
+        {commentThreads.length ? (
+          commentThreads.map((thread) => renderCommentNode(thread))
         ) : (
           <div className="rounded-3xl border border-dashed border-white/10 bg-black/10 px-4 py-6 text-sm text-white/50">
             Будь первым, кто оставит комментарий к этому посту.
@@ -166,15 +293,39 @@ export function PostComments({
       <form ref={formRef} action={action} className="mt-5 space-y-3">
         <input type="hidden" name="postId" value={postId} />
         <input type="hidden" name="postSlug" value={postSlug} />
+        <input type="hidden" name="replyToCommentId" value={replyTarget?.id ?? ""} />
+        <input type="hidden" name="replyToAuthor" value={replyTarget?.author ?? ""} />
         <textarea
           id="post-comment-body"
           name="body"
           required
           maxLength={1000}
-          placeholder="Написать комментарий..."
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          placeholder={replyTarget ? `Ответить ${replyTarget.author}...` : "Написать комментарий..."}
           className="min-h-[120px]"
         />
         <EmojiToolbar targetId="post-comment-body" label="Эмодзи для комментария" />
+        {replyTarget ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/70">
+            <div className="flex items-center justify-between gap-3">
+              <span>
+                Ответ к <span className="text-white">{replyTarget.author}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setReplyTarget(null);
+                  setBody((current) => current.replace(replyTemplate, ""));
+                }}
+                className="text-xs text-white/45 transition hover:text-white"
+              >
+                Убрать
+              </button>
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-xs text-white/45">{replyTemplate.trim()}</p>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-white/35">
             До 1000 символов. Комментарий увидят участники с доступом к посту.

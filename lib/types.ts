@@ -79,6 +79,8 @@ export interface Post {
   post_type: PostType;
   required_tier: Tier;
   status: PostStatus;
+  is_sellable?: boolean;
+  sale_price?: number | null;
   publish_at: string;
   expires_at: string | null;
   retention_days: number | null;
@@ -120,6 +122,8 @@ export interface FeedPost {
   description: string | null;
   post_type: PostType;
   required_tier: Tier;
+  is_sellable?: boolean;
+  sale_price?: number | null;
   publish_at: string;
   thumbnail_path: string | null;
   post_media: Array<Pick<PostMedia, "id">>;
@@ -165,7 +169,19 @@ export interface PurchaseRequest {
   country: string;
   contact: string;
   status: PurchaseRequestStatus;
-   approved_for_club?: boolean;
+  approved_for_club?: boolean;
+  approved_for_post?: boolean;
+  requested_post_id?: string | null;
+  requested_post_slug?: string | null;
+  requested_post_title?: string | null;
+  requested_post_price?: number | null;
+  requested_post_required_tier?: Tier | null;
+  already_has_post_access?: boolean;
+  requester_profile_id?: string | null;
+  latest_request_message_at?: string | null;
+  latest_request_body?: string | null;
+  latest_request_media_url?: string | null;
+  latest_request_media_type?: MediaType | null;
   created_at: string;
   updated_at: string;
 }

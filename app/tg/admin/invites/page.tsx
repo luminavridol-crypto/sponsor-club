@@ -1,6 +1,7 @@
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 
 import { createInviteAction, deleteInviteAction, disableInviteAction } from "@/app/actions";
+import { InviteCopyButton } from "@/components/admin/invite-copy-button";
 import {
   ADMIN_BADGE_CLASS,
   ADMIN_BUTTON_PRIMARY_CLASS,
@@ -18,10 +19,10 @@ import {
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { requireAdmin } from "@/lib/auth/guards";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { buildTelegramInviteLink, buildTelegramMiniAppLink } from "@/lib/telegram/links";
+import { buildTelegramInviteLink } from "@/lib/telegram/links";
 import { Invite } from "@/lib/types";
 import { formatDate } from "@/lib/utils/format";
-import { buildInviteLink, TIER_LABELS } from "@/lib/utils/tier";
+import { TIER_LABELS } from "@/lib/utils/tier";
 
 function TrashIcon() {
   return (
@@ -67,7 +68,6 @@ export default async function TelegramAdminInvitesPage() {
   await cleanupInvites();
 
   const admin = createAdminSupabaseClient();
-  const telegramMiniAppLink = buildTelegramMiniAppLink();
   const { data } = await admin.from("invites").select("*").order("created_at", { ascending: false });
   const invites = (data ?? []) as Invite[];
 
@@ -79,18 +79,6 @@ export default async function TelegramAdminInvitesPage() {
       headerClassName={ADMIN_HEADER_CLASS}
       eyebrowClassName={ADMIN_EYEBROW_CLASS}
     >
-      <section className={ADMIN_PANEL_CLASS}>
-        <div className={ADMIN_PANEL_GLOW_CLASS} />
-        <div className="relative">
-          <h2 className={ADMIN_SECTION_TITLE_CLASS}>Главная ссылка</h2>
-          <div className="mt-4 rounded-[22px] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/82">
-            <p className="break-all">
-              {telegramMiniAppLink || "Добавь TELEGRAM_BOT_USERNAME в Vercel, чтобы здесь появилась Telegram-ссылка."}
-            </p>
-          </div>
-        </div>
-      </section>
-
       <section className={ADMIN_PANEL_CLASS}>
         <div className={ADMIN_PANEL_GLOW_CLASS} />
         <div className="relative">
@@ -133,6 +121,10 @@ export default async function TelegramAdminInvitesPage() {
         {invites.length ? (
           invites.map((invite) => (
             <article key={invite.id} className={ADMIN_SUBPANEL_CLASS}>
+              {(() => {
+                const telegramInviteLink = buildTelegramInviteLink(invite.code);
+
+                return (
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap gap-2">
@@ -141,14 +133,20 @@ export default async function TelegramAdminInvitesPage() {
                       {invite.used_at ? "Использован" : invite.disabled_at ? "Отключён" : "Активен"}
                     </span>
                   </div>
-                  <h3 className="font-display mt-3 text-[1.35rem] font-semibold text-white">{invite.code}</h3>
+                  <h3 className="mt-3 font-display text-[1.35rem] font-semibold text-white">{invite.code}</h3>
                   <p className="mt-2 text-sm text-white/55">
                     {invite.email || "Без привязки к email"} • создано {formatDate(invite.created_at)}
                   </p>
-                  <p className="mt-3 break-all text-sm text-fuchsia-100/82">
-                    {buildTelegramInviteLink(invite.code) || "Добавь TELEGRAM_BOT_USERNAME, чтобы отправлять Telegram invite."}
-                  </p>
-                  <p className="mt-2 break-all text-sm text-white/68">{buildInviteLink(invite.code)}</p>
+                  {telegramInviteLink ? (
+                    <div className="mt-3 flex items-start gap-2">
+                      <p className="min-w-0 break-all text-sm text-fuchsia-100/82">{telegramInviteLink}</p>
+                      <InviteCopyButton value={telegramInviteLink} />
+                    </div>
+                  ) : (
+                    <p className="mt-3 break-all text-sm text-fuchsia-100/82">
+                      Добавь TELEGRAM_BOT_USERNAME, чтобы отправлять Telegram invite.
+                    </p>
+                  )}
                   <p className="mt-3 text-sm text-white/45">
                     Истекает: {invite.expires_at ? formatDate(invite.expires_at) : "через 24 часа по умолчанию"}
                   </p>
@@ -175,6 +173,8 @@ export default async function TelegramAdminInvitesPage() {
                   </form>
                 </div>
               </div>
+                );
+              })()}
             </article>
           ))
         ) : (

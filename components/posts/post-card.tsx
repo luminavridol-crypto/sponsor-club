@@ -6,6 +6,7 @@ import { PostNavLink } from "@/components/posts/post-nav-link";
 import { PostReactions } from "@/components/posts/post-reactions";
 import { ReactionSummary } from "@/lib/data/reactions";
 import { FeedPost, Tier } from "@/lib/types";
+import { formatEuroAmount } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/format";
 import { TIER_LABELS } from "@/lib/utils/tier";
 
@@ -86,6 +87,9 @@ export function PostCard({
 }) {
   const locked = Boolean(post.is_locked);
   const tierStyle = TIER_CARD_STYLES[post.required_tier];
+  const tiersHref = `/tg/tiers?openTier=${post.required_tier}&postSlug=${encodeURIComponent(post.slug)}${
+    post.title ? `&postTitle=${encodeURIComponent(post.title)}` : ""
+  }${post.sale_price != null ? `&postPrice=${encodeURIComponent(String(post.sale_price))}` : ""}`;
 
   return (
     <article
@@ -144,6 +148,11 @@ export function PostCard({
           <span className={`rounded-full border px-3 py-1 text-xs ${tierStyle.tierBadge}`}>
             {TIER_LABELS[post.required_tier]}
           </span>
+          {post.is_sellable && post.sale_price != null ? (
+            <span className="rounded-full border border-fuchsia-300/18 bg-fuchsia-400/10 px-3 py-1 text-xs text-fuchsia-50">
+              {formatEuroAmount(post.sale_price) ?? "Продажа"}
+            </span>
+          ) : null}
           {locked ? (
             <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs text-amber-100">
               Закрыто
@@ -175,15 +184,30 @@ export function PostCard({
                 : tierStyle.action
             }`}
           >
-            {locked ? "Смотреть условия" : "Открыть пост"}
+            Открыть пост
           </PostNavLink>
 
-          {locked ? (
+          {locked && post.is_sellable ? (
             <PostNavLink
-              href={`/tg/support?tier=${post.required_tier}&postTitle=${encodeURIComponent(post.title)}` as Route}
+              href={
+                `/tg/support?tier=${post.required_tier}&postSlug=${encodeURIComponent(post.slug)}&postTitle=${encodeURIComponent(post.title)}${
+                  post.sale_price != null
+                    ? `&postPrice=${encodeURIComponent(String(post.sale_price))}`
+                    : ""
+                }` as Route
+              }
               className="inline-flex rounded-[18px] border border-fuchsia-200/18 bg-fuchsia-400/10 px-4 py-2 text-[13px] font-medium text-white/90 transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/14"
             >
               Купить пост
+            </PostNavLink>
+          ) : null}
+
+          {locked ? (
+            <PostNavLink
+              href={tiersHref as Route}
+              className="inline-flex rounded-[18px] border border-white/10 px-4 py-2 text-[13px] font-medium text-white/70 transition hover:border-white/16 hover:bg-white/[0.05] hover:text-white"
+            >
+              Смотреть условия
             </PostNavLink>
           ) : null}
 

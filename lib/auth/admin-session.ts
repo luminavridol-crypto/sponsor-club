@@ -1,7 +1,16 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
+import { isLocalTelegramPreviewEnabled, resolveLocalPreviewProfile } from "@/lib/telegram/local-preview";
 
 export async function requireActiveAdminSession() {
+  if (await isLocalTelegramPreviewEnabled()) {
+    const previewProfile = await resolveLocalPreviewProfile();
+
+    if (previewProfile.role === "admin" && previewProfile.access_status === "active") {
+      return previewProfile;
+    }
+  }
+
   const telegramProfile = await getTelegramProfileFromSession();
 
   if (telegramProfile?.role === "admin" && telegramProfile.access_status === "active") {
