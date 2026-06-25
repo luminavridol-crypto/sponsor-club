@@ -208,6 +208,10 @@ function isMissingPostSalesColumn(message: string) {
   );
 }
 
+function postSalesSchemaError() {
+  return "В базе Supabase ещё не включена продажа постов. Примените миграцию `supabase/migrations/025_add_post_sales_fields.sql`.";
+}
+
 function omitFavoriteLuminaCosplay<T extends { favorite_lumina_cosplay?: string | null }>(payload: T) {
   const rest = { ...payload };
   delete rest.favorite_lumina_cosplay;
@@ -554,9 +558,29 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
   const postSlug = formValue(formData.get("postSlug"));
   const postTitle = formValue(formData.get("postTitle"));
   const postPrice = formValue(formData.get("postPrice"));
+  const requestKind = postSlug ? "post" : "tier";
+  const buildSupportRedirect = (status: "sent" | "error"): Route => {
+    const params = new URLSearchParams();
+    params.set(status, requestKind);
+    params.set("tier", tier);
+
+    if (postSlug) {
+      params.set("postSlug", postSlug);
+    }
+
+    if (postTitle) {
+      params.set("postTitle", postTitle);
+    }
+
+    if (postPrice) {
+      params.set("postPrice", postPrice);
+    }
+
+    return `/tg/support?${params.toString()}` as Route;
+  };
 
   if (!["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier)) {
-    redirect("/tg/support?error=1");
+    redirect(buildSupportRedirect("error"));
   }
 
   const admin = createAdminSupabaseClient();
@@ -571,7 +595,7 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
     .maybeSingle();
 
   if (recentRequest) {
-    redirect(`/tg/support?sent=1&tier=${tier}`);
+    redirect(buildSupportRedirect("sent"));
   }
 
   const displayName =
@@ -604,17 +628,18 @@ export async function createTelegramPurchaseRequestAction(formData: FormData) {
     });
 
     if (fallbackError) {
-      redirect(`/tg/support?error=1&tier=${tier}`);
+      redirect(buildSupportRedirect("error"));
     }
   } else if (error) {
-    redirect(`/tg/support?error=1&tier=${tier}`);
+    redirect(buildSupportRedirect("error"));
   }
 
   revalidatePath("/tg/tiers");
   revalidatePath("/tg/support");
+  revalidatePath("/tg/chat");
   revalidatePath("/tg/admin/users");
   revalidatePath("/admin/requests");
-  redirect(`/tg/support?sent=1&tier=${tier}`);
+  redirect(buildSupportRedirect("sent"));
 }
 
 export async function createDonationClaimAction(formData: FormData) {
@@ -1580,6 +1605,29 @@ export async function sendMemberChatMessageAction(formData: FormData) {
   const postTitle = formValue(formData.get("postTitle"));
   const postPrice = formValue(formData.get("postPrice"));
   const createRequest = formValue(formData.get("createRequest")) === "1";
+  const requestKind = postSlug ? "post" : "tier";
+  const buildSupportRedirect = (status: "sent" | "error"): Route => {
+    const params = new URLSearchParams();
+    params.set(status, requestKind);
+
+    if (tier) {
+      params.set("tier", tier);
+    }
+
+    if (postSlug) {
+      params.set("postSlug", postSlug);
+    }
+
+    if (postTitle) {
+      params.set("postTitle", postTitle);
+    }
+
+    if (postPrice) {
+      params.set("postPrice", postPrice);
+    }
+
+    return `/tg/support?${params.toString()}` as Route;
+  };
   const mediaFile =
     formData.get("media") instanceof File && (formData.get("media") as File).size > 0
       ? (formData.get("media") as File)
@@ -1590,6 +1638,7 @@ export async function sendMemberChatMessageAction(formData: FormData) {
   if (!body && !mediaFile) {
     revalidatePath("/profile");
     revalidatePath("/chat");
+    revalidatePath("/tg/chat");
     revalidatePath("/tg/support");
     return;
   }
@@ -1599,7 +1648,7 @@ export async function sendMemberChatMessageAction(formData: FormData) {
 
   if (mediaFile) {
     if (!mediaFile.type.startsWith("image/")) {
-      redirect(`/tg/support?error=1${tier ? `&tier=${tier}` : ""}`);
+      redirect(createRequest ? buildSupportRedirect("error") : "/tg/chat?error=1");
     }
 
     const uploadedChatMedia = await uploadChatFile(mediaFile, profile.id);
@@ -1664,12 +1713,13 @@ export async function sendMemberChatMessageAction(formData: FormData) {
 
   revalidatePath("/profile");
   revalidatePath("/chat");
+  revalidatePath("/tg/chat");
   revalidatePath("/tg/support");
   revalidatePath("/admin/users");
   revalidatePath("/admin/chat");
 
   if (createRequest && ["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier)) {
-    redirect(`/tg/support?sent=1&tier=${tier}`);
+    redirect(buildSupportRedirect("sent"));
   }
 }
 
@@ -1916,6 +1966,11 @@ export async function createPostAction(formData: FormData) {
   let { data: post, error } = await insertPost(postPayload);
 
   if (error?.message && isMissingPostSalesColumn(error.message)) {
+    if (isSellable) {
+      await cleanupOrphanedStorage(admin);
+      throw new Error(postSalesSchemaError());
+    }
+
     const legacyPostPayload = { ...postPayload } as Record<string, unknown>;
     delete legacyPostPayload.is_sellable;
     delete legacyPostPayload.sale_price;
@@ -1982,6 +2037,10 @@ export async function updatePostAction(formData: FormData) {
   let updateResult = await admin.from("posts").update(updatePayload).eq("id", formValue(formData.get("postId")));
 
   if (updateResult.error?.message && isMissingPostSalesColumn(updateResult.error.message)) {
+    if (isSellable) {
+      throw new Error(postSalesSchemaError());
+    }
+
     const legacyUpdatePayload = { ...updatePayload } as Record<string, unknown>;
     delete legacyUpdatePayload.is_sellable;
     delete legacyUpdatePayload.sale_price;
@@ -1989,6 +2048,10 @@ export async function updatePostAction(formData: FormData) {
       .from("posts")
       .update(legacyUpdatePayload)
       .eq("id", formValue(formData.get("postId")));
+  }
+
+  if (updateResult.error) {
+    throw new Error(updateResult.error.message);
   }
 
   revalidatePath("/admin/posts");

@@ -16,10 +16,27 @@ import {
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { hasClubAccess } from "@/lib/auth/access";
 import { requireAdmin } from "@/lib/auth/guards";
+import { getSignedChatMediaUrls } from "@/lib/data/chat";
 import { getSignedAvatarUrls } from "@/lib/data/profiles";
+import { listR2Media } from "@/lib/storage/media";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { LOCAL_PREVIEW_MEMBER_ID } from "@/lib/telegram/local-preview";
 import { DonationEvent, Profile, PurchaseRequest } from "@/lib/types";
 import { canAccessTier, normalizeProfileTier } from "@/lib/utils/tier";
+
+function resolveRequestProfileId(request: PurchaseRequest, profileByEmail: Map<string, Profile>) {
+  const matchingProfile = profileByEmail.get(request.email);
+
+  if (matchingProfile) {
+    return matchingProfile.id;
+  }
+
+  if (request.email === "preview@localhost") {
+    return LOCAL_PREVIEW_MEMBER_ID;
+  }
+
+  return null;
+}
 
 function getTierSortWeight(user: Profile) {
   if (user.tier === "tier_4") return 4;
@@ -81,11 +98,68 @@ export default async function TelegramAdminUsersPage() {
     ])
   );
   const profileByEmail = new Map(users.map((user) => [user.email, user] as const));
+  const requestProfileIds = [
+    ...new Set(purchaseRequests.map((request) => resolveRequestProfileId(request, profileByEmail)).filter((value): value is string => Boolean(value)))
+  ];
+  const { data: requestMessagesData } = requestProfileIds.length
+    ? await admin
+        .from("member_chat_messages")
+        .select("profile_id, body, media_path, media_type, created_at")
+        .in("profile_id", requestProfileIds)
+        .eq("sender_role", "member")
+        .order("created_at", { ascending: false })
+    : { data: [] as Array<{ profile_id: string; body: string | null; media_path: string | null; media_type: PurchaseRequest["latest_request_media_type"]; created_at: string }> };
+  const latestRequestMessageByProfileId = new Map<
+    string,
+    {
+      body: string | null;
+      media_path: string | null;
+      media_type: PurchaseRequest["latest_request_media_type"];
+      created_at: string;
+    }
+  >();
+
+  for (const message of (requestMessagesData ?? []) as Array<{
+    profile_id: string;
+    body: string | null;
+    media_path: string | null;
+    media_type: PurchaseRequest["latest_request_media_type"];
+    created_at: string;
+  }>) {
+    if (!latestRequestMessageByProfileId.has(message.profile_id)) {
+      latestRequestMessageByProfileId.set(message.profile_id, message);
+    }
+  }
+
+  const previewFallbackMedia =
+    purchaseRequests.some((request) => request.email === "preview@localhost") &&
+    !latestRequestMessageByProfileId.has(LOCAL_PREVIEW_MEMBER_ID)
+      ? (await listR2Media("chat/local-preview-member/").catch(() => []))
+          .sort((left, right) => {
+            const leftTime = left.lastModified ? new Date(left.lastModified).getTime() : 0;
+            const rightTime = right.lastModified ? new Date(right.lastModified).getTime() : 0;
+            return rightTime - leftTime;
+          })[0] ?? null
+      : null;
+
+  const mediaMap = await getSignedChatMediaUrls(
+    [
+      ...[...latestRequestMessageByProfileId.values()]
+        .map((message) => message.media_path)
+        .filter((value): value is string => Boolean(value)),
+      ...(previewFallbackMedia?.storagePath ? [previewFallbackMedia.storagePath] : [])
+    ]
+  );
+
   const purchaseRequestsWithAccessHints = purchaseRequests.map((request) => {
     const matchingProfile = profileByEmail.get(request.email);
+    const requesterProfileId = resolveRequestProfileId(request, profileByEmail);
     const requestedPostRequiredTier = request.requested_post_id
       ? requestedPostTierMap.get(request.requested_post_id) ?? null
       : null;
+    const latestMessage = requesterProfileId ? latestRequestMessageByProfileId.get(requesterProfileId) : null;
+    const fallbackPreviewMediaPath =
+      !latestMessage && request.email === "preview@localhost" ? previewFallbackMedia?.storagePath ?? null : null;
     const alreadyHasPostAccess = Boolean(
       matchingProfile &&
         requestedPostRequiredTier &&
@@ -96,7 +170,16 @@ export default async function TelegramAdminUsersPage() {
     return {
       ...request,
       requested_post_required_tier: requestedPostRequiredTier,
-      already_has_post_access: alreadyHasPostAccess
+      already_has_post_access: alreadyHasPostAccess,
+      requester_profile_id: requesterProfileId,
+      latest_request_message_at: latestMessage?.created_at ?? null,
+      latest_request_body: latestMessage?.body ?? null,
+      latest_request_media_url: latestMessage?.media_path
+        ? mediaMap[latestMessage.media_path] ?? null
+        : fallbackPreviewMediaPath
+          ? mediaMap[fallbackPreviewMediaPath] ?? null
+          : null,
+      latest_request_media_type: latestMessage?.media_type ?? (fallbackPreviewMediaPath ? "image" : null)
     };
   });
   const donationMap = new Map<string, DonationEvent[]>();

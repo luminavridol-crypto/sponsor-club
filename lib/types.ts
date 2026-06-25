@@ -177,6 +177,11 @@ export interface PurchaseRequest {
   requested_post_price?: number | null;
   requested_post_required_tier?: Tier | null;
   already_has_post_access?: boolean;
+  requester_profile_id?: string | null;
+  latest_request_message_at?: string | null;
+  latest_request_body?: string | null;
+  latest_request_media_url?: string | null;
+  latest_request_media_type?: MediaType | null;
   created_at: string;
   updated_at: string;
 }

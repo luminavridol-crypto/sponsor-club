@@ -59,6 +59,10 @@ function isMissingPostSalesColumn(message: string) {
   );
 }
 
+function postSalesSchemaError() {
+  return "В базе Supabase ещё не включена продажа постов. Примените миграцию `supabase/migrations/025_add_post_sales_fields.sql`.";
+}
+
 type EmailCampaignResultPayload = {
   enabled: boolean;
   sentCount: number;
@@ -195,6 +199,11 @@ export async function POST(request: Request) {
     let { data: post, error } = await insertPost(postPayload);
 
     if (error?.message && isMissingPostSalesColumn(error.message)) {
+      if (isSellable) {
+        await cleanupOrphanedStorage(admin);
+        return NextResponse.json({ error: postSalesSchemaError() }, { status: 400 });
+      }
+
       const legacyPostPayload = { ...postPayload } as Record<string, unknown>;
       delete legacyPostPayload.is_sellable;
       delete legacyPostPayload.sale_price;

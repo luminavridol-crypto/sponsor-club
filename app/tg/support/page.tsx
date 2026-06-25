@@ -1,15 +1,13 @@
-﻿export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 
-import Image from "next/image";
-import { sendMemberChatMessageAction } from "@/app/actions";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
+import { CurrencyCalculator } from "@/components/telegram/currency-calculator";
+import { SupportRequestForm } from "@/components/telegram/support-request-form";
 import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
-import { getRecentChatMessages, getSignedChatMediaUrls, markChatReadByMember } from "@/lib/data/chat";
 import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
 import { getTelegramSupportSettings } from "@/lib/data/telegram-support";
 import { getTierLandingCards } from "@/lib/data/tier-landing";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { Tier } from "@/lib/types";
 import { formatEuroAmount } from "@/lib/utils/money";
 
@@ -102,57 +100,19 @@ function parseTier(value: string | string[] | undefined): Tier {
     : "tier_1";
 }
 
-function SupportMessages({
-  messages
-}: {
-  messages: Array<{
-    id: string;
-    sender_role: "admin" | "member";
-    body: string | null;
-    media_url?: string | null;
-    media_type: string | null;
-    created_at: string;
-  }>;
-}) {
-  if (!messages.length) {
+function parseAmountFromPrice(value: string | null | undefined) {
+  if (!value) {
     return null;
   }
 
-  return (
-    <div className="space-y-2">
-      {messages.map((message) => {
-        const isAdmin = message.sender_role === "admin";
+  const normalized = value.replace(",", ".").match(/\d+(\.\d+)?/);
 
-        return (
-          <div
-            key={message.id}
-            className={`rounded-[20px] px-4 py-3 ${
-              isAdmin ? "bg-white/[0.05] text-white/88" : "bg-white/[0.08] text-white"
-            }`}
-          >
-            {message.body ? <p className="whitespace-pre-wrap text-sm leading-6">{message.body}</p> : null}
-            {message.media_url ? (
-              <a
-                href={message.media_url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 block overflow-hidden rounded-[18px] border border-white/10 bg-black/20"
-              >
-                <Image
-                  src={message.media_url}
-                  width={1600}
-                  height={1200}
-                  unoptimized
-                  alt="Скрин оплаты"
-                  className="max-h-[360px] w-full object-contain"
-                />
-              </a>
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  );
+  if (!normalized) {
+    return null;
+  }
+
+  const amount = Number(normalized[0]);
+  return Number.isFinite(amount) ? amount : null;
 }
 
 export default async function TelegramSupportPage({
@@ -161,107 +121,116 @@ export default async function TelegramSupportPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const profile = await requireAnyProfile();
-  const admin = createAdminSupabaseClient();
   const params = (await searchParams) ?? {};
   const selectedTier = parseTier(params.tier);
-  const sent = readParam(params.sent) === "1";
-  const error = readParam(params.error) === "1";
+  const sentValue = readParam(params.sent);
+  const errorValue = readParam(params.error);
   const postSlug = readParam(params.postSlug);
   const postTitle = readParam(params.postTitle);
   const postPrice = readParam(params.postPrice);
   const hasContentAccess = hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile));
-
-  const [support, messages, , tierCards] = await Promise.all([
-    getTelegramSupportSettings(),
-    getRecentChatMessages(admin, profile.id),
-    markChatReadByMember(admin, profile.id),
-    getTierLandingCards().catch(() => [])
-  ]);
-
-  const mediaMap = await getSignedChatMediaUrls(
-    messages.map((message) => message.media_path).filter((value): value is string => Boolean(value))
-  );
-
-  const threadMessages = messages.map((message) => ({
-    ...message,
-    media_url: message.media_path ? mediaMap[message.media_path] ?? null : null
-  }));
-
+  const support = await getTelegramSupportSettings();
+  const tierCards = await getTierLandingCards().catch(() => []);
   const tier = tierCards.find((card) => card.tier === selectedTier) ?? tierCards[0];
   const priceLabel = postPrice ? formatEuroAmount(postPrice) ?? postPrice : tier?.price ?? "";
+  const calculatorAmount = parseAmountFromPrice(postPrice ?? tier?.price ?? null) ?? 0;
   const theme = SUPPORT_THEME[selectedTier];
+  const requestKind = postSlug ? "post" : "tier";
+  const successKind = sentValue === "post" || sentValue === "tier" ? sentValue : sentValue ? requestKind : null;
+  const failureKind = errorValue === "post" || errorValue === "tier" ? errorValue : errorValue ? requestKind : null;
 
   return (
     <MiniAppShell
       profile={profile}
-      title="Оплата"
+      title={requestKind === "post" ? "Покупка поста" : "Оплата"}
       showHeaderActions={false}
       hasAccess={hasContentAccess}
       shellClassName={theme.shell}
     >
-      {sent ? (
+      {successKind ? (
         <section className="rounded-[24px] bg-emerald-400/12 px-4 py-4 text-emerald-50">
-          <p className="text-sm font-medium">Спасибо за поддержку 💜</p>
-          <p className="mt-1 text-sm text-emerald-100/80">Я проверю оплату и открою доступ вручную.</p>
+          <p className="text-sm font-medium">
+            {successKind === "post" ? "Заявка на покупку поста отправлена 💜" : "Заявка на тариф отправлена 💜"}
+          </p>
+          <p className="mt-1 text-sm text-emerald-100/80">
+            {successKind === "post"
+              ? "Проверю оплату и открою доступ именно к этому посту."
+              : "Проверю оплату и открою доступ к выбранному тарифу вручную."}
+          </p>
         </section>
       ) : null}
 
-      {error ? (
+      {failureKind ? (
         <section className="rounded-[24px] bg-rose-400/12 px-4 py-4 text-sm text-rose-100">
-          Не удалось отправить заявку. Попробуй ещё раз.
+          {failureKind === "post"
+            ? "Не удалось отправить заявку на пост. Попробуй ещё раз."
+            : "Не удалось отправить заявку на тариф. Попробуй ещё раз."}
         </section>
       ) : null}
 
       <section className={`rounded-[28px] border px-5 py-5 text-white ${theme.panel}`}>
         <div className="space-y-3">
           <div className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${theme.statusBadge}`}>
-            Тариф отключён
+            {requestKind === "post" ? "Покупка отдельного поста" : "Оплата доступа"}
           </div>
           <p className="max-w-[34rem] text-sm leading-6 text-white/72">
-            Выбери тариф, оплати доступ и отправь скрин оплаты. После проверки я открою доступ вручную.
+            {requestKind === "post"
+              ? "Оплати этот пост, прикрепи скрин и при желании оставь комментарий. После проверки я открою доступ только к выбранной публикации."
+              : "Выбери тариф, оплати доступ, прикрепи скрин и при желании оставь комментарий к заявке. После проверки я открою доступ вручную."}
           </p>
         </div>
 
         <div className="mt-6 space-y-4">
-          <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
-            <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Тариф</p>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {tierCards.map((card) => {
-                const active = card.tier === selectedTier;
+          {requestKind === "tier" ? (
+            <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
+              <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Тариф</p>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {tierCards.map((card) => {
+                  const active = card.tier === selectedTier;
 
-                return (
-                  <form key={card.tier} method="get" action="/tg/support">
-                    <input type="hidden" name="tier" value={card.tier} />
-                    {postSlug ? <input type="hidden" name="postSlug" value={postSlug} /> : null}
-                    {postTitle ? <input type="hidden" name="postTitle" value={postTitle} /> : null}
-                    {postPrice ? <input type="hidden" name="postPrice" value={postPrice} /> : null}
-                    <button
-                      type="submit"
-                      className={`w-full rounded-[16px] px-3 py-3 text-left text-sm transition ${
-                        active
-                          ? theme.tierCardActive
-                          : theme.tierCardIdle
-                      }`}
-                    >
-                      <span className="block font-medium">{card.label}</span>
-                      <span className={`mt-1 block text-xs ${active ? theme.tierPriceActive : theme.infoLabel}`}>
-                        {card.price}
-                      </span>
-                    </button>
-                  </form>
-                );
-              })}
-            </div>
+                  return (
+                    <form key={card.tier} method="get" action="/tg/support">
+                      <input type="hidden" name="tier" value={card.tier} />
+                      <button
+                        type="submit"
+                        className={`w-full rounded-[16px] px-3 py-3 text-left text-sm transition ${
+                          active ? theme.tierCardActive : theme.tierCardIdle
+                        }`}
+                      >
+                        <span className="block font-medium">{card.label}</span>
+                        <span className={`mt-1 block text-xs ${active ? theme.tierPriceActive : theme.infoLabel}`}>
+                          {card.price}
+                        </span>
+                      </button>
+                    </form>
+                  );
+                })}
+              </div>
 
-            <h2 className={`mt-4 font-display text-[1.5rem] leading-none ${theme.accentText}`}>{tier?.label ?? "Тариф"}</h2>
-            <p className={`mt-3 text-lg font-medium ${theme.accentText}`}>{priceLabel}</p>
-            {tier?.teaser ? <p className="mt-2 text-sm text-white/60">{tier.teaser}</p> : null}
-            {postTitle ? (
-              <p className="mt-2 text-sm text-white/60">
-                Пост: <span className="text-white/85">{postTitle}</span>
-              </p>
-            ) : null}
-          </section>
+              <h2 className={`mt-4 font-display text-[1.5rem] leading-none ${theme.accentText}`}>{tier?.label ?? "Тариф"}</h2>
+              <p className={`mt-3 text-lg font-medium ${theme.accentText}`}>{priceLabel}</p>
+              {tier?.teaser ? <p className="mt-2 text-sm text-white/60">{tier.teaser}</p> : null}
+            </section>
+          ) : (
+            <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
+              <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Покупка поста</p>
+              <div className={`mt-3 rounded-[18px] border px-4 py-4 ${theme.infoCard}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Пост</p>
+                    <h2 className={`mt-2 font-display text-[1.5rem] leading-none ${theme.accentText}`}>
+                      {postTitle ?? "Публикация"}
+                    </h2>
+                    {tier?.label ? <p className="mt-2 text-sm text-white/60">Уровень поста: {tier.label}</p> : null}
+                  </div>
+                  <div className="rounded-[18px] border border-fuchsia-300/18 bg-fuchsia-400/10 px-4 py-3 text-right">
+                    <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Цена</p>
+                    <p className={`mt-2 text-xl font-semibold ${theme.accentText}`}>{priceLabel}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
 
           <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
             <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Реквизиты</p>
@@ -278,38 +247,34 @@ export default async function TelegramSupportPage({
             </div>
           </section>
 
+          {calculatorAmount > 0 ? (
+            <CurrencyCalculator
+              initialAmount={calculatorAmount}
+              sectionClassName={theme.section}
+              infoCardClassName={theme.infoCard}
+              infoLabelClassName={theme.infoLabel}
+              accentTextClassName={theme.accentText}
+            />
+          ) : null}
+
           <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
-            <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Чат</p>
+            <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>
+              {requestKind === "post" ? "Заявка на пост" : "Заявка на тариф"}
+            </p>
 
-            <div className="mt-3">
-              <SupportMessages messages={threadMessages} />
-            </div>
-
-            <form action={sendMemberChatMessageAction} className="mt-3 space-y-3">
-              <input type="hidden" name="tier" value={selectedTier} />
-              <input type="hidden" name="createRequest" value="1" />
-              {postSlug ? <input type="hidden" name="postSlug" value={postSlug} /> : null}
-              {postTitle ? <input type="hidden" name="postTitle" value={postTitle} /> : null}
-              {postPrice ? <input type="hidden" name="postPrice" value={postPrice} /> : null}
-
-              <textarea
-                name="body"
-                rows={3}
-                placeholder="Короткое сообщение"
-                className={`w-full rounded-[20px] border-0 px-4 py-3 text-sm text-white outline-none placeholder:text-white/28 ${theme.infoCard}`}
-              />
-
-              <div className={`rounded-[20px] p-3 ${theme.infoCard}`}>
-                <label className={`flex cursor-pointer items-center justify-center rounded-[16px] border border-dashed px-4 py-3 text-sm transition ${theme.infoLabel} hover:border-white/22 hover:text-white`}>
-                  <input type="file" name="media" accept="image/*" className="hidden" />
-                  Прикрепить скрин оплаты
-                </label>
-              </div>
-
-              <button className={`flex w-full items-center justify-center rounded-[20px] px-4 py-3 text-sm font-semibold transition ${theme.submitButton}`}>
-                Отправить заявку
-              </button>
-            </form>
+            <SupportRequestForm
+              tier={selectedTier}
+              requestKind={requestKind}
+              postSlug={postSlug ?? undefined}
+              postTitle={postTitle ?? undefined}
+              postPrice={postPrice ?? undefined}
+              textareaPlaceholder={requestKind === "post" ? "Комментарий к покупке поста" : "Комментарий к заявке на тариф"}
+              submitLabel={requestKind === "post" ? "Отправить заявку на пост" : "Отправить заявку на тариф"}
+              infoCardClassName={theme.infoCard}
+              infoLabelClassName={theme.infoLabel}
+              accentTextClassName={theme.accentText}
+              submitButtonClassName={theme.submitButton}
+            />
           </section>
         </div>
       </section>

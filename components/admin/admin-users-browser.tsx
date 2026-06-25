@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { deletePurchaseRequestAction, updatePurchaseRequestStatusAction } from "@/app/actions";
 import {
   ADMIN_BUTTON_DANGER_CLASS,
   ADMIN_BUTTON_PRIMARY_CLASS,
@@ -15,7 +16,7 @@ type BrowserUser = Profile & {
   donationEvents: DonationEvent[];
 };
 
-type FilterKey = "all" | "active" | "tier_4" | "tier_3" | "tier_2" | "tier_1" | "pending";
+type FilterKey = "all" | "active" | "tier_4" | "tier_3" | "tier_2" | "tier_1" | "pending" | "purchases";
 
 type SummaryItem = {
   key: FilterKey;
@@ -40,7 +41,8 @@ const FILTER_LABELS: Record<FilterKey, string> = {
   tier_3: "VIP",
   tier_2: "Приближённые",
   tier_1: "Наблюдатели",
-  pending: "Ожидают"
+  pending: "Ожидают",
+  purchases: "Покупки"
 };
 
 function SummaryCard({
@@ -101,16 +103,59 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
               ) : null}
             </div>
           ) : null}
+          {request.latest_request_body ? (
+            <div className="mt-3 rounded-[18px] border border-white/10 bg-black/18 px-3 py-3 text-sm leading-6 text-white/78">
+              {request.latest_request_body}
+            </div>
+          ) : null}
+          {request.latest_request_media_url ? (
+            <a
+              href={request.latest_request_media_url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 block overflow-hidden rounded-[20px] border border-white/10 bg-black/18"
+            >
+              <Image
+                src={request.latest_request_media_url}
+                alt="Скрин оплаты"
+                width={1200}
+                height={1200}
+                unoptimized
+                className="max-h-[280px] w-full object-contain"
+              />
+            </a>
+          ) : null}
         </div>
         <div className="text-right text-sm text-white/48">
           <p>{request.status === "in_progress" ? "В работе" : "Новая"}</p>
           <p className="mt-1">{new Date(request.created_at).toLocaleString("ru-RU")}</p>
+          {request.latest_request_message_at ? (
+            <p className="mt-1 text-white/32">Чат: {new Date(request.latest_request_message_at).toLocaleString("ru-RU")}</p>
+          ) : null}
         </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
+        {request.latest_request_media_url ? (
+          <a
+            href={request.latest_request_media_url}
+            target="_blank"
+            rel="noreferrer"
+            className={ADMIN_BUTTON_SECONDARY_CLASS}
+          >
+            Открыть скрин
+          </a>
+        ) : null}
+
+        {request.requester_profile_id ? (
+          <Link href={`/tg/admin/chat?chat=${request.requester_profile_id}`} className={ADMIN_BUTTON_SECONDARY_CLASS}>
+            Открыть чат
+          </Link>
+        ) : null}
+
         {isPostRequest ? (
-          <form action={updatePurchaseRequestStatusAction}>
+          <form method="post" action="/api/admin/purchase-requests">
+            <input type="hidden" name="actionType" value="update" />
             <input type="hidden" name="requestId" value={request.id} />
             <input type="hidden" name="status" value="completed" />
             <input type="hidden" name="accessMode" value="post" />
@@ -120,23 +165,18 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
           </form>
         ) : null}
 
-        <form action={updatePurchaseRequestStatusAction}>
-          <input type="hidden" name="requestId" value={request.id} />
-          <input type="hidden" name="status" value="completed" />
-          <input type="hidden" name="accessMode" value="club" />
-          <button className={isPostRequest ? ADMIN_BUTTON_SECONDARY_CLASS : ADMIN_BUTTON_PRIMARY_CLASS}>
-            Открыть клуб
-          </button>
-        </form>
+        {!isPostRequest ? (
+          <form method="post" action="/api/admin/purchase-requests">
+            <input type="hidden" name="actionType" value="update" />
+            <input type="hidden" name="requestId" value={request.id} />
+            <input type="hidden" name="status" value="completed" />
+            <input type="hidden" name="accessMode" value="club" />
+            <button className={ADMIN_BUTTON_PRIMARY_CLASS}>Открыть клуб</button>
+          </form>
+        ) : null}
 
-        <form action={updatePurchaseRequestStatusAction}>
-          <input type="hidden" name="requestId" value={request.id} />
-          <input type="hidden" name="status" value="in_progress" />
-          <input type="hidden" name="accessMode" value="none" />
-          <button className={ADMIN_BUTTON_SECONDARY_CLASS}>В работу</button>
-        </form>
-
-        <form action={deletePurchaseRequestAction}>
+        <form method="post" action="/api/admin/purchase-requests">
+          <input type="hidden" name="actionType" value="delete" />
           <input type="hidden" name="requestId" value={request.id} />
           <button className={ADMIN_BUTTON_DANGER_CLASS}>Удалить</button>
         </form>
@@ -172,8 +212,6 @@ export function AdminUsersBrowser({
     () => requests.filter((request) => !request.requested_post_id),
     [requests]
   );
-  const subscriptionPendingCount = pendingUsers.length + subscriptionRequests.length;
-
   const counts = useMemo(
     () => ({
       all: users.length,
@@ -182,7 +220,8 @@ export function AdminUsersBrowser({
       tier_3: activeUsers.filter((user) => user.tier === "tier_3").length,
       tier_2: activeUsers.filter((user) => user.tier === "tier_2").length,
       tier_1: activeUsers.filter((user) => user.tier === "tier_1").length,
-      pending: pendingUsers.length + requests.length
+      pending: pendingUsers.length,
+      purchases: requests.length
     }),
     [activeUsers, pendingUsers.length, requests.length, users.length]
   );
@@ -195,7 +234,8 @@ export function AdminUsersBrowser({
       { key: "tier_3", label: "VIP", value: counts.tier_3 },
       { key: "tier_2", label: "Приближённые", value: counts.tier_2 },
       { key: "tier_1", label: "Наблюдатели", value: counts.tier_1 },
-      { key: "pending", label: "Ожидают", value: counts.pending }
+      { key: "pending", label: "Ожидают", value: counts.pending },
+      { key: "purchases", label: "Покупки", value: counts.purchases }
     ],
     [counts]
   );
@@ -213,6 +253,8 @@ export function AdminUsersBrowser({
         return activeUsers.filter((user) => user.tier === selectedFilter);
       case "pending":
         return pendingUsers;
+      case "purchases":
+        return [];
       default:
         return [];
     }
@@ -237,28 +279,24 @@ export function AdminUsersBrowser({
   }
 
   function renderPendingContent() {
+    if (!pendingUsers.length) {
+      return <div className={`${ADMIN_SUBPANEL_CLASS} text-sm text-white/60`}>Сейчас нет пользователей в заморозке.</div>;
+    }
+
+    return <div className="space-y-3">{renderUserCards(pendingUsers)}</div>;
+  }
+
+  function renderPurchasesContent() {
     return (
       <div className="space-y-4">
         <div className="space-y-2">
-          <SectionHeading title="Подписка" count={subscriptionPendingCount} />
-
-          {pendingUsers.length ? (
-            pendingUsers.map((user) => (
-              <UserCard
-                key={`${user.id}-${user.tier}-${user.access_expires_at ?? "none"}-${(user.admin_badges ?? []).join(",")}`}
-                user={user}
-                isCurrentAdmin={user.id === currentAdminId}
-                donationEvents={user.donationEvents}
-                hideUnlimitedButton
-              />
-            ))
-          ) : null}
+          <SectionHeading title="Подписка" count={subscriptionRequests.length} />
 
           {subscriptionRequests.length ? (
             subscriptionRequests.map((request) => <PendingRequestCard key={request.id} request={request} />)
           ) : null}
 
-          {!subscriptionPendingCount ? (
+          {!subscriptionRequests.length ? (
             <div className={`${ADMIN_SUBPANEL_CLASS} text-sm text-white/60`}>Пока нет заявок по подписке.</div>
           ) : null}
         </div>
@@ -287,7 +325,11 @@ export function AdminUsersBrowser({
           <div>
             <h3 className="font-display text-[1.05rem] font-semibold text-white">{FILTER_LABELS[selectedFilter]}</h3>
             <p className="mt-1 text-sm text-white/45">
-              {selectedFilter === "pending" ? counts.pending : filteredUsers.length}
+              {selectedFilter === "pending"
+                ? counts.pending
+                : selectedFilter === "purchases"
+                  ? counts.purchases
+                  : filteredUsers.length}
             </p>
           </div>
           <button type="button" onClick={() => setSelectedFilter(null)} className={ADMIN_BUTTON_SECONDARY_CLASS}>
@@ -295,7 +337,11 @@ export function AdminUsersBrowser({
           </button>
         </div>
 
-        {selectedFilter === "pending" ? renderPendingContent() : renderUserCards(filteredUsers)}
+        {selectedFilter === "pending"
+          ? renderPendingContent()
+          : selectedFilter === "purchases"
+            ? renderPurchasesContent()
+            : renderUserCards(filteredUsers)}
       </div>
     );
   }

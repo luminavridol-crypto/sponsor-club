@@ -97,24 +97,25 @@ export async function getFeedPostsForProfile(
     return getFeedPostsForTier("tier_4");
   }
 
-  if (hasClubAccess(profile as Profile)) {
-    return getFeedPostsForTier(profile.tier);
-  }
-
   const grantedPostIds = await getApprovedPurchasedPostIds(profile as Pick<Profile, "email">);
+  const grantedPostIdSet = new Set(grantedPostIds);
+  const posts = await getPublishedFeedPosts();
+
+  if (hasClubAccess(profile as Profile)) {
+    return posts.map((post) => ({
+      ...post,
+      is_locked: !canAccessTier(profile.tier, post.required_tier) && !grantedPostIdSet.has(post.id)
+    }));
+  }
 
   if (!grantedPostIds.length) {
     return [];
   }
 
-  const posts = await getPublishedFeedPosts();
-
-  return posts
-    .filter((post) => grantedPostIds.includes(post.id))
-    .map((post) => ({
-      ...post,
-      is_locked: false
-    }));
+  return posts.map((post) => ({
+    ...post,
+    is_locked: !grantedPostIdSet.has(post.id)
+  }));
 }
 
 export async function getPostBySlugForTier(slug: string, tier: Tier) {
@@ -207,9 +208,11 @@ export async function getPostBySlugForProfile(
   }
 
   if (hasClubAccess(profile as Profile)) {
+    const grantedPostIds = await getApprovedPurchasedPostIds(profile as Pick<Profile, "email">);
+
     return {
       ...post,
-      is_locked: !canAccessTier(profile.tier, post.required_tier)
+      is_locked: !canAccessTier(profile.tier, post.required_tier) && !grantedPostIds.includes(post.id)
     };
   }
 

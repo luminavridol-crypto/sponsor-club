@@ -1,6 +1,9 @@
 import { headers } from "next/headers";
 import { Profile } from "@/lib/types";
 
+export const LOCAL_PREVIEW_ADMIN_ID = "00000000-0000-4000-8000-000000000301";
+export const LOCAL_PREVIEW_MEMBER_ID = "00000000-0000-4000-8000-000000000101";
+
 function isLocalHost(host: string | null) {
   if (!host) {
     return false;
@@ -131,7 +134,7 @@ export function buildLocalPreviewProfile(overrides?: PreviewOverrides): Profile 
   const accessExpiresAt = getPreviewAccessExpiresAt(overrides);
 
   return {
-    id: isAdmin ? "local-preview-admin" : "local-preview-member",
+    id: isAdmin ? LOCAL_PREVIEW_ADMIN_ID : LOCAL_PREVIEW_MEMBER_ID,
     email: "preview@localhost",
     display_name: displayName,
     nickname: "preview",

@@ -177,14 +177,14 @@ export function PostCard({
 
         <div className="flex flex-wrap gap-2.5">
           <PostNavLink
-            href={(locked ? tiersHref : `${routeBase}/${post.slug}`) as Route}
+            href={`${routeBase}/${post.slug}` as Route}
             className={`inline-flex rounded-[18px] px-4 py-2 text-[13px] font-medium transition ${
               locked
                 ? "border border-white/10 bg-white/[0.03] text-white/72 hover:border-white/16 hover:bg-white/[0.05]"
                 : tierStyle.action
             }`}
           >
-            {locked ? "Смотреть условия" : "Открыть пост"}
+            Открыть пост
           </PostNavLink>
 
           {locked && post.is_sellable ? (
@@ -199,6 +199,15 @@ export function PostCard({
               className="inline-flex rounded-[18px] border border-fuchsia-200/18 bg-fuchsia-400/10 px-4 py-2 text-[13px] font-medium text-white/90 transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/14"
             >
               Купить пост
+            </PostNavLink>
+          ) : null}
+
+          {locked ? (
+            <PostNavLink
+              href={tiersHref as Route}
+              className="inline-flex rounded-[18px] border border-white/10 px-4 py-2 text-[13px] font-medium text-white/70 transition hover:border-white/16 hover:bg-white/[0.05] hover:text-white"
+            >
+              Смотреть условия
             </PostNavLink>
           ) : null}
 

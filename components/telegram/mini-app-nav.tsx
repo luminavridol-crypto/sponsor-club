@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
 type NavItem = {
@@ -9,6 +9,14 @@ type NavItem = {
   label: string;
   shortLabel: string;
   featured?: boolean;
+  badgeKey?: "pendingRequestsCount" | "unreadChatCount" | "unreadContentCommentCount";
+};
+
+type AdminNotificationStatus = {
+  role: "admin" | "member";
+  unreadChatCount: number;
+  pendingRequestsCount: number;
+  unreadContentCommentCount: number;
 };
 
 function isActive(pathname: string, searchParams: URLSearchParams, href: string) {
@@ -20,10 +28,6 @@ function isActive(pathname: string, searchParams: URLSearchParams, href: string)
   }
 
   if (!queryString) {
-    if (baseHref === "/tg/support") {
-      return searchParams.get("mode") !== "chat";
-    }
-
     return true;
   }
 
@@ -41,14 +45,62 @@ export function MiniAppNav({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [adminStatus, setAdminStatus] = useState<AdminNotificationStatus | null>(null);
+  const previousSignature = useRef<string>("");
+
+  useEffect(() => {
+    if (!admin) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadStatus = async () => {
+      try {
+        const response = await fetch("/api/notifications/status", {
+          cache: "no-store"
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as AdminNotificationStatus;
+
+        if (cancelled || payload.role !== "admin") {
+          return;
+        }
+
+        const signature = `${payload.pendingRequestsCount}:${payload.unreadChatCount}:${payload.unreadContentCommentCount}`;
+
+        if (previousSignature.current && previousSignature.current !== signature) {
+          setAdminStatus(payload);
+        } else {
+          setAdminStatus(payload);
+        }
+
+        previousSignature.current = signature;
+      } catch {
+        return;
+      }
+    };
+
+    void loadStatus();
+    const intervalId = window.setInterval(() => void loadStatus(), 20000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [admin]);
 
   const items: NavItem[] = admin
     ? [
-        { href: "/tg/content", label: "Лента", shortLabel: "Лента" },
+        { href: "/tg/content", label: "Лента", shortLabel: "Лента", badgeKey: "unreadContentCommentCount" },
         { href: "/tg/admin/calendar", label: "Календарь", shortLabel: "Календ." },
         { href: "/tg/admin/posts", label: "Посты", shortLabel: "Посты" },
-        { href: "/tg/admin/users", label: "Люди", shortLabel: "Люди" },
-        { href: "/tg/admin/chat", label: "Чат", shortLabel: "Чат" },
+        { href: "/tg/admin/users", label: "Люди", shortLabel: "Люди", badgeKey: "pendingRequestsCount" },
+        { href: "/tg/admin/chat", label: "Чат", shortLabel: "Чат", badgeKey: "unreadChatCount" },
         { href: "/tg/admin/invites", label: "Инвайты", shortLabel: "Коды" },
         { href: "/tg/tiers", label: "Тарифы", shortLabel: "Тарифы" },
         { href: "/tg/admin/support", label: "Реквизиты", shortLabel: "Оплата" }
@@ -59,7 +111,7 @@ export function MiniAppNav({
           { href: "/tg/tiers", label: "Уровни", shortLabel: "Уровни" },
           { href: "/tg/achievements", label: "Достижения", shortLabel: "Достиж." },
           { href: "/tg/support", label: "Реквизиты", shortLabel: "Оплата" },
-          { href: "/tg/support?mode=chat", label: "Чат", shortLabel: "Чат" },
+          { href: "/tg/chat", label: "Чат", shortLabel: "Чат" },
           { href: "/tg/profile", label: "Профиль", shortLabel: "Профиль" }
         ]
       : [
@@ -119,6 +171,7 @@ export function MiniAppNav({
             {items.map((item) => {
               const active = isActive(pathname, searchParams, item.href);
               const featured = Boolean(item.featured);
+              const badgeCount = item.badgeKey && adminStatus ? adminStatus[item.badgeKey] : 0;
 
               return (
                 <Link
@@ -126,7 +179,7 @@ export function MiniAppNav({
                   href={item.href as never}
                   title={item.label}
                   onClick={() => setMobileOpen(false)}
-                  className={`rounded-[20px] px-3 py-3 text-center text-[12px] font-medium leading-4 transition lg:text-[11px] ${
+                  className={`relative rounded-[20px] px-3 py-3 text-center text-[12px] font-medium leading-4 transition lg:text-[11px] ${
                     active
                       ? "bg-white text-slate-950 shadow-[0_8px_24px_rgba(255,255,255,0.16)]"
                       : featured
@@ -135,6 +188,11 @@ export function MiniAppNav({
                   }`}
                 >
                   {item.shortLabel}
+                  {badgeCount ? (
+                    <span className="absolute right-1.5 top-1.5 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border border-rose-200/30 bg-rose-500 px-1.5 text-[10px] font-semibold leading-none text-white shadow-[0_0_14px_rgba(244,63,94,0.55)]">
+                      {badgeCount > 9 ? "9+" : badgeCount}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}
