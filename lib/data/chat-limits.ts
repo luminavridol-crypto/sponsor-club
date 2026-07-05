@@ -70,3 +70,16 @@ export async function canSendMonthlyChatMessage(
   const usage = await getChatMessageUsage(admin, profile);
   return usage.isUnlimited || (usage.remaining ?? 0) > 0;
 }
+
+export async function resetMonthlyChatUsageForProfile(admin: SupabaseClient, profileId: string) {
+  const { monthStart, nextMonthStart } = getMonthWindow();
+
+  await admin
+    .from("member_chat_messages")
+    .update({ counts_against_monthly_limit: false })
+    .eq("profile_id", profileId)
+    .eq("sender_role", "member")
+    .eq("counts_against_monthly_limit", true)
+    .gte("created_at", monthStart)
+    .lt("created_at", nextMonthStart);
+}

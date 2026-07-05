@@ -11,7 +11,8 @@ import { hasClubAccess } from "@/lib/auth/access";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
 import {
   canSendMonthlyChatMessage,
-  CHAT_MESSAGE_PACK_SIZE
+  CHAT_MESSAGE_PACK_SIZE,
+  resetMonthlyChatUsageForProfile
 } from "@/lib/data/chat-limits";
 import { hasApprovedPurchasedPostAccess } from "@/lib/data/post-purchases";
 import { deleteExpiredOrDraftPosts, removePostStorage } from "@/lib/data/post-cleanup";
@@ -2589,9 +2590,12 @@ export async function extendUserAccessAction(formData: FormData) {
     })
     .eq("id", userId);
 
+  await resetMonthlyChatUsageForProfile(admin, userId);
+
   revalidatePath("/admin/users");
   revalidatePath("/tg/admin/users");
   revalidatePath("/dashboard");
+  revalidatePath("/tg/chat");
 }
 
 export async function setUserAccessUntilAction(formData: FormData) {
