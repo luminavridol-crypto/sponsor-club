@@ -165,8 +165,8 @@ const tierLandingContentSchema = z.object({
   label: z.string().trim().min(2).max(120),
   level: z.string().trim().min(2).max(180),
   price: z.string().trim().min(2).max(80),
-  teaser: z.string().trim().min(2).max(500),
-  description: z.string().trim().max(500).optional().nullable(),
+  teaser: z.string().trim().min(2).max(5000),
+  description: z.string().trim().max(10000).optional().nullable(),
   statusBadge: z.string().trim().max(80).optional().nullable(),
   noteBadge: z.string().trim().max(80).optional().nullable(),
   sections: z.array(tierLandingSectionSchema).min(1)
@@ -769,7 +769,7 @@ export async function updateTierLandingAction(formData: FormData) {
   try {
     sectionsPayload = JSON.parse(sectionsJson);
   } catch {
-    redirect(`/tg/tiers?error=1&tier=${tier}&openTier=${tier}`);
+    redirect(`/tg/tiers?error=json&tier=${tier}&openTier=${tier}`);
   }
 
   const parsed = tierLandingContentSchema.safeParse({
@@ -784,7 +784,7 @@ export async function updateTierLandingAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect(`/tg/tiers?error=1&tier=${tier}&openTier=${tier}`);
+    redirect(`/tg/tiers?error=fields&tier=${tier}&openTier=${tier}`);
   }
 
   const content: TierLandingContent = {

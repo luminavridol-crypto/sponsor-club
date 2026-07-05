@@ -52,6 +52,10 @@ export default async function TelegramTiersPage({
         <section className="rounded-[28px] border border-rose-400/20 bg-rose-400/10 px-5 py-4 text-sm text-rose-100 shadow-[0_18px_46px_rgba(0,0,0,0.18)]">
           {error === "schema"
             ? "Не удалось сохранить тариф: в Supabase ещё не создана таблица tier_landing_content. Нужно применить миграцию 026."
+            : error === "json"
+              ? "Не удалось сохранить тариф: в блоке секций сломан JSON."
+              : error === "fields"
+                ? "Не удалось сохранить тариф: проверь, что название, уровень, цена, описание и секции заполнены."
             : "Не удалось сохранить тариф. Проверь поля и JSON в секциях."}
         </section>
       ) : null}
