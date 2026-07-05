@@ -9,6 +9,10 @@ import { z } from "zod";
 import { requireAdmin, requireAnyProfile, requireProfile } from "@/lib/auth/guards";
 import { hasClubAccess } from "@/lib/auth/access";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
+import {
+  canSendMonthlyChatMessage,
+  CHAT_MESSAGE_PACK_SIZE
+} from "@/lib/data/chat-limits";
 import { hasApprovedPurchasedPostAccess } from "@/lib/data/post-purchases";
 import { deleteExpiredOrDraftPosts, removePostStorage } from "@/lib/data/post-cleanup";
 import { reactionOptions } from "@/lib/data/reactions";
@@ -210,6 +214,10 @@ function isMissingPostSalesColumn(message: string) {
 
 function postSalesSchemaError() {
   return "В базе Supabase ещё не включена продажа постов. Примените миграцию `supabase/migrations/025_add_post_sales_fields.sql`.";
+}
+
+function isMissingTierLandingContentTable(message: string) {
+  return message.includes("tier_landing_content") && message.includes("schema cache");
 }
 
 function omitFavoriteLuminaCosplay<T extends { favorite_lumina_cosplay?: string | null }>(payload: T) {
@@ -760,7 +768,7 @@ export async function updateTierLandingAction(formData: FormData) {
   try {
     sectionsPayload = JSON.parse(sectionsJson);
   } catch {
-    redirect(`/tg/tiers?error=1&tier=${tier}`);
+    redirect(`/tg/tiers?error=1&tier=${tier}&openTier=${tier}`);
   }
 
   const parsed = tierLandingContentSchema.safeParse({
@@ -775,7 +783,7 @@ export async function updateTierLandingAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect(`/tg/tiers?error=1&tier=${tier}`);
+    redirect(`/tg/tiers?error=1&tier=${tier}&openTier=${tier}`);
   }
 
   const content: TierLandingContent = {
@@ -793,7 +801,13 @@ export async function updateTierLandingAction(formData: FormData) {
     }))
   };
 
-  await saveTierLandingContent(tier as Tier, content, profile.id);
+  try {
+    await saveTierLandingContent(tier as Tier, content, profile.id);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const reason = isMissingTierLandingContentTable(message) ? "schema" : "save";
+    redirect(`/tg/tiers?error=${reason}&tier=${tier}&openTier=${tier}`);
+  }
 
   revalidatePath("/tg/tiers");
   revalidatePath("/tg/support");
@@ -1605,7 +1619,8 @@ export async function sendMemberChatMessageAction(formData: FormData) {
   const postTitle = formValue(formData.get("postTitle"));
   const postPrice = formValue(formData.get("postPrice"));
   const createRequest = formValue(formData.get("createRequest")) === "1";
-  const requestKind = postSlug ? "post" : "tier";
+  const requestedKind = formValue(formData.get("requestKind"));
+  const requestKind = requestedKind === "chat_messages" ? "chat_messages" : postSlug ? "post" : "tier";
   const buildSupportRedirect = (status: "sent" | "error"): Route => {
     const params = new URLSearchParams();
     params.set(status, requestKind);
@@ -1626,6 +1641,10 @@ export async function sendMemberChatMessageAction(formData: FormData) {
       params.set("postPrice", postPrice);
     }
 
+    if (requestKind === "chat_messages") {
+      params.set("request", "chat_messages");
+    }
+
     return `/tg/support?${params.toString()}` as Route;
   };
   const mediaFile =
@@ -1641,6 +1660,10 @@ export async function sendMemberChatMessageAction(formData: FormData) {
     revalidatePath("/tg/chat");
     revalidatePath("/tg/support");
     return;
+  }
+
+  if (!createRequest && !(await canSendMonthlyChatMessage(admin, profile))) {
+    redirect("/tg/chat?error=limit");
   }
 
   let mediaPath: string | null = null;
@@ -1662,17 +1685,20 @@ export async function sendMemberChatMessageAction(formData: FormData) {
     body: body || null,
     media_path: mediaPath,
     media_type: mediaType,
+    counts_against_monthly_limit: !createRequest,
     read_by_admin_at: null,
     read_by_member_at: new Date().toISOString()
   });
 
   if (createRequest && ["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier)) {
-    const requestedPostFields = await resolveRequestedPostFields(admin, postSlug);
+    const requestedPostFields =
+      requestKind === "post" ? await resolveRequestedPostFields(admin, postSlug) : null;
     const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const { data: recentRequest } = await admin
       .from("purchase_requests")
       .select("id")
       .eq("email", profile.email)
+      .eq("request_kind", requestKind)
       .gte("created_at", recentCutoff)
       .limit(1)
       .maybeSingle();
@@ -1693,8 +1719,15 @@ export async function sendMemberChatMessageAction(formData: FormData) {
         display_name: displayName,
         email: profile.email,
         country: "Telegram Mini App",
-        contact: `Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`,
-        ...requestedPostFields
+        contact: `Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}${requestKind === "chat_messages" ? ` | Пакет: ${CHAT_MESSAGE_PACK_SIZE} сообщений` : ""}`,
+        request_kind: requestKind,
+        chat_messages_count: requestKind === "chat_messages" ? CHAT_MESSAGE_PACK_SIZE : 0,
+        ...(requestedPostFields ?? {
+          requested_post_id: null,
+          requested_post_slug: null,
+          requested_post_title: null,
+          requested_post_price: null
+        })
       };
 
       const { error } = await admin.from("purchase_requests").insert(requestPayload);
@@ -1704,8 +1737,15 @@ export async function sendMemberChatMessageAction(formData: FormData) {
           tier,
           email: profile.email,
           country: "Telegram Mini App",
-          contact: `Имя: ${displayName}\nСвязь: Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}`,
-          ...requestedPostFields
+          contact: `Имя: ${displayName}\nСвязь: Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}${requestKind === "chat_messages" ? ` | Пакет: ${CHAT_MESSAGE_PACK_SIZE} сообщений` : ""}`,
+          request_kind: requestKind,
+          chat_messages_count: requestKind === "chat_messages" ? CHAT_MESSAGE_PACK_SIZE : 0,
+          ...(requestedPostFields ?? {
+            requested_post_id: null,
+            requested_post_slug: null,
+            requested_post_title: null,
+            requested_post_price: null
+          })
         });
       }
     }

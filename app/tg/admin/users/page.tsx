@@ -67,7 +67,7 @@ export default async function TelegramAdminUsersPage() {
       admin.from("donation_events").select("*").order("created_at", { ascending: false }),
       admin
         .from("purchase_requests")
-        .select("id, tier, display_name, email, country, contact, status, approved_for_club, approved_for_post, requested_post_id, requested_post_slug, requested_post_title, requested_post_price, created_at, updated_at")
+        .select("id, tier, request_kind, display_name, email, country, contact, status, approved_for_club, approved_for_post, approved_for_chat_messages, chat_messages_count, requested_post_id, requested_post_slug, requested_post_title, requested_post_price, created_at, updated_at")
         .in("status", ["new", "in_progress"])
         .order("created_at", { ascending: false })
     ]);

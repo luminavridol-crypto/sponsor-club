@@ -6,6 +6,11 @@ import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
 import { getRecentChatMessages, getSignedChatMediaUrls, markChatReadByMember } from "@/lib/data/chat";
+import {
+  CHAT_MESSAGE_PACK_PRICE_EUR,
+  CHAT_MESSAGE_PACK_SIZE,
+  getChatMessageUsage
+} from "@/lib/data/chat-limits";
 import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
@@ -83,12 +88,14 @@ export default async function TelegramChatPage({
   const admin = createAdminSupabaseClient();
   const params = (await searchParams) ?? {};
   const hasContentAccess = hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile));
-  const error = (Array.isArray(params.error) ? params.error[0] : params.error) === "1";
+  const error = Array.isArray(params.error) ? params.error[0] : params.error;
 
-  const [messages] = await Promise.all([
+  const [messages, chatUsage] = await Promise.all([
     getRecentChatMessages(admin, profile.id),
+    getChatMessageUsage(admin, profile),
     markChatReadByMember(admin, profile.id)
   ]);
+  const isLimitReached = !chatUsage.isUnlimited && (chatUsage.remaining ?? 0) <= 0;
 
   const mediaMap = await getSignedChatMediaUrls(
     messages.map((message) => message.media_path).filter((value): value is string => Boolean(value))
@@ -108,7 +115,9 @@ export default async function TelegramChatPage({
     >
       {error ? (
         <section className="rounded-[24px] bg-rose-400/12 px-4 py-4 text-sm text-rose-100">
-          В чат можно загрузить только изображение.
+          {error === "limit"
+            ? "Лимит сообщений на этот месяц закончился. Можно купить дополнительный пакет ниже."
+            : "В чат можно загрузить только изображение."}
         </section>
       ) : null}
 
@@ -122,7 +131,9 @@ export default async function TelegramChatPage({
             </p>
           </div>
           <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-white/62">
-            Ответы подтягиваются автоматически
+            {chatUsage.isUnlimited
+              ? "Лимит: без ограничений"
+              : `Осталось ${chatUsage.remaining} из ${chatUsage.totalLimit} сообщений`}
           </div>
         </div>
 
@@ -135,20 +146,41 @@ export default async function TelegramChatPage({
             name="body"
             rows={4}
             placeholder="Напиши сообщение админу"
+            disabled={isLimitReached}
             className="w-full rounded-[22px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-white/28"
           />
 
           <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-3">
             <label className="flex cursor-pointer items-center justify-center rounded-[16px] border border-dashed border-white/14 px-4 py-3 text-sm text-white/60 transition hover:border-white/24 hover:text-white">
-              <input type="file" name="media" accept="image/*" className="hidden" />
+              <input type="file" name="media" accept="image/*" className="hidden" disabled={isLimitReached} />
               Прикрепить изображение
             </label>
           </div>
 
-          <button className="flex w-full items-center justify-center rounded-[20px] bg-[linear-gradient(135deg,#f0abfc,#8b5cf6_58%,#3b82f6)] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_rgba(99,102,241,0.24)] transition hover:opacity-95">
-            Отправить сообщение
+          <button
+            disabled={isLimitReached}
+            className="flex w-full items-center justify-center rounded-[20px] bg-[linear-gradient(135deg,#f0abfc,#8b5cf6_58%,#3b82f6)] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_rgba(99,102,241,0.24)] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {isLimitReached ? "Лимит сообщений закончился" : "Отправить сообщение"}
           </button>
         </form>
+
+        <div className="mt-4 rounded-[22px] border border-sky-300/14 bg-sky-400/10 px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-sky-50">Купить ещё сообщения</p>
+              <p className="mt-1 text-xs leading-5 text-white/58">
+                {CHAT_MESSAGE_PACK_SIZE} сообщений за {CHAT_MESSAGE_PACK_PRICE_EUR} EUR после проверки скрина оплаты.
+              </p>
+            </div>
+            <a
+              href="/tg/support?request=chat_messages"
+              className="rounded-[18px] bg-sky-100 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:opacity-90"
+            >
+              Купить ещё сообщения
+            </a>
+          </div>
+        </div>
       </section>
     </MiniAppShell>
   );

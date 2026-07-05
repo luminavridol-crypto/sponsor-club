@@ -68,7 +68,7 @@ export function SupportRequestForm({
   submitButtonClassName
 }: {
   tier: Tier;
-  requestKind: "post" | "tier";
+  requestKind: "post" | "tier" | "chat_messages";
   postSlug?: string;
   postTitle?: string;
   postPrice?: string;
@@ -86,6 +86,7 @@ export function SupportRequestForm({
     <form action={sendMemberChatMessageAction} className="mt-3 space-y-3">
       <input type="hidden" name="tier" value={tier} />
       <input type="hidden" name="createRequest" value="1" />
+      <input type="hidden" name="requestKind" value={requestKind} />
       {postSlug ? <input type="hidden" name="postSlug" value={postSlug} /> : null}
       {postTitle ? <input type="hidden" name="postTitle" value={postTitle} /> : null}
       {postPrice ? <input type="hidden" name="postPrice" value={postPrice} /> : null}

@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireActiveAdminSession } from "@/lib/auth/admin-session";
+import { getChatMessageGrantExpiry } from "@/lib/data/chat-limits";
 import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
 
     const allowClubAccess = accessMode === "club";
     const allowPostAccess = accessMode === "post";
+    const allowChatMessages = accessMode === "chat_messages";
 
     if (allowClubAccess) {
       const { data: purchaseRequest } = await admin
@@ -117,12 +119,43 @@ export async function POST(request: Request) {
       }
     }
 
+    if (allowChatMessages) {
+      const { data: purchaseRequest } = await admin
+        .from("purchase_requests")
+        .select("id, email, chat_messages_count")
+        .eq("id", requestId)
+        .maybeSingle();
+
+      if (!purchaseRequest?.email || !purchaseRequest.chat_messages_count) {
+        return redirectBack(request);
+      }
+
+      const { data: existingProfile } = await admin
+        .from("profiles")
+        .select("id, role")
+        .eq("email", purchaseRequest.email)
+        .maybeSingle();
+
+      if (!existingProfile || existingProfile.role === "admin") {
+        return redirectBack(request);
+      }
+
+      await admin.from("member_chat_message_grants").insert({
+        profile_id: existingProfile.id,
+        purchase_request_id: purchaseRequest.id,
+        message_count: purchaseRequest.chat_messages_count,
+        expires_at: getChatMessageGrantExpiry(),
+        approved_by: adminProfile.id
+      });
+    }
+
     await admin
       .from("purchase_requests")
       .update({
         status,
         approved_for_club: allowClubAccess,
-        approved_for_post: allowPostAccess
+        approved_for_post: allowPostAccess,
+        approved_for_chat_messages: allowChatMessages
       })
       .eq("id", requestId);
 

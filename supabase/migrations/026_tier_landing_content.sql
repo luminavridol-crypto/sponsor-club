@@ -14,6 +14,9 @@ execute function public.set_updated_at();
 
 alter table public.tier_landing_content enable row level security;
 
+grant select, insert, update, delete on public.tier_landing_content to authenticated;
+grant select, insert, update, delete on public.tier_landing_content to service_role;
+
 create policy "Admins manage tier landing content"
 on public.tier_landing_content
 for all

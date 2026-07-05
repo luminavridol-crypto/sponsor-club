@@ -73,7 +73,8 @@ function SummaryCard({
 }
 
 function PendingRequestCard({ request }: { request: PurchaseRequest }) {
-  const isPostRequest = Boolean(request.requested_post_id);
+  const isChatMessagesRequest = request.request_kind === "chat_messages";
+  const isPostRequest = request.request_kind === "post" || Boolean(request.requested_post_id);
 
   return (
     <article className={ADMIN_SUBPANEL_CLASS}>
@@ -86,8 +87,16 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
           <p className="mt-1 text-sm text-white/52">{request.contact}</p>
           <p className="mt-1 text-sm text-white/42">{request.country}</p>
           <div className="mt-3 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-white/55">
-            {isPostRequest ? "Пост" : "Подписка"}
+            {isChatMessagesRequest ? "Сообщения" : isPostRequest ? "Пост" : "Подписка"}
           </div>
+          {isChatMessagesRequest ? (
+            <div className="mt-3 rounded-[18px] border border-sky-300/15 bg-sky-400/10 px-3 py-3 text-sm text-sky-50">
+              <p>
+                Пакет сообщений: <span className="font-medium text-white">{request.chat_messages_count ?? 20}</span>
+              </p>
+              <p className="mt-1 text-white/80">Цена: 5 EUR</p>
+            </div>
+          ) : null}
           {request.requested_post_title ? (
             <div className="mt-3 rounded-[18px] border border-fuchsia-300/15 bg-fuchsia-400/10 px-3 py-3 text-sm text-fuchsia-50">
               <p>
@@ -153,7 +162,17 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
           </Link>
         ) : null}
 
-        {isPostRequest ? (
+        {isChatMessagesRequest ? (
+          <form method="post" action="/api/admin/purchase-requests">
+            <input type="hidden" name="actionType" value="update" />
+            <input type="hidden" name="requestId" value={request.id} />
+            <input type="hidden" name="status" value="completed" />
+            <input type="hidden" name="accessMode" value="chat_messages" />
+            <button className={ADMIN_BUTTON_PRIMARY_CLASS}>Начислить {request.chat_messages_count ?? 20} сообщений</button>
+          </form>
+        ) : null}
+
+        {!isChatMessagesRequest && isPostRequest ? (
           <form method="post" action="/api/admin/purchase-requests">
             <input type="hidden" name="actionType" value="update" />
             <input type="hidden" name="requestId" value={request.id} />
@@ -165,7 +184,7 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
           </form>
         ) : null}
 
-        {!isPostRequest ? (
+        {!isChatMessagesRequest && !isPostRequest ? (
           <form method="post" action="/api/admin/purchase-requests">
             <input type="hidden" name="actionType" value="update" />
             <input type="hidden" name="requestId" value={request.id} />
@@ -207,9 +226,16 @@ export function AdminUsersBrowser({
 
   const activeUsers = useMemo(() => users.filter((user) => user.access_status === "active"), [users]);
   const pendingUsers = useMemo(() => users.filter((user) => user.access_status !== "active"), [users]);
-  const postRequests = useMemo(() => requests.filter((request) => Boolean(request.requested_post_id)), [requests]);
+  const chatMessageRequests = useMemo(
+    () => requests.filter((request) => request.request_kind === "chat_messages"),
+    [requests]
+  );
+  const postRequests = useMemo(
+    () => requests.filter((request) => request.request_kind !== "chat_messages" && Boolean(request.requested_post_id)),
+    [requests]
+  );
   const subscriptionRequests = useMemo(
-    () => requests.filter((request) => !request.requested_post_id),
+    () => requests.filter((request) => request.request_kind !== "chat_messages" && !request.requested_post_id),
     [requests]
   );
   const counts = useMemo(
@@ -299,6 +325,16 @@ export function AdminUsersBrowser({
           {!subscriptionRequests.length ? (
             <div className={`${ADMIN_SUBPANEL_CLASS} text-sm text-white/60`}>Пока нет заявок по подписке.</div>
           ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <SectionHeading title="Сообщения" count={chatMessageRequests.length} />
+
+          {chatMessageRequests.length ? (
+            chatMessageRequests.map((request) => <PendingRequestCard key={request.id} request={request} />)
+          ) : (
+            <div className={`${ADMIN_SUBPANEL_CLASS} text-sm text-white/60`}>Пока нет заявок на пакет сообщений.</div>
+          )}
         </div>
 
         <div className="space-y-2">

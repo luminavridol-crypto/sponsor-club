@@ -5,6 +5,7 @@ export type PostType = "gallery" | "video" | "text" | "announcement";
 export type PostStatus = "draft" | "published";
 export type MediaType = "image" | "video" | "file";
 export type PurchaseRequestStatus = "new" | "in_progress" | "completed";
+export type PurchaseRequestKind = "tier" | "post" | "chat_messages";
 export type PostReactionType = "heart" | "fire" | "cry" | "sparkles" | "devil";
 
 export interface Profile {
@@ -164,6 +165,7 @@ export interface PostReaction {
 export interface PurchaseRequest {
   id: string;
   tier: Tier;
+  request_kind?: PurchaseRequestKind;
   display_name: string | null;
   email: string;
   country: string;
@@ -171,6 +173,8 @@ export interface PurchaseRequest {
   status: PurchaseRequestStatus;
   approved_for_club?: boolean;
   approved_for_post?: boolean;
+  approved_for_chat_messages?: boolean;
+  chat_messages_count?: number | null;
   requested_post_id?: string | null;
   requested_post_slug?: string | null;
   requested_post_title?: string | null;

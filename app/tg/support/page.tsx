@@ -6,6 +6,7 @@ import { SupportRequestForm } from "@/components/telegram/support-request-form";
 import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
 import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
+import { CHAT_MESSAGE_PACK_PRICE_EUR, CHAT_MESSAGE_PACK_SIZE } from "@/lib/data/chat-limits";
 import { getTelegramSupportSettings } from "@/lib/data/telegram-support";
 import { getTierLandingCards } from "@/lib/data/tier-landing";
 import { Tier } from "@/lib/types";
@@ -122,9 +123,10 @@ export default async function TelegramSupportPage({
 }) {
   const profile = await requireAnyProfile();
   const params = (await searchParams) ?? {};
-  const selectedTier = parseTier(params.tier);
   const sentValue = readParam(params.sent);
   const errorValue = readParam(params.error);
+  const explicitRequest = readParam(params.request);
+  const selectedTier = explicitRequest === "chat_messages" ? profile.tier : parseTier(params.tier);
   const postSlug = readParam(params.postSlug);
   const postTitle = readParam(params.postTitle);
   const postPrice = readParam(params.postPrice);
@@ -132,17 +134,27 @@ export default async function TelegramSupportPage({
   const support = await getTelegramSupportSettings();
   const tierCards = await getTierLandingCards().catch(() => []);
   const tier = tierCards.find((card) => card.tier === selectedTier) ?? tierCards[0];
-  const priceLabel = postPrice ? formatEuroAmount(postPrice) ?? postPrice : tier?.price ?? "";
-  const calculatorAmount = parseAmountFromPrice(postPrice ?? tier?.price ?? null) ?? 0;
+  const requestKind = explicitRequest === "chat_messages" ? "chat_messages" : postSlug ? "post" : "tier";
+  const priceLabel =
+    requestKind === "chat_messages"
+      ? `${CHAT_MESSAGE_PACK_PRICE_EUR} EUR`
+      : postPrice
+        ? formatEuroAmount(postPrice) ?? postPrice
+        : tier?.price ?? "";
+  const calculatorAmount =
+    requestKind === "chat_messages"
+      ? CHAT_MESSAGE_PACK_PRICE_EUR
+      : parseAmountFromPrice(postPrice ?? tier?.price ?? null) ?? 0;
   const theme = SUPPORT_THEME[selectedTier];
-  const requestKind = postSlug ? "post" : "tier";
-  const successKind = sentValue === "post" || sentValue === "tier" ? sentValue : sentValue ? requestKind : null;
-  const failureKind = errorValue === "post" || errorValue === "tier" ? errorValue : errorValue ? requestKind : null;
+  const successKind =
+    sentValue === "post" || sentValue === "tier" || sentValue === "chat_messages" ? sentValue : sentValue ? requestKind : null;
+  const failureKind =
+    errorValue === "post" || errorValue === "tier" || errorValue === "chat_messages" ? errorValue : errorValue ? requestKind : null;
 
   return (
     <MiniAppShell
       profile={profile}
-      title={requestKind === "post" ? "Покупка поста" : "Оплата"}
+      title={requestKind === "post" ? "Покупка поста" : requestKind === "chat_messages" ? "Пакет сообщений" : "Оплата"}
       showHeaderActions={false}
       hasAccess={hasContentAccess}
       shellClassName={theme.shell}
@@ -150,12 +162,18 @@ export default async function TelegramSupportPage({
       {successKind ? (
         <section className="rounded-[24px] bg-emerald-400/12 px-4 py-4 text-emerald-50">
           <p className="text-sm font-medium">
-            {successKind === "post" ? "Заявка на покупку поста отправлена 💜" : "Заявка на тариф отправлена 💜"}
+            {successKind === "post"
+              ? "Заявка на покупку поста отправлена 💜"
+              : successKind === "chat_messages"
+                ? "Заявка на пакет сообщений отправлена 💜"
+                : "Заявка на тариф отправлена 💜"}
           </p>
           <p className="mt-1 text-sm text-emerald-100/80">
             {successKind === "post"
               ? "Проверю оплату и открою доступ именно к этому посту."
-              : "Проверю оплату и открою доступ к выбранному тарифу вручную."}
+              : successKind === "chat_messages"
+                ? "Проверю оплату и начислю дополнительные сообщения вручную."
+                : "Проверю оплату и открою доступ к выбранному тарифу вручную."}
           </p>
         </section>
       ) : null}
@@ -164,6 +182,8 @@ export default async function TelegramSupportPage({
         <section className="rounded-[24px] bg-rose-400/12 px-4 py-4 text-sm text-rose-100">
           {failureKind === "post"
             ? "Не удалось отправить заявку на пост. Попробуй ещё раз."
+            : failureKind === "chat_messages"
+              ? "Не удалось отправить заявку на пакет сообщений. Попробуй ещё раз."
             : "Не удалось отправить заявку на тариф. Попробуй ещё раз."}
         </section>
       ) : null}
@@ -171,11 +191,17 @@ export default async function TelegramSupportPage({
       <section className={`rounded-[28px] border px-5 py-5 text-white ${theme.panel}`}>
         <div className="space-y-3">
           <div className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${theme.statusBadge}`}>
-            {requestKind === "post" ? "Покупка отдельного поста" : "Оплата доступа"}
+            {requestKind === "post"
+              ? "Покупка отдельного поста"
+              : requestKind === "chat_messages"
+                ? "Покупка сообщений"
+                : "Оплата доступа"}
           </div>
           <p className="max-w-[34rem] text-sm leading-6 text-white/72">
             {requestKind === "post"
               ? "Оплати этот пост, прикрепи скрин и при желании оставь комментарий. После проверки я открою доступ только к выбранной публикации."
+              : requestKind === "chat_messages"
+                ? `Оплати пакет ${CHAT_MESSAGE_PACK_SIZE} сообщений, прикрепи скрин и отправь заявку. После проверки я начислю сообщения вручную.`
               : "Выбери тариф, оплати доступ, прикрепи скрин и при желании оставь комментарий к заявке. После проверки я открою доступ вручную."}
           </p>
         </div>
@@ -210,6 +236,24 @@ export default async function TelegramSupportPage({
               <h2 className={`mt-4 font-display text-[1.5rem] leading-none ${theme.accentText}`}>{tier?.label ?? "Тариф"}</h2>
               <p className={`mt-3 text-lg font-medium ${theme.accentText}`}>{priceLabel}</p>
               {tier?.teaser ? <p className="mt-2 text-sm text-white/60">{tier.teaser}</p> : null}
+            </section>
+          ) : requestKind === "chat_messages" ? (
+            <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
+              <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Пакет сообщений</p>
+              <div className={`mt-3 rounded-[18px] border px-4 py-4 ${theme.infoCard}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className={`font-display text-[1.5rem] leading-none ${theme.accentText}`}>
+                      {CHAT_MESSAGE_PACK_SIZE} сообщений
+                    </h2>
+                    <p className="mt-2 text-sm text-white/60">Добавятся к твоему лимиту на текущий месяц после одобрения.</p>
+                  </div>
+                  <div className="rounded-[18px] border border-fuchsia-300/18 bg-fuchsia-400/10 px-4 py-3 text-right">
+                    <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>Цена</p>
+                    <p className={`mt-2 text-xl font-semibold ${theme.accentText}`}>{priceLabel}</p>
+                  </div>
+                </div>
+              </div>
             </section>
           ) : (
             <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
@@ -259,7 +303,7 @@ export default async function TelegramSupportPage({
 
           <section className={`rounded-[24px] px-4 py-4 ${theme.section}`}>
             <p className={`text-[11px] uppercase tracking-[0.22em] ${theme.infoLabel}`}>
-              {requestKind === "post" ? "Заявка на пост" : "Заявка на тариф"}
+              {requestKind === "post" ? "Заявка на пост" : requestKind === "chat_messages" ? "Заявка на сообщения" : "Заявка на тариф"}
             </p>
 
             <SupportRequestForm
@@ -268,8 +312,20 @@ export default async function TelegramSupportPage({
               postSlug={postSlug ?? undefined}
               postTitle={postTitle ?? undefined}
               postPrice={postPrice ?? undefined}
-              textareaPlaceholder={requestKind === "post" ? "Комментарий к покупке поста" : "Комментарий к заявке на тариф"}
-              submitLabel={requestKind === "post" ? "Отправить заявку на пост" : "Отправить заявку на тариф"}
+              textareaPlaceholder={
+                requestKind === "post"
+                  ? "Комментарий к покупке поста"
+                  : requestKind === "chat_messages"
+                    ? "Комментарий к покупке сообщений"
+                    : "Комментарий к заявке на тариф"
+              }
+              submitLabel={
+                requestKind === "post"
+                  ? "Отправить заявку на пост"
+                  : requestKind === "chat_messages"
+                    ? "Отправить заявку на сообщения"
+                    : "Отправить заявку на тариф"
+              }
               infoCardClassName={theme.infoCard}
               infoLabelClassName={theme.infoLabel}
               accentTextClassName={theme.accentText}
