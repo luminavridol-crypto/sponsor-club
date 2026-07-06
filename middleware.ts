@@ -1,18 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getTelegramBotUsername } from "@/lib/telegram/env";
+import { buildTelegramMiniAppLink } from "@/lib/telegram/links";
 
 const STATIC_FILE_PATTERN = /\.[^/]+$/;
 const PUBLIC_BROWSER_PATHS = new Set(["/", "/open-path/tiers"]);
-
-function buildTelegramMiniAppUrl(startParam = "club") {
-  const username = getTelegramBotUsername();
-
-  if (!username) {
-    return null;
-  }
-
-  return `https://t.me/${username}?startapp=${encodeURIComponent(startParam)}`;
-}
 
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -41,7 +31,7 @@ export function middleware(request: NextRequest) {
     const inviteCode = request.nextUrl.searchParams.get("code")?.trim().toUpperCase();
 
     if (inviteCode?.startsWith("VIP-")) {
-      const inviteUrl = buildTelegramMiniAppUrl(`invite-${inviteCode}`);
+      const inviteUrl = buildTelegramMiniAppLink(`invite-${inviteCode}`);
 
       if (inviteUrl) {
         return NextResponse.redirect(inviteUrl);

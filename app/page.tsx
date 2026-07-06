@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { BrandShell } from "@/components/layout/brand-shell";
 import { LogoMark } from "@/components/layout/logo-mark";
+import { buildTelegramMiniAppLink } from "@/lib/telegram/links";
 
 const socials = [
   {
@@ -102,8 +103,6 @@ const faqItems = [
     answer: "Да, уровень можно обновить позже, если захочешь больше контента и более закрытую атмосферу."
   }
 ];
-
-const telegramMiniAppTariffsHref = "https://t.me/SponsorClubLumina_bot?startapp=tiers";
 
 // Редактируй тексты тарифов здесь.
 const homeTariffs = [
@@ -286,6 +285,8 @@ const homeTariffs = [
 ];
 
 export default function HomePage() {
+  const telegramMiniAppTariffsHref = buildTelegramMiniAppLink("tiers") ?? "https://t.me/SponsorClubLumina_bot";
+
   return (
     <BrandShell>
       <div className="relative overflow-hidden">

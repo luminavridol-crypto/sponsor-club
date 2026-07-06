@@ -43,6 +43,14 @@ export function getTelegramBotUsername() {
   return process.env.TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, "") || "";
 }
 
+export function getTelegramMiniAppShortName() {
+  return (
+    process.env.TELEGRAM_MINI_APP_SHORT_NAME?.trim().replace(/^\/+|\/+$/g, "") ||
+    process.env.TELEGRAM_WEB_APP_SHORT_NAME?.trim().replace(/^\/+|\/+$/g, "") ||
+    ""
+  );
+}
+
 export function isTelegramAdminUser({
   telegramId,
   username

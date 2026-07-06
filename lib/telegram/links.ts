@@ -1,13 +1,18 @@
-import { getTelegramBotUsername } from "@/lib/telegram/env";
+import { getTelegramBotUsername, getTelegramMiniAppShortName } from "@/lib/telegram/env";
+
+const FALLBACK_TELEGRAM_BOT_USERNAME = "SponsorClubLumina_bot";
 
 export function buildTelegramMiniAppLink(startParam = "club") {
-  const username = getTelegramBotUsername();
+  const username = getTelegramBotUsername() || FALLBACK_TELEGRAM_BOT_USERNAME;
+  const shortName = getTelegramMiniAppShortName();
 
   if (!username) {
     return null;
   }
 
-  return `https://t.me/${username}?startapp=${encodeURIComponent(startParam)}`;
+  const path = shortName ? `${username}/${shortName}` : username;
+
+  return `https://t.me/${path}?startapp=${encodeURIComponent(startParam)}`;
 }
 
 export function buildTelegramInviteLink(code: string) {
