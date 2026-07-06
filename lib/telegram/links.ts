@@ -15,6 +15,12 @@ export function buildTelegramMiniAppLink(startParam = "club") {
   return `https://t.me/${path}?startapp=${encodeURIComponent(startParam)}`;
 }
 
+export function buildTelegramBotLink() {
+  const username = getTelegramBotUsername() || FALLBACK_TELEGRAM_BOT_USERNAME;
+
+  return username ? `https://t.me/${username}` : null;
+}
+
 export function buildTelegramInviteLink(code: string) {
   return buildTelegramMiniAppLink(`invite-${code.toUpperCase()}`);
 }

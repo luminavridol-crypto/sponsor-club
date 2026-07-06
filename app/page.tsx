@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { BrandShell } from "@/components/layout/brand-shell";
 import { LogoMark } from "@/components/layout/logo-mark";
-import { buildTelegramMiniAppLink } from "@/lib/telegram/links";
+import { buildTelegramBotLink } from "@/lib/telegram/links";
 
 const socials = [
   {
@@ -285,7 +285,7 @@ const homeTariffs = [
 ];
 
 export default function HomePage() {
-  const telegramMiniAppTariffsHref = buildTelegramMiniAppLink("tiers") ?? "https://t.me/SponsorClubLumina_bot";
+  const telegramMiniAppTariffsHref = buildTelegramBotLink() ?? "https://t.me/SponsorClubLumina_bot";
 
   return (
     <BrandShell>
@@ -577,7 +577,7 @@ export default function HomePage() {
               className="mt-4 inline-flex w-full items-center justify-center gap-3 rounded-[1.15rem] border border-accentSoft/50 bg-gradient-to-r from-accent/85 via-[#c458f6] to-[#6f3ff4] px-5 py-4 text-base font-semibold text-white shadow-[0_14px_46px_rgba(255,79,216,0.32)] transition hover:scale-[1.01] hover:brightness-110 sm:w-auto sm:min-w-[20rem]"
             >
               <TelegramIcon />
-              <span>Открыть тарифы и оплату в Telegram</span>
+              <span>Открыть бота и перейти в клуб</span>
             </a>
           </div>
         </section>
