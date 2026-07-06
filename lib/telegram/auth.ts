@@ -27,6 +27,7 @@ export type TelegramAuthResult = {
   profile: Profile;
   telegramId: string;
   isAdmin: boolean;
+  requestedPath: string | null;
 };
 
 function buildDataCheckString(params: URLSearchParams) {
@@ -117,6 +118,20 @@ function parseInviteCodeFromStartParam(startParam: string | null) {
   const normalized = rawCode.trim().toUpperCase();
 
   return normalized.startsWith("VIP-") ? normalized : null;
+}
+
+function resolveRequestedPathFromStartParam(startParam: string | null) {
+  const normalized = startParam?.trim().toLowerCase();
+
+  if (!normalized || normalized.startsWith("invite")) {
+    return null;
+  }
+
+  if (["tiers", "tariffs", "plans"].includes(normalized)) {
+    return "/tg/tiers";
+  }
+
+  return null;
 }
 
 async function findOrCreateAuthUserId(telegramId: string) {
@@ -263,7 +278,8 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
     return {
       profile: normalizeProfileTier(nextProfile),
       telegramId,
-      isAdmin: nextProfile.role === "admin"
+      isAdmin: nextProfile.role === "admin",
+      requestedPath: resolveRequestedPathFromStartParam(startParam)
     };
   }
 
@@ -303,7 +319,8 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
   return {
     profile: normalizeProfileTier(nextProfile),
     telegramId,
-    isAdmin: nextProfile.role === "admin"
+    isAdmin: nextProfile.role === "admin",
+    requestedPath: resolveRequestedPathFromStartParam(startParam)
   };
 }
 

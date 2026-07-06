@@ -6,7 +6,7 @@ import { buildTelegramMiniAppLink } from "@/lib/telegram/links";
 
 export default async function GuestTiersPage() {
   const tierCards = await getTierLandingCards();
-  const openMiniAppLink = buildTelegramMiniAppLink("club");
+  const openMiniAppLink = buildTelegramMiniAppLink("tiers");
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#17151d_0%,#111119_42%,#0c0d13_100%)] px-3 py-6 text-white sm:px-4 sm:py-8">

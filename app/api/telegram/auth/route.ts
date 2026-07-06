@@ -12,13 +12,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing initData" }, { status: 400 });
     }
 
-    const { profile, telegramId } = await upsertTelegramProfile(body.initData);
+    const { profile, telegramId, requestedPath } = await upsertTelegramProfile(body.initData);
     await writeTelegramSession(profile.id, telegramId);
 
     const nextPath =
-      profile.role === "admin"
+      requestedPath ??
+      (profile.role === "admin"
         ? "/tg/admin/posts"
-        : "/tg/content";
+        : "/tg/content");
 
     return NextResponse.json(
       {
