@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getTelegramBotUsername } from "@/lib/telegram/env";
 
 const STATIC_FILE_PATTERN = /\.[^/]+$/;
+const PUBLIC_BROWSER_PATHS = new Set(["/", "/open-path/tiers"]);
 
 function buildTelegramMiniAppUrl(startParam = "club") {
   const username = getTelegramBotUsername();
@@ -48,7 +49,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith("/tg")) {
+  if (pathname.startsWith("/tg") || PUBLIC_BROWSER_PATHS.has(pathname)) {
     return response;
   }
 
