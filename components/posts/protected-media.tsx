@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { ProtectedVideoPlayer } from "@/components/posts/protected-video-player";
 
 type ProtectedMediaProps = {
   src: string;
@@ -16,22 +17,7 @@ export function ProtectedMedia({
   className = ""
 }: ProtectedMediaProps) {
   if (kind === "video") {
-    return (
-      <div className={`protected-media ${className}`}>
-        <video
-          controls
-          controlsList="nodownload noplaybackrate"
-          disablePictureInPicture
-          preload="metadata"
-          className="w-full rounded-[28px] border border-white/10 bg-black"
-          src={src}
-          onContextMenu={(event) => event.preventDefault()}
-        />
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-2xl bg-black/45 px-3 py-2 text-xs tracking-[0.12em] text-white/75 backdrop-blur">
-          Закрытый материал. Скачивание отключено.
-        </div>
-      </div>
-    );
+    return <ProtectedVideoPlayer src={src} className={className} />;
   }
 
   return (
