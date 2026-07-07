@@ -3,6 +3,7 @@ import type { Profile, Tier } from "@/lib/types";
 
 export const CHAT_MESSAGE_PACK_SIZE = 20;
 export const CHAT_MESSAGE_PACK_PRICE_EUR = 5;
+export const POST_PURCHASE_CHAT_MESSAGE_GRANT = 5;
 
 export const CHAT_MESSAGE_MONTHLY_LIMITS: Record<Tier, number | null> = {
   tier_1: 20,

@@ -6,7 +6,11 @@ import { SupportRequestForm } from "@/components/telegram/support-request-form";
 import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
 import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
-import { CHAT_MESSAGE_PACK_PRICE_EUR, CHAT_MESSAGE_PACK_SIZE } from "@/lib/data/chat-limits";
+import {
+  CHAT_MESSAGE_PACK_PRICE_EUR,
+  CHAT_MESSAGE_PACK_SIZE,
+  POST_PURCHASE_CHAT_MESSAGE_GRANT
+} from "@/lib/data/chat-limits";
 import { getTelegramSupportSettings } from "@/lib/data/telegram-support";
 import { getTierLandingCards } from "@/lib/data/tier-landing";
 import { Tier } from "@/lib/types";
@@ -138,8 +142,10 @@ export default async function TelegramSupportPage({
   const priceLabel =
     requestKind === "chat_messages"
       ? `${CHAT_MESSAGE_PACK_PRICE_EUR} EUR`
-      : postPrice
-        ? formatEuroAmount(postPrice) ?? postPrice
+      : requestKind === "post"
+        ? postPrice
+          ? formatEuroAmount(postPrice) ?? postPrice
+          : "Цена по запросу"
         : tier?.price ?? "";
   const calculatorAmount =
     requestKind === "chat_messages"
@@ -170,7 +176,7 @@ export default async function TelegramSupportPage({
           </p>
           <p className="mt-1 text-sm text-emerald-100/80">
             {successKind === "post"
-              ? "Проверю оплату и открою доступ именно к этому посту."
+              ? `Я напишу стоимость в чат. Для этого запроса тебе открыто ${POST_PURCHASE_CHAT_MESSAGE_GRANT} сообщений.`
               : successKind === "chat_messages"
                 ? "Проверю оплату и начислю дополнительные сообщения вручную."
                 : "Проверю оплату и открою доступ к выбранному тарифу вручную."}
@@ -199,7 +205,9 @@ export default async function TelegramSupportPage({
           </div>
           <p className="max-w-[34rem] text-sm leading-6 text-white/72">
             {requestKind === "post"
-              ? "Оплати этот пост, прикрепи скрин и при желании оставь комментарий. После проверки я открою доступ только к выбранной публикации."
+              ? postPrice
+                ? `Оплати этот пост, прикрепи скрин и при желании оставь комментарий. После заявки тебе откроется ${POST_PURCHASE_CHAT_MESSAGE_GRANT} сообщений в ЛС для уточнений.`
+                : `Отправь запрос, и я напишу стоимость в чат. После заявки тебе откроется ${POST_PURCHASE_CHAT_MESSAGE_GRANT} сообщений в ЛС, чтобы обсудить цену и прислать скрин оплаты.`
               : requestKind === "chat_messages"
                 ? `Оплати пакет ${CHAT_MESSAGE_PACK_SIZE} сообщений, прикрепи скрин и отправь заявку. После проверки я начислю сообщения вручную.`
               : "Выбери тариф, оплати доступ, прикрепи скрин и при желании оставь комментарий к заявке. После проверки я открою доступ вручную."}
@@ -314,14 +322,18 @@ export default async function TelegramSupportPage({
               postPrice={postPrice ?? undefined}
               textareaPlaceholder={
                 requestKind === "post"
-                  ? "Комментарий к покупке поста"
+                  ? postPrice
+                    ? "Комментарий к покупке поста"
+                    : "Напиши, если хочешь уточнить детали. Можно оставить пустым."
                   : requestKind === "chat_messages"
                     ? "Комментарий к покупке сообщений"
                     : "Комментарий к заявке на тариф"
               }
               submitLabel={
                 requestKind === "post"
-                  ? "Отправить заявку на пост"
+                  ? postPrice
+                    ? "Отправить заявку на пост"
+                    : "Запросить покупку"
                   : requestKind === "chat_messages"
                     ? "Отправить заявку на сообщения"
                     : "Отправить заявку на тариф"

@@ -10,6 +10,7 @@ import {
   ADMIN_SUBPANEL_CLASS
 } from "@/components/admin/theme";
 import { UserCard } from "@/components/admin/user-card";
+import { POST_PURCHASE_CHAT_MESSAGE_GRANT } from "@/lib/data/chat-limits";
 import { DonationEvent, Profile, PurchaseRequest } from "@/lib/types";
 
 type BrowserUser = Profile & {
@@ -104,7 +105,12 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
               </p>
               {typeof request.requested_post_price === "number" ? (
                 <p className="mt-1 text-white/80">Цена: {request.requested_post_price.toFixed(2)} EUR</p>
-              ) : null}
+              ) : (
+                <p className="mt-1 text-white/80">Цена: по запросу</p>
+              )}
+              <p className="mt-1 text-white/70">
+                ЛС для уточнения: {POST_PURCHASE_CHAT_MESSAGE_GRANT} сообщений автоматически
+              </p>
               {request.already_has_post_access ? (
                 <p className="mt-2 text-white/80">
                   У пользователя уже есть доступ к этому посту по текущему тарифу.

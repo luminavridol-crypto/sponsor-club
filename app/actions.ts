@@ -12,6 +12,8 @@ import { cleanupOldChatMessages } from "@/lib/data/chat";
 import {
   canSendMonthlyChatMessage,
   CHAT_MESSAGE_PACK_SIZE,
+  getChatMessageGrantExpiry,
+  POST_PURCHASE_CHAT_MESSAGE_GRANT,
   resetMonthlyChatUsageForProfile
 } from "@/lib/data/chat-limits";
 import { hasApprovedPurchasedPostAccess } from "@/lib/data/post-purchases";
@@ -1655,7 +1657,7 @@ export async function sendMemberChatMessageAction(formData: FormData) {
 
   await cleanupOldChatMessages(admin);
 
-  if (!body && !mediaFile) {
+  if (!body && !mediaFile && !createRequest) {
     revalidatePath("/profile");
     revalidatePath("/chat");
     revalidatePath("/tg/chat");
@@ -1680,10 +1682,18 @@ export async function sendMemberChatMessageAction(formData: FormData) {
     mediaType = "image";
   }
 
+  const fallbackRequestBody =
+    requestKind === "post"
+      ? `Запрос на покупку поста${postTitle ? `: ${postTitle}` : ""}`
+      : requestKind === "chat_messages"
+        ? `Заявка на пакет ${CHAT_MESSAGE_PACK_SIZE} сообщений`
+        : "Заявка на доступ";
+  const messageBody = body || (createRequest ? fallbackRequestBody : mediaFile ? "Вложение" : "");
+
   await admin.from("member_chat_messages").insert({
     profile_id: profile.id,
     sender_role: "member",
-    body: body || null,
+    body: messageBody,
     media_path: mediaPath,
     media_type: mediaType,
     counts_against_monthly_limit: !createRequest,
@@ -1731,22 +1741,48 @@ export async function sendMemberChatMessageAction(formData: FormData) {
         })
       };
 
-      const { error } = await admin.from("purchase_requests").insert(requestPayload);
+      const { data: insertedRequest, error } = await admin
+        .from("purchase_requests")
+        .insert(requestPayload)
+        .select("id")
+        .maybeSingle();
+
+      const insertedRequestId = insertedRequest?.id ? String(insertedRequest.id) : null;
 
       if (error?.message.includes("display_name")) {
-        await admin.from("purchase_requests").insert({
-          tier,
-          email: profile.email,
-          country: "Telegram Mini App",
-          contact: `Имя: ${displayName}\nСвязь: Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}${requestKind === "chat_messages" ? ` | Пакет: ${CHAT_MESSAGE_PACK_SIZE} сообщений` : ""}`,
-          request_kind: requestKind,
-          chat_messages_count: requestKind === "chat_messages" ? CHAT_MESSAGE_PACK_SIZE : 0,
-          ...(requestedPostFields ?? {
-            requested_post_id: null,
-            requested_post_slug: null,
-            requested_post_title: null,
-            requested_post_price: null
+        const { data: legacyInsertedRequest } = await admin
+          .from("purchase_requests")
+          .insert({
+            tier,
+            email: profile.email,
+            country: "Telegram Mini App",
+            contact: `Имя: ${displayName}\nСвязь: Telegram ID: ${telegramId} | Username: ${telegramHandle}${postTitle ? ` | Post: ${postTitle}` : ""}${postPrice ? ` | Price: ${postPrice}` : ""}${requestKind === "chat_messages" ? ` | Пакет: ${CHAT_MESSAGE_PACK_SIZE} сообщений` : ""}`,
+            request_kind: requestKind,
+            chat_messages_count: requestKind === "chat_messages" ? CHAT_MESSAGE_PACK_SIZE : 0,
+            ...(requestedPostFields ?? {
+              requested_post_id: null,
+              requested_post_slug: null,
+              requested_post_title: null,
+              requested_post_price: null
+            })
           })
+          .select("id")
+          .maybeSingle();
+
+        if (requestKind === "post" && legacyInsertedRequest?.id) {
+          await admin.from("member_chat_message_grants").insert({
+            profile_id: profile.id,
+            purchase_request_id: legacyInsertedRequest.id,
+            message_count: POST_PURCHASE_CHAT_MESSAGE_GRANT,
+            expires_at: getChatMessageGrantExpiry()
+          });
+        }
+      } else if (!error && requestKind === "post" && insertedRequestId) {
+        await admin.from("member_chat_message_grants").insert({
+          profile_id: profile.id,
+          purchase_request_id: insertedRequestId,
+          message_count: POST_PURCHASE_CHAT_MESSAGE_GRANT,
+          expires_at: getChatMessageGrantExpiry()
         });
       }
     }
@@ -1758,6 +1794,8 @@ export async function sendMemberChatMessageAction(formData: FormData) {
   revalidatePath("/tg/support");
   revalidatePath("/admin/users");
   revalidatePath("/admin/chat");
+  revalidatePath("/tg/admin/users");
+  revalidatePath("/tg/admin/chat");
 
   if (createRequest && ["tier_1", "tier_2", "tier_3", "tier_4"].includes(tier)) {
     redirect(buildSupportRedirect("sent"));

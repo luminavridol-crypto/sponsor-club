@@ -187,7 +187,7 @@ export function PostCard({
             Открыть пост
           </PostNavLink>
 
-          {locked && post.is_sellable ? (
+          {locked ? (
             <PostNavLink
               href={
                 `/tg/support?tier=${post.required_tier}&postSlug=${encodeURIComponent(post.slug)}&postTitle=${encodeURIComponent(post.title)}${
@@ -198,7 +198,7 @@ export function PostCard({
               }
               className="inline-flex rounded-[18px] border border-fuchsia-200/18 bg-fuchsia-400/10 px-4 py-2 text-[13px] font-medium text-white/90 transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/14"
             >
-              Купить пост
+              {post.is_sellable ? "Купить пост" : "Запросить покупку"}
             </PostNavLink>
           ) : null}
 

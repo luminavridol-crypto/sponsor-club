@@ -117,24 +117,18 @@ export default async function TelegramContentPostPage({
           >
             Смотреть условия уровня
           </PostNavLink>
-          {post.is_sellable ? (
-            <PostNavLink
-              href={
-                `/tg/support?tier=${post.required_tier}&postSlug=${encodeURIComponent(post.slug)}&postTitle=${encodeURIComponent(post.title)}${
-                  post.sale_price != null
-                    ? `&postPrice=${encodeURIComponent(String(post.sale_price))}`
-                    : ""
-                }` as Route
-              }
-              className="inline-flex w-full items-center justify-center rounded-[22px] border border-fuchsia-200/18 bg-fuchsia-400/12 px-4 py-3 text-sm font-semibold text-white transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/16"
-            >
-              Купить пост
-            </PostNavLink>
-          ) : (
-            <div className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
-              Покупка для этого поста отключена.
-            </div>
-          )}
+          <PostNavLink
+            href={
+              `/tg/support?tier=${post.required_tier}&postSlug=${encodeURIComponent(post.slug)}&postTitle=${encodeURIComponent(post.title)}${
+                post.sale_price != null
+                  ? `&postPrice=${encodeURIComponent(String(post.sale_price))}`
+                  : ""
+              }` as Route
+            }
+            className="inline-flex w-full items-center justify-center rounded-[22px] border border-fuchsia-200/18 bg-fuchsia-400/12 px-4 py-3 text-sm font-semibold text-white transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/16"
+          >
+            {post.is_sellable ? "Купить пост" : "Запросить покупку"}
+          </PostNavLink>
         </div>
       </MiniAppShell>
     );

@@ -81,6 +81,7 @@ export function SupportRequestForm({
 }) {
   const [fileName, setFileName] = useState<string | null>(null);
   const amountLabel = postPrice ? formatEuroAmount(postPrice) ?? postPrice : null;
+  const isPostPriceRequest = requestKind === "post" && !postPrice;
 
   return (
     <form action={sendMemberChatMessageAction} className="mt-3 space-y-3">
@@ -117,7 +118,7 @@ export function SupportRequestForm({
               setFileName(nextFile ? nextFile.name : null);
             }}
           />
-          {fileName ? "Скрин выбран" : "Прикрепить скрин оплаты"}
+          {fileName ? "Скрин выбран" : isPostPriceRequest ? "Прикрепить скрин позже" : "Прикрепить скрин оплаты"}
         </label>
       </div>
 
