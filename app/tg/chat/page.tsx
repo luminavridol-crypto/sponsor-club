@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
 import Image from "next/image";
-import { sendMemberChatMessageAction } from "@/app/actions";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
@@ -89,6 +88,7 @@ export default async function TelegramChatPage({
   const params = (await searchParams) ?? {};
   const hasContentAccess = hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile));
   const error = Array.isArray(params.error) ? params.error[0] : params.error;
+  const sent = Array.isArray(params.sent) ? params.sent[0] : params.sent;
 
   const [messages, chatUsage] = await Promise.all([
     getRecentChatMessages(admin, profile.id),
@@ -117,7 +117,19 @@ export default async function TelegramChatPage({
         <section className="rounded-[24px] bg-rose-400/12 px-4 py-4 text-sm text-rose-100">
           {error === "limit"
             ? "Лимит сообщений на этот месяц закончился. Можно купить дополнительный пакет ниже."
-            : "В чат можно загрузить только изображение."}
+            : error === "empty"
+              ? "Напиши сообщение или прикрепи изображение."
+              : error === "upload"
+                ? "Не получилось загрузить изображение. Проверь размер и попробуй ещё раз."
+                : error === "send"
+                  ? "Не получилось отправить сообщение. Попробуй ещё раз."
+                  : "В чат можно загрузить только изображение."}
+        </section>
+      ) : null}
+
+      {sent ? (
+        <section className="rounded-[24px] bg-emerald-400/12 px-4 py-4 text-sm text-emerald-100">
+          Сообщение отправлено.
         </section>
       ) : null}
 
@@ -141,7 +153,7 @@ export default async function TelegramChatPage({
           <ChatMessages messages={threadMessages} />
         </div>
 
-        <form action={sendMemberChatMessageAction} className="mt-5 space-y-3">
+        <form action="/api/telegram/chat" method="post" encType="multipart/form-data" className="mt-5 space-y-3">
           <textarea
             name="body"
             rows={4}
