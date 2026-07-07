@@ -89,6 +89,15 @@ function FullscreenIcon() {
   );
 }
 
+function CloseIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
+    </svg>
+  );
+}
+
 export function ProtectedVideoPlayer({
   src,
   className = ""
@@ -104,6 +113,7 @@ export function ProtectedVideoPlayer({
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [nativeControls, setNativeControls] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -209,6 +219,8 @@ export function ProtectedVideoPlayer({
       await video.play().catch(() => undefined);
     }
 
+    setExpanded(true);
+
     if (requestFullscreen && fullscreenTarget) {
       try {
         await Promise.resolve(requestFullscreen.call(fullscreenTarget));
@@ -229,8 +241,24 @@ export function ProtectedVideoPlayer({
   return (
     <div
       ref={frameRef}
-      className={`protected-media overflow-hidden rounded-[28px] border border-white/10 bg-black shadow-glow ${className}`}
+      className={`protected-media overflow-hidden border border-white/10 bg-black shadow-glow ${
+        expanded
+          ? "fixed inset-0 z-[9999] flex h-[100dvh] w-screen flex-col rounded-none border-0"
+          : `rounded-[28px] ${className}`
+      }`}
     >
+      {expanded ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          aria-label="Закрыть полноэкранный режим"
+          title="Закрыть"
+          className="absolute right-3 top-3 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-black/55 text-white shadow-[0_12px_28px_rgba(0,0,0,0.28)] backdrop-blur transition hover:bg-black/70"
+        >
+          <CloseIcon />
+        </button>
+      ) : null}
+
       <video
         ref={videoRef}
         playsInline
@@ -239,7 +267,7 @@ export function ProtectedVideoPlayer({
         controlsList="nodownload noplaybackrate"
         disablePictureInPicture
         src={src}
-        className="w-full bg-black"
+        className={expanded ? "min-h-0 flex-1 bg-black object-contain" : "w-full bg-black"}
         onLoadedMetadata={syncVideoState}
         onTimeUpdate={syncVideoState}
         onPlay={syncVideoState}
@@ -250,7 +278,7 @@ export function ProtectedVideoPlayer({
         onContextMenu={(event) => event.preventDefault()}
       />
 
-      <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.88))] px-3 pb-3 pt-14">
+      <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.88))] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-14">
         <div className="mb-3">
           <input
             type="range"
