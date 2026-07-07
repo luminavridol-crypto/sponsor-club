@@ -12,6 +12,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { DonationEvent, Tier } from "@/lib/types";
 import { extractFavoriteLuminaCosplay } from "@/lib/utils/favorite-cosplay";
 import { TIER_LABELS } from "@/lib/utils/tier";
+import { getVipProgress } from "@/lib/utils/vip";
 
 const PROFILE_THEME: Record<
   Tier,
@@ -110,6 +111,24 @@ function accessLabel(status: "active" | "disabled") {
   return status === "active" ? "Доступ открыт" : "Ожидает доступа";
 }
 
+function getCurrentMonthDonations(events: DonationEvent[]) {
+  const now = new Date();
+  const currentYear = now.getUTCFullYear();
+  const currentMonth = now.getUTCMonth() + 1;
+
+  return events.reduce((sum, event) => {
+    const fallbackDate = new Date(event.created_at);
+    const year = event.donation_year ?? fallbackDate.getUTCFullYear();
+    const month = event.donation_month ?? fallbackDate.getUTCMonth() + 1;
+
+    if (year === currentYear && month === currentMonth) {
+      return sum + Number(event.amount ?? 0);
+    }
+
+    return sum;
+  }, 0);
+}
+
 function ProfileStat({
   label,
   value,
@@ -151,10 +170,14 @@ export default async function TelegramProfilePage({
   const admin = createAdminSupabaseClient();
   const [avatarMap, { data: donations }] = await Promise.all([
     getSignedAvatarUrls(profile.avatar_url ? [profile.avatar_url] : []),
-    admin.from("donation_events").select("*").eq("profile_id", profile.id).order("created_at", { ascending: false }).limit(8)
+    admin.from("donation_events").select("*").eq("profile_id", profile.id).order("created_at", { ascending: false })
   ]);
   const avatarUrl = profile.avatar_url ? avatarMap[profile.avatar_url] ?? null : null;
-  const recentDonations = (donations ?? []) as DonationEvent[];
+  const donationEvents = (donations ?? []) as DonationEvent[];
+  const recentDonations = donationEvents.slice(0, 8);
+  const currentMonthDonations = getCurrentMonthDonations(donationEvents);
+  const isVipMember = profile.tier === "tier_3" || profile.tier === "tier_4";
+  const vip = getVipProgress(profile.total_donations);
   const favoriteCosplay = extractFavoriteLuminaCosplay(
     profile.favorite_lumina_cosplay,
     profile.admin_note
@@ -201,14 +224,20 @@ export default async function TelegramProfilePage({
       </section>
 
       <section className="grid grid-cols-2 gap-3">
+        <ProfileStat label="За месяц" value={formatMoney(currentMonthDonations)} className={theme.stat} />
+        <ProfileStat label="Всего" value={formatMoney(profile.total_donations)} className={theme.stat} />
         <ProfileStat
-          label="Уровень"
-          value={TIER_LABELS[profile.tier]}
+          label={isVipMember ? "VIP уровень" : "Тариф"}
+          value={isVipMember ? `VIP ${vip.current.level} • ${vip.current.name}` : TIER_LABELS[profile.tier]}
           accent
           className={theme.stat}
           valueClassName={theme.accentText}
         />
-        <ProfileStat label="Всего донатов" value={formatMoney(profile.total_donations)} className={theme.stat} />
+        <ProfileStat
+          label={isVipMember ? "До следующего VIP" : "VIP программа"}
+          value={isVipMember ? (vip.next ? `+${formatMoney(vip.remaining)}` : "Максимум") : "Недоступна"}
+          className={theme.stat}
+        />
         <ProfileStat label="Статус" value={accessLabel(profile.access_status)} className={theme.stat} />
         <ProfileStat label="Доступ до" value={formatAccessDate(profile.access_expires_at)} className={theme.stat} />
       </section>
