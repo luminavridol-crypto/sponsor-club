@@ -4,6 +4,15 @@ import { useRef, useState } from "react";
 
 type FullscreenVideoElement = HTMLVideoElement & {
   webkitEnterFullscreen?: () => void;
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  mozRequestFullScreen?: () => Promise<void> | void;
+  msRequestFullscreen?: () => Promise<void> | void;
+};
+
+type FullscreenContainerElement = HTMLDivElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  mozRequestFullScreen?: () => Promise<void> | void;
+  msRequestFullscreen?: () => Promise<void> | void;
 };
 
 function formatTime(seconds: number) {
@@ -88,12 +97,13 @@ export function ProtectedVideoPlayer({
   className?: string;
 }) {
   const videoRef = useRef<FullscreenVideoElement>(null);
-  const frameRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<FullscreenContainerElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
+  const [nativeControls, setNativeControls] = useState(false);
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -178,13 +188,42 @@ export function ProtectedVideoPlayer({
   async function enterFullscreen() {
     const frame = frameRef.current;
     const video = videoRef.current;
+    const requestFullscreen =
+      video?.requestFullscreen ||
+      video?.webkitRequestFullscreen ||
+      video?.mozRequestFullScreen ||
+      video?.msRequestFullscreen ||
+      frame?.requestFullscreen ||
+      frame?.webkitRequestFullscreen ||
+      frame?.mozRequestFullScreen ||
+      frame?.msRequestFullscreen;
+    const fullscreenTarget =
+      video?.requestFullscreen ||
+      video?.webkitRequestFullscreen ||
+      video?.mozRequestFullScreen ||
+      video?.msRequestFullscreen
+        ? video
+        : frame;
 
-    if (frame?.requestFullscreen) {
-      await frame.requestFullscreen().catch(() => undefined);
+    if (video?.paused) {
+      await video.play().catch(() => undefined);
+    }
+
+    if (requestFullscreen && fullscreenTarget) {
+      try {
+        await Promise.resolve(requestFullscreen.call(fullscreenTarget));
+        return;
+      } catch {
+        setNativeControls(true);
+      }
+    }
+
+    if (video?.webkitEnterFullscreen) {
+      video.webkitEnterFullscreen();
       return;
     }
 
-    video?.webkitEnterFullscreen?.();
+    setNativeControls(true);
   }
 
   return (
@@ -196,7 +235,7 @@ export function ProtectedVideoPlayer({
         ref={videoRef}
         playsInline
         preload="metadata"
-        controls={false}
+        controls={nativeControls}
         controlsList="nodownload noplaybackrate"
         disablePictureInPicture
         src={src}
