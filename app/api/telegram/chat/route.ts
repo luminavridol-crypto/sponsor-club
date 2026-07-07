@@ -23,6 +23,23 @@ function redirectToChat(request: Request, params: Record<string, string> = {}) {
   return NextResponse.redirect(url);
 }
 
+function isJsonRequest(request: Request) {
+  return request.headers.get("accept")?.includes("application/json") || request.headers.get("x-requested-with") === "XMLHttpRequest";
+}
+
+function respondToChatRequest(request: Request, params: Record<string, string> = {}) {
+  if (isJsonRequest(request)) {
+    const error = params.error;
+
+    return NextResponse.json(
+      error ? { error, success: false } : { success: true },
+      { status: error ? 400 : 200 }
+    );
+  }
+
+  return redirectToChat(request, params);
+}
+
 async function uploadChatImage(file: File, profileId: string) {
   assertUploadFile(file, { allowImages: true, allowVideos: false });
   const extension = getSafeFileExtension(file);
@@ -42,18 +59,18 @@ export async function POST(request: Request) {
     await cleanupOldChatMessages(admin);
 
     if (!body && !mediaFile) {
-      return redirectToChat(request, { error: "empty" });
+      return respondToChatRequest(request, { error: "empty" });
     }
 
     if (!(await canSendMonthlyChatMessage(admin, profile))) {
-      return redirectToChat(request, { error: "limit" });
+      return respondToChatRequest(request, { error: "limit" });
     }
 
     let uploadedMedia: Awaited<ReturnType<typeof uploadChatImage>> | null = null;
 
     if (mediaFile) {
       if (!mediaFile.type.startsWith("image/")) {
-        return redirectToChat(request, { error: "image" });
+        return respondToChatRequest(request, { error: "image" });
       }
 
       uploadedMedia = await uploadChatImage(mediaFile, profile.id);
@@ -88,20 +105,20 @@ export async function POST(request: Request) {
         );
       }
 
-      return redirectToChat(request, { error: "send" });
+      return respondToChatRequest(request, { error: "send" });
     }
 
     revalidatePath("/tg/chat");
     revalidatePath("/tg/admin/chat");
     revalidatePath("/tg/admin/users");
 
-    return redirectToChat(request, { sent: "1" });
+    return respondToChatRequest(request, { sent: "1" });
   } catch (error) {
     if (isInvalidRequestOriginError(error)) {
       return NextResponse.json({ error: "Недопустимый источник запроса." }, { status: 403 });
     }
 
-    return redirectToChat(request, {
+    return respondToChatRequest(request, {
       error: error instanceof Error && error.message ? "upload" : "send"
     });
   }

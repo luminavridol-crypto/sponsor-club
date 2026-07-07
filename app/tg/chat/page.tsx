@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { MemberChatThread } from "@/components/chat/member-chat-thread";
+import { MemberChatComposer } from "@/components/chat/member-chat-composer";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
@@ -88,29 +89,7 @@ export default async function TelegramChatPage({
           <MemberChatThread messages={threadMessages} />
         </div>
 
-        <form action="/api/telegram/chat" method="post" encType="multipart/form-data" className="mt-5 space-y-3">
-          <textarea
-            name="body"
-            rows={4}
-            placeholder="Напиши сообщение админу"
-            disabled={isLimitReached}
-            className="w-full rounded-[22px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-white/28"
-          />
-
-          <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-3">
-            <label className="flex cursor-pointer items-center justify-center rounded-[16px] border border-dashed border-white/14 px-4 py-3 text-sm text-white/60 transition hover:border-white/24 hover:text-white">
-              <input type="file" name="media" accept="image/*" className="hidden" disabled={isLimitReached} />
-              Прикрепить изображение
-            </label>
-          </div>
-
-          <button
-            disabled={isLimitReached}
-            className="flex w-full items-center justify-center rounded-[20px] bg-[linear-gradient(135deg,#f0abfc,#8b5cf6_58%,#3b82f6)] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_rgba(99,102,241,0.24)] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            {isLimitReached ? "Лимит сообщений закончился" : "Отправить сообщение"}
-          </button>
-        </form>
+        <MemberChatComposer isLimitReached={isLimitReached} />
 
         <div className="mt-4 rounded-[22px] border border-sky-300/14 bg-sky-400/10 px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
