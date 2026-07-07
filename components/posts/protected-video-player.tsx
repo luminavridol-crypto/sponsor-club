@@ -16,6 +16,70 @@ function formatTime(seconds: number) {
   return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
+function PlayIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+      <path d="M8 5.5v13l10-6.5-10-6.5Z" />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+      <path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z" />
+    </svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 7 6 12l5 5" />
+      <path d="M18 7l-5 5 5 5" />
+    </svg>
+  );
+}
+
+function ForwardIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m13 7 5 5-5 5" />
+      <path d="m6 7 5 5-5 5" />
+    </svg>
+  );
+}
+
+function VolumeIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+      {muted ? (
+        <>
+          <path d="m18 9-4 6" />
+          <path d="m14 9 4 6" />
+        </>
+      ) : (
+        <>
+          <path d="M16 9.5a4 4 0 0 1 0 5" />
+          <path d="M18.5 7a7.5 7.5 0 0 1 0 10" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function FullscreenIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3H4a1 1 0 0 0-1 1v4" />
+      <path d="M16 3h4a1 1 0 0 1 1 1v4" />
+      <path d="M8 21H4a1 1 0 0 1-1-1v-4" />
+      <path d="M16 21h4a1 1 0 0 0 1-1v-4" />
+    </svg>
+  );
+}
+
 export function ProtectedVideoPlayer({
   src,
   className = ""
@@ -168,38 +232,48 @@ export function ProtectedVideoPlayer({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => seekBy(-10)}
-              className="rounded-full border border-white/12 bg-white/[0.08] px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/[0.14]"
+              aria-label="Назад на 10 секунд"
+              title="Назад на 10 секунд"
+              className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.08] text-white transition hover:bg-white/[0.14]"
             >
-              -10с
+              <BackIcon />
+              <span className="absolute -bottom-1 right-0 rounded-full bg-black/70 px-1 text-[9px] leading-3 text-white/72">10</span>
             </button>
             <button
               type="button"
               onClick={togglePlayback}
-              className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-white/90"
+              aria-label={playing ? "Пауза" : "Воспроизвести"}
+              title={playing ? "Пауза" : "Воспроизвести"}
+              className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-950 transition hover:bg-white/90"
             >
-              {playing ? "Пауза" : "Плей"}
+              {playing ? <PauseIcon /> : <PlayIcon />}
             </button>
             <button
               type="button"
               onClick={() => seekBy(10)}
-              className="rounded-full border border-white/12 bg-white/[0.08] px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/[0.14]"
+              aria-label="Вперёд на 10 секунд"
+              title="Вперёд на 10 секунд"
+              className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.08] text-white transition hover:bg-white/[0.14]"
             >
-              +10с
+              <ForwardIcon />
+              <span className="absolute -bottom-1 right-0 rounded-full bg-black/70 px-1 text-[9px] leading-3 text-white/72">10</span>
             </button>
           </div>
 
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
             <button
               type="button"
               onClick={toggleMuted}
-              className="rounded-full border border-white/12 bg-white/[0.08] px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/[0.14]"
+              aria-label={muted || volume === 0 ? "Включить звук" : "Выключить звук"}
+              title={muted || volume === 0 ? "Включить звук" : "Выключить звук"}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.08] text-white transition hover:bg-white/[0.14]"
             >
-              {muted || volume === 0 ? "Звук выкл." : "Звук"}
+              <VolumeIcon muted={muted || volume === 0} />
             </button>
             <input
               type="range"
@@ -209,14 +283,16 @@ export function ProtectedVideoPlayer({
               value={muted ? 0 : volume}
               onChange={(event) => handleVolume(event.currentTarget.value)}
               aria-label="Громкость"
-              className="w-20 cursor-pointer accent-fuchsia-300 sm:w-28"
+              className="min-w-0 max-w-[5.5rem] flex-1 cursor-pointer accent-fuchsia-300 sm:max-w-[7rem]"
             />
             <button
               type="button"
               onClick={enterFullscreen}
-              className="rounded-full border border-white/12 bg-white/[0.08] px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/[0.14]"
+              aria-label="Полный экран"
+              title="Полный экран"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.08] text-white transition hover:bg-white/[0.14]"
             >
-              Полный экран
+              <FullscreenIcon />
             </button>
           </div>
         </div>
