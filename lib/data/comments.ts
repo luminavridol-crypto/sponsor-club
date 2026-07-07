@@ -60,6 +60,18 @@ export async function getAdminUnreadPostComments(lastSeenAt: string | null) {
   return (data ?? []) as AdminPostCommentNotice[];
 }
 
+export async function getAdminRecentPostComments(limit = 8) {
+  noStore();
+  const admin = createAdminSupabaseClient();
+  const { data } = await admin
+    .from("post_comments")
+    .select("*, profiles(display_name, nickname, role), posts(title, slug)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  return (data ?? []) as AdminPostCommentNotice[];
+}
+
 export async function getAdminLatestPostCommentAt() {
   noStore();
   const admin = createAdminSupabaseClient();

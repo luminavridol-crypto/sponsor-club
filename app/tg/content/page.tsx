@@ -1,12 +1,13 @@
 export const dynamic = "force-dynamic";
 
 import { PostCard } from "@/components/posts/post-card";
+import { AdminCommentInbox } from "@/components/admin/admin-comment-inbox";
 import { FeedScrollRestoration } from "@/components/telegram/feed-scroll-restoration";
 import { FeedSeenMarker } from "@/components/telegram/feed-seen-marker";
 import { MiniAppShell } from "@/components/telegram/mini-app-shell";
 import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
-import { getCommentCountsForPosts } from "@/lib/data/comments";
+import { getAdminRecentPostComments, getCommentCountsForPosts } from "@/lib/data/comments";
 import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
 import { getFeedPostsForProfile, getSignedMediaUrls, getTeaserFeedPosts } from "@/lib/data/posts";
 import { getReactionSummariesForPosts } from "@/lib/data/reactions";
@@ -16,12 +17,13 @@ export default async function TelegramContentPage() {
   const hasContentAccess = hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile));
   const posts = hasContentAccess ? await getFeedPostsForProfile(profile) : await getTeaserFeedPosts();
 
-  const [commentCounts, reactionSummaries, thumbnailMap] = await Promise.all([
+  const [commentCounts, reactionSummaries, thumbnailMap, adminRecentComments] = await Promise.all([
     getCommentCountsForPosts(posts.map((post) => post.id)),
     getReactionSummariesForPosts(posts.map((post) => post.id), profile.id),
     getSignedMediaUrls(
       posts.map((post) => post.thumbnail_path).filter((path): path is string => Boolean(path))
-    )
+    ),
+    profile.role === "admin" ? getAdminRecentPostComments(8) : Promise.resolve([])
   ]);
 
   const postsWithThumbnails = posts.map((post) => ({
@@ -33,6 +35,9 @@ export default async function TelegramContentPage() {
     <MiniAppShell profile={profile} title="Лента" hasAccess={hasContentAccess}>
       <FeedSeenMarker />
       <FeedScrollRestoration />
+      {profile.role === "admin" ? (
+        <AdminCommentInbox comments={adminRecentComments} lastSeenAt={profile.last_content_seen_at} />
+      ) : null}
       {postsWithThumbnails.length ? (
         postsWithThumbnails.map((post) => (
           <PostCard

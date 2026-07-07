@@ -17,6 +17,7 @@ type AdminNotificationStatus = {
   unreadChatCount: number;
   pendingRequestsCount: number;
   unreadContentCommentCount: number;
+  latestContentCommentAt?: string | null;
 };
 
 function isActive(pathname: string, searchParams: URLSearchParams, href: string) {
@@ -46,7 +47,9 @@ export function MiniAppNav({
   const searchParams = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminStatus, setAdminStatus] = useState<AdminNotificationStatus | null>(null);
+  const [commentToastVisible, setCommentToastVisible] = useState(false);
   const previousSignature = useRef<string>("");
+  const previousLatestContentCommentAt = useRef<string | null>(null);
 
   useEffect(() => {
     if (!admin) {
@@ -72,14 +75,24 @@ export function MiniAppNav({
         }
 
         const signature = `${payload.pendingRequestsCount}:${payload.unreadChatCount}:${payload.unreadContentCommentCount}`;
+        const latestContentCommentAt = payload.latestContentCommentAt ?? null;
 
         if (previousSignature.current && previousSignature.current !== signature) {
+          if (
+            payload.unreadContentCommentCount > 0 &&
+            latestContentCommentAt &&
+            latestContentCommentAt !== previousLatestContentCommentAt.current
+          ) {
+            setCommentToastVisible(true);
+          }
+
           setAdminStatus(payload);
         } else {
           setAdminStatus(payload);
         }
 
         previousSignature.current = signature;
+        previousLatestContentCommentAt.current = latestContentCommentAt;
       } catch {
         return;
       }
@@ -199,6 +212,33 @@ export function MiniAppNav({
           </div>
         </div>
       </nav>
+
+      {admin && commentToastVisible && adminStatus?.unreadContentCommentCount ? (
+        <div className="fixed bottom-5 left-1/2 z-[80] w-[min(calc(100vw-1.5rem),420px)] -translate-x-1/2 lg:bottom-7">
+          <div className="rounded-[24px] border border-fuchsia-200/20 bg-[#16131f]/95 p-3 shadow-[0_20px_54px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/tg/content?comments=1"
+                onClick={() => setCommentToastVisible(false)}
+                className="min-w-0 flex-1"
+              >
+                <p className="text-[11px] uppercase tracking-[0.2em] text-fuchsia-100/55">Новый комментарий</p>
+                <p className="mt-1 text-sm font-medium text-white">
+                  Открыть последние комментарии
+                </p>
+              </Link>
+              <button
+                type="button"
+                aria-label="Скрыть уведомление"
+                onClick={() => setCommentToastVisible(false)}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/55 transition hover:bg-white/[0.08] hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
