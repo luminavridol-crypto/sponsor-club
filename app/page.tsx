@@ -2,7 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { BrandShell } from "@/components/layout/brand-shell";
 import { LogoMark } from "@/components/layout/logo-mark";
+import { getTierLandingCards } from "@/lib/data/tier-landing";
 import { buildTelegramBotLink } from "@/lib/telegram/links";
+
+export const dynamic = "force-dynamic";
 
 const socials = [
   {
@@ -284,8 +287,32 @@ const homeTariffs = [
   }
 ];
 
-export default function HomePage() {
+function buildHomeTariffsFromCards(cards: Awaited<ReturnType<typeof getTierLandingCards>>) {
+  return cards.map((card, index) => {
+    const style = homeTariffs.find((tariff) => tariff.badge === card.badge) ?? homeTariffs[index];
+
+    return {
+      ...style,
+      badge: card.badge,
+      title: card.label,
+      eyebrow: card.noteBadge ?? card.statusBadge ?? style.eyebrow,
+      level: card.level,
+      price: card.price,
+      teaser: card.teaser,
+      promise: card.description ?? style.promise,
+      note: card.statusBadge ?? card.noteBadge ?? style.note,
+      sections: card.sections.map((section) => ({
+        title: section.title ?? "Что внутри",
+        label: section.label ?? "",
+        items: section.items
+      }))
+    };
+  });
+}
+
+export default async function HomePage() {
   const telegramMiniAppTariffsHref = buildTelegramBotLink() ?? "https://t.me/SponsorClubLumina_bot";
+  const homeTariffs = buildHomeTariffsFromCards(await getTierLandingCards());
 
   return (
     <BrandShell>
