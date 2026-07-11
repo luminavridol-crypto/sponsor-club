@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 const DEFAULT_RATES = {
-  USD: 1.134,
-  UAH: 50.8809,
-  RUB: 85.1823
+  USD: 1.143,
+  UAH: 50.8136,
+  RUB: 87.884
 } as const;
 
 type SupportedCurrency = keyof typeof DEFAULT_RATES;
@@ -36,16 +36,22 @@ export function CurrencyCalculator({
   infoLabelClassName: string;
   accentTextClassName: string;
 }) {
+  const [amountInput, setAmountInput] = useState(() => String(initialAmount || 10));
+  const amount = useMemo(() => {
+    const parsed = Number(amountInput.replace(",", "."));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }, [amountInput]);
+
   const converted = useMemo(
     () =>
       (Object.keys(DEFAULT_RATES) as SupportedCurrency[]).map((currency) => {
         return {
           currency,
           rate: DEFAULT_RATES[currency],
-          total: initialAmount * DEFAULT_RATES[currency]
+          total: amount * DEFAULT_RATES[currency]
         };
       }),
-    [initialAmount]
+    [amount]
   );
 
   return (
@@ -53,11 +59,19 @@ export function CurrencyCalculator({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className={`text-[11px] uppercase tracking-[0.22em] ${infoLabelClassName}`}>Калькулятор валюты</p>
+          <p className={`mt-2 text-xs ${infoLabelClassName}`}>Курс обновлён 11.07.2026</p>
         </div>
-        <div className={`rounded-[16px] border px-3 py-2 ${infoCardClassName}`}>
+        <label className={`block rounded-[16px] border px-3 py-2 ${infoCardClassName}`}>
           <p className={`text-[11px] uppercase tracking-[0.18em] ${infoLabelClassName}`}>EUR</p>
-          <p className={`mt-2 text-right text-lg font-semibold ${accentTextClassName}`}>{initialAmount}</p>
-        </div>
+          <input
+            inputMode="decimal"
+            type="text"
+            value={amountInput}
+            onChange={(event) => setAmountInput(event.target.value)}
+            className={`mt-2 w-20 bg-transparent text-right text-lg font-semibold outline-none ${accentTextClassName}`}
+            aria-label="Сумма в евро"
+          />
+        </label>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">

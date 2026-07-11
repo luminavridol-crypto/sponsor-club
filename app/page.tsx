@@ -43,6 +43,17 @@ const socials = [
   }
 ];
 
+const donationLinks = [
+  {
+    name: "Скримеры (RU)",
+    href: "https://www.donationalerts.com/r/manas_ciel"
+  },
+  {
+    name: "MONO",
+    href: "https://send.monobank.ua/jar/5PrXYYiZST"
+  }
+];
+
 const clubInside = [
   {
     title: "Закрытые фото",
@@ -392,6 +403,33 @@ export default async function HomePage() {
                     </a>
                   ))}
                 </div>
+                <div className="mt-4 rounded-[1.25rem] border border-accentSoft/30 bg-[radial-gradient(circle_at_top_left,rgba(255,79,216,0.20),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.02))] p-3 shadow-[0_0_34px_rgba(255,79,216,0.14)]">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-accentSoft">
+                      Донаты
+                    </p>
+                    <p className="text-xs text-white/42">поддержать Lumina</p>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {donationLinks.map((link) => (
+                      <a
+                        key={link.name}
+                        href={link.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="group flex items-center justify-between gap-3 rounded-[1rem] border border-accentSoft/34 bg-[linear-gradient(135deg,rgba(255,79,216,0.16),rgba(109,223,255,0.07))] px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-accentSoft/64 hover:bg-[linear-gradient(135deg,rgba(255,79,216,0.24),rgba(109,223,255,0.10))] hover:shadow-[0_0_28px_rgba(255,79,216,0.22)]"
+                      >
+                        <span className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accentSoft/46 bg-accent/18 text-accentSoft shadow-[0_0_22px_rgba(255,79,216,0.28)]">
+                            <DonateIcon />
+                          </span>
+                          <span className="truncate">{link.name}</span>
+                        </span>
+                        <span className="text-accentSoft transition group-hover:translate-x-0.5">→</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm leading-6 text-white/50 lg:justify-start">
                   <span className="text-[10px] uppercase tracking-[0.22em] text-white/32">Сотрудничество</span>
                   <a
@@ -719,6 +757,20 @@ function ChatIcon() {
         strokeWidth="1.7"
       />
       <path d="M8 10h8M8 13.5h5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
+function DonateIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 20s-7-4.2-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.8-7 10-7 10Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path d="M12 9v5M9.8 11.2h4.4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
     </svg>
   );
 }
