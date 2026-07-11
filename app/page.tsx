@@ -403,29 +403,37 @@ export default async function HomePage() {
                     </a>
                   ))}
                 </div>
-                <div className="mt-4 rounded-[1.25rem] border border-accentSoft/30 bg-[radial-gradient(circle_at_top_left,rgba(255,79,216,0.20),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.02))] p-3 shadow-[0_0_34px_rgba(255,79,216,0.14)]">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-accentSoft">
-                      Донаты
+                <div className="relative mt-5 overflow-hidden rounded-[1.55rem] border border-accentSoft/55 bg-[radial-gradient(circle_at_top_left,rgba(255,79,216,0.36),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(109,223,255,0.18),transparent_38%),linear-gradient(135deg,rgba(255,79,216,0.16),rgba(255,255,255,0.045))] p-4 shadow-[0_0_0_1px_rgba(255,158,238,0.10),0_0_58px_rgba(255,79,216,0.30)]">
+                  <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-accentSoft to-transparent" />
+                  <div className="flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.30em] text-white/50">
+                        поддержка
+                      </p>
+                      <p className="mt-1 text-2xl font-semibold leading-none text-white">
+                        Донаты
+                      </p>
+                    </div>
+                    <p className="rounded-full border border-accentSoft/34 bg-black/24 px-3 py-1.5 text-xs font-medium text-accentSoft">
+                      поддержать Lumina
                     </p>
-                    <p className="text-xs text-white/42">поддержать Lumina</p>
                   </div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {donationLinks.map((link) => (
                       <a
                         key={link.name}
                         href={link.href}
                         target="_blank"
                         rel="noreferrer"
-                        className="group flex items-center justify-between gap-3 rounded-[1rem] border border-accentSoft/34 bg-[linear-gradient(135deg,rgba(255,79,216,0.16),rgba(109,223,255,0.07))] px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-accentSoft/64 hover:bg-[linear-gradient(135deg,rgba(255,79,216,0.24),rgba(109,223,255,0.10))] hover:shadow-[0_0_28px_rgba(255,79,216,0.22)]"
+                        className="group flex items-center justify-between gap-3 rounded-[1.15rem] border border-accentSoft/50 bg-[linear-gradient(135deg,rgba(255,79,216,0.26),rgba(109,223,255,0.10))] px-4 py-4 text-base font-semibold text-white transition hover:-translate-y-0.5 hover:border-accentSoft/80 hover:bg-[linear-gradient(135deg,rgba(255,79,216,0.36),rgba(109,223,255,0.14))] hover:shadow-[0_0_34px_rgba(255,79,216,0.34)]"
                       >
                         <span className="flex min-w-0 items-center gap-3">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accentSoft/46 bg-accent/18 text-accentSoft shadow-[0_0_22px_rgba(255,79,216,0.28)]">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/26 bg-white/12 text-accentSoft shadow-[0_0_28px_rgba(255,79,216,0.38)]">
                             <DonateIcon />
                           </span>
                           <span className="truncate">{link.name}</span>
                         </span>
-                        <span className="text-accentSoft transition group-hover:translate-x-0.5">→</span>
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/12 text-accentSoft transition group-hover:translate-x-0.5 group-hover:bg-white/18">→</span>
                       </a>
                     ))}
                   </div>
