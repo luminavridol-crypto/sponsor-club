@@ -381,7 +381,7 @@ export function TierAccordionList({
               <div className="pointer-events-none absolute inset-0 opacity-90">
                 <div className="absolute -left-10 top-8 h-20 w-20 rounded-full bg-white/5 blur-3xl" />
                 <div className="absolute -right-6 bottom-10 h-24 w-24 rounded-full bg-white/5 blur-3xl" />
-                <div className="tier-accordion-watermark absolute right-3 top-3 h-24 w-24 overflow-hidden rounded-full border border-white/10 opacity-32 shadow-[0_0_28px_rgba(255,255,255,0.12)] transition duration-500 group-hover:scale-105 group-hover:opacity-48 sm:h-32 sm:w-32">
+                <div className="tier-accordion-watermark absolute right-3 top-3 h-20 w-20 overflow-hidden rounded-full border border-white/10 opacity-20 shadow-[0_0_28px_rgba(255,255,255,0.12)] transition duration-500 group-hover:scale-105 group-hover:opacity-48 sm:h-32 sm:w-32 sm:opacity-32">
                   <Image
                     src={TIER_EMBLEMS[card.tier]}
                     alt=""
@@ -429,7 +429,7 @@ export function TierAccordionList({
                       ) : null}
                     </div>
 
-                    <div className="mt-3 flex items-start justify-between gap-2">
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2.5">
                           <div className="tier-accordion-emblem h-16 w-16 shrink-0 overflow-hidden rounded-full border border-white/24 bg-black/30 shadow-[0_0_24px_rgba(255,255,255,0.16)] sm:h-20 sm:w-20">
@@ -452,8 +452,8 @@ export function TierAccordionList({
                         </div>
                       </div>
 
-                      <div className="shrink-0 pt-0.5 text-right">
-                        <p className="font-display text-[1rem] leading-none text-white sm:text-[1.9rem]">
+                      <div className="pl-[4.65rem] sm:shrink-0 sm:pl-0 sm:pt-0.5 sm:text-right">
+                        <p className="font-display text-[1.1rem] leading-none text-white sm:text-[1.9rem]">
                           {card.price}
                         </p>
                       </div>

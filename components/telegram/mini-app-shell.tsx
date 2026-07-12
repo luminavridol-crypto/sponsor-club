@@ -40,20 +40,20 @@ export function MiniAppShell({
         <header
           className={`club-frame club-header px-4 py-4 backdrop-blur-md ${headerClassName ?? ""}`}
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="club-header-emblem shrink-0" aria-hidden="true">
                 <Image src={TIER_EMBLEMS[effectiveTier]} alt="" width={96} height={96} className="h-full w-full rounded-full object-cover" />
               </div>
               <div className="min-w-0">
                 <p className={`club-eyebrow text-[10px] uppercase tracking-[0.2em] ${eyebrowClassName ?? ""}`}>Lumina Club</p>
-                <h1 className="club-title mt-1.5 break-words font-display text-[1.7rem] font-semibold leading-none sm:text-[1.9rem]">
+                <h1 className="club-title mt-1.5 font-display text-[1.55rem] font-semibold leading-[1.02] sm:text-[1.9rem]">
                   {title}
                 </h1>
               </div>
             </div>
             {showHeaderActions ? (
-              <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+              <div className="flex items-center justify-end gap-2 sm:shrink-0">
                 <ClearAppCacheButton />
                 <form action={signOutTelegramAction}>
                   <button className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70 transition hover:border-white/16 hover:text-white">
