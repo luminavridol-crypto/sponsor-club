@@ -145,7 +145,7 @@ export function MiniAppNav({
         aria-label={mobileOpen ? "Скрыть меню" : "Открыть меню"}
         aria-expanded={mobileOpen}
         onClick={() => setMobileOpen((value) => !value)}
-        className="club-nav-toggle fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-3 z-[70] inline-flex h-12 w-12 items-center justify-center text-white shadow-[0_14px_36px_rgba(0,0,0,0.45)] backdrop-blur-xl transition lg:hidden"
+        className="club-nav-toggle fixed left-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[70] inline-flex h-12 w-12 items-center justify-center text-white shadow-[0_14px_36px_rgba(0,0,0,0.45)] backdrop-blur-xl transition lg:hidden"
       >
         <span className="sr-only">{mobileOpen ? "Скрыть меню" : "Открыть меню"}</span>
         <svg

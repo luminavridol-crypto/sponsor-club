@@ -36,7 +36,7 @@ export function MiniAppShell({
       className={`club-theme min-h-screen text-white lg:pl-[108px] ${shellClassName ?? ""}`}
     >
       <TelegramMiniAppBridge />
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-24 pt-16 sm:px-4 sm:pb-24 sm:pt-3 lg:pb-6">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-6 pt-16 sm:px-4 sm:pt-3">
         <header
           className={`club-frame club-header px-4 py-4 backdrop-blur-md ${headerClassName ?? ""}`}
         >

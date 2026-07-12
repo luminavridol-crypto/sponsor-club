@@ -105,7 +105,7 @@ export function PostCard({
       }`}
     >
       {canDelete ? (
-        <div className="absolute right-3 top-3 z-10">
+        <div className="tier-post-delete absolute right-3 top-3 z-10">
           <ConfirmActionForm
             action={deletePostAction}
             confirmMessage={`Удалить пост "${post.title}"?`}
@@ -176,13 +176,13 @@ export function PostCard({
           ) : null}
         </div>
 
-        <h3 className="break-words pr-[4.75rem] font-display text-[1.45rem] font-semibold leading-[1.05] text-white sm:text-[1.6rem]">
+        <h3 className="break-words pr-[4.75rem] font-display text-[1.3rem] font-semibold leading-[1.08] text-white sm:text-[1.6rem]">
           {post.title}
         </h3>
       </div>
 
       <div className="px-4 py-3.5">
-        <div className="mb-3 flex items-center justify-between text-[13px] text-white/42">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-white/42">
           <span>{formatDate(post.publish_at)}</span>
           <span>{post.post_media?.length ?? 0} media</span>
         </div>
