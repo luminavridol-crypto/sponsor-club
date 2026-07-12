@@ -79,7 +79,7 @@ function bannerClasses(kind: MembershipAlert["kind"] | "new_post") {
     return "border-white/12 bg-white/[0.04]";
   }
 
-  return "border-white/12 bg-white/[0.04]";
+  return "club-tier-notice";
 }
 
 export function MiniAppNotifications() {

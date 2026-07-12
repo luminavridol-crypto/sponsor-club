@@ -26,7 +26,6 @@ export function getEmailConfig() {
     pass: process.env.EMAIL_SMTP_PASS?.trim() ?? "",
     from,
     replyTo: process.env.EMAIL_REPLY_TO?.trim() ?? "",
-    outboxDir: process.env.EMAIL_OUTBOX_DIR?.trim() ?? ".local/email-outbox",
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? "http://localhost:3000"
   };
 }

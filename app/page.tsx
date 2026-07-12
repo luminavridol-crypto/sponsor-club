@@ -3,6 +3,7 @@ import Image from "next/image";
 import { BrandShell } from "@/components/layout/brand-shell";
 import { LogoMark } from "@/components/layout/logo-mark";
 import { getTierLandingCards } from "@/lib/data/tier-landing";
+import { TIER_BY_BADGE, TIER_EMBLEMS } from "@/lib/ui/tier-emblems";
 import { buildTelegramBotLink } from "@/lib/telegram/links";
 
 export const dynamic = "force-dynamic";
@@ -560,8 +561,14 @@ export default async function HomePage() {
               >
                 <div className={`pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full blur-3xl ${tariff.glowClass}`} />
                 <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-                <div className="pointer-events-none absolute bottom-4 right-5 font-display text-[8rem] leading-none text-white/[0.035] transition duration-500 group-hover:text-white/[0.06]">
-                  {tariff.symbol}
+                <div className="pointer-events-none absolute bottom-5 right-5 h-28 w-28 overflow-hidden rounded-full border border-white/14 opacity-35 shadow-[0_0_34px_rgba(255,255,255,0.12)] transition duration-500 group-hover:scale-105 group-hover:opacity-55 sm:h-32 sm:w-32">
+                  <Image
+                    src={TIER_EMBLEMS[TIER_BY_BADGE[tariff.badge] ?? "tier_1"]}
+                    alt=""
+                    width={192}
+                    height={192}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
 
                 <summary className="relative flex min-h-[23rem] cursor-pointer list-none flex-col p-4 outline-none transition sm:min-h-[24rem] sm:p-5">

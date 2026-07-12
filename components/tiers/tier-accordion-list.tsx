@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import type { Route } from "next";
 import { ReactNode, useState } from "react";
 import { updateTierLandingAction } from "@/app/actions";
@@ -10,6 +11,7 @@ import {
   ADMIN_TEXTAREA_CLASS
 } from "@/components/admin/theme";
 import { Tier } from "@/lib/types";
+import { TIER_EMBLEMS } from "@/lib/ui/tier-emblems";
 import { formatEuroAmount } from "@/lib/utils/money";
 
 type IconName =
@@ -371,6 +373,7 @@ export function TierAccordionList({
           return (
             <article
               key={card.id}
+              data-tier-card={card.tier}
               className={`group relative overflow-hidden rounded-[24px] border backdrop-blur-xl transition duration-500 hover:-translate-y-1 hover:shadow-[0_22px_70px_rgba(0,0,0,0.38)] ${card.accentClass} ${
                 isOpen ? card.glowClass : "shadow-[0_18px_52px_rgba(0,0,0,0.24)]"
               }`}
@@ -378,8 +381,14 @@ export function TierAccordionList({
               <div className="pointer-events-none absolute inset-0 opacity-90">
                 <div className="absolute -left-10 top-8 h-20 w-20 rounded-full bg-white/5 blur-3xl" />
                 <div className="absolute -right-6 bottom-10 h-24 w-24 rounded-full bg-white/5 blur-3xl" />
-                <div className="absolute right-4 top-4 text-white/[0.06]">
-                  <LuminaIcon name={card.symbol} className="h-14 w-14 sm:h-20 sm:w-20" />
+                <div className="tier-accordion-watermark absolute right-3 top-3 h-24 w-24 overflow-hidden rounded-full border border-white/10 opacity-32 shadow-[0_0_28px_rgba(255,255,255,0.12)] transition duration-500 group-hover:scale-105 group-hover:opacity-48 sm:h-32 sm:w-32">
+                  <Image
+                    src={TIER_EMBLEMS[card.tier]}
+                    alt=""
+                    width={160}
+                    height={160}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
 
                 {card.afterDarkAtmosphere ? (
@@ -423,8 +432,14 @@ export function TierAccordionList({
                     <div className="mt-3 flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-white/12 bg-black/20 text-white/92 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                            <LuminaIcon name={card.symbol} className="h-5 w-5" />
+                          <div className="tier-accordion-emblem h-16 w-16 shrink-0 overflow-hidden rounded-full border border-white/24 bg-black/30 shadow-[0_0_24px_rgba(255,255,255,0.16)] sm:h-20 sm:w-20">
+                            <Image
+                              src={TIER_EMBLEMS[card.tier]}
+                              alt=""
+                              width={96}
+                              height={96}
+                              className="h-full w-full object-cover"
+                            />
                           </div>
                           <div className="min-w-0">
                             <h2 className="font-display text-[1.15rem] leading-[1.02] text-white sm:text-[1.9rem]">

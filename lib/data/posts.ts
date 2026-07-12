@@ -89,7 +89,7 @@ export async function getTeaserFeedPosts() {
 }
 
 export async function getFeedPostsForProfile(
-  profile: Pick<Profile, "role" | "tier" | "email" | "access_status" | "access_expires_at">
+  profile: Pick<Profile, "id" | "role" | "tier" | "email" | "access_status" | "access_expires_at">
 ) {
   noStore();
 
@@ -97,7 +97,7 @@ export async function getFeedPostsForProfile(
     return getFeedPostsForTier("tier_4");
   }
 
-  const grantedPostIds = await getApprovedPurchasedPostIds(profile as Pick<Profile, "email">);
+  const grantedPostIds = await getApprovedPurchasedPostIds(profile);
   const grantedPostIdSet = new Set(grantedPostIds);
   const posts = await getPublishedFeedPosts();
 
@@ -183,7 +183,7 @@ export async function getPostBySlugForTeaser(slug: string) {
 
 export async function getPostBySlugForProfile(
   slug: string,
-  profile: Pick<Profile, "role" | "tier" | "email" | "access_status" | "access_expires_at">
+  profile: Pick<Profile, "id" | "role" | "tier" | "email" | "access_status" | "access_expires_at">
 ) {
   noStore();
   const admin = createAdminSupabaseClient();
@@ -208,7 +208,7 @@ export async function getPostBySlugForProfile(
   }
 
   if (hasClubAccess(profile as Profile)) {
-    const grantedPostIds = await getApprovedPurchasedPostIds(profile as Pick<Profile, "email">);
+    const grantedPostIds = await getApprovedPurchasedPostIds(profile);
 
     return {
       ...post,
@@ -216,7 +216,7 @@ export async function getPostBySlugForProfile(
     };
   }
 
-  const grantedPostIds = await getApprovedPurchasedPostIds(profile as Pick<Profile, "email">);
+  const grantedPostIds = await getApprovedPurchasedPostIds(profile);
 
   if (!grantedPostIds.includes(post.id)) {
     return null;

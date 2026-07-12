@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import Image from "next/image";
 import { signOutTelegramAction } from "@/app/tg/actions";
 import { ClearAppCacheButton } from "@/components/telegram/clear-app-cache-button";
 import { MiniAppNav } from "@/components/telegram/mini-app-nav";
@@ -6,6 +7,8 @@ import { MiniAppNotifications } from "@/components/telegram/mini-app-notificatio
 import { TelegramMiniAppBridge } from "@/components/telegram/telegram-mini-app-bridge";
 import { hasClubAccess } from "@/lib/auth/access";
 import { Profile } from "@/lib/types";
+import { TIER_EMBLEMS } from "@/lib/ui/tier-emblems";
+import { getEffectiveTier } from "@/lib/utils/tier";
 
 export function MiniAppShell({
   profile,
@@ -26,21 +29,28 @@ export function MiniAppShell({
   showHeaderActions?: boolean;
   hasAccess?: boolean;
 }) {
+  const effectiveTier = getEffectiveTier(profile);
   return (
     <div
-      className={`min-h-screen bg-[linear-gradient(180deg,#17151d_0%,#111119_42%,#0c0d13_100%)] text-white lg:pl-[108px] ${shellClassName ?? ""}`}
+      data-club-tier={effectiveTier}
+      className={`club-theme min-h-screen text-white lg:pl-[108px] ${shellClassName ?? ""}`}
     >
       <TelegramMiniAppBridge />
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-6 pt-16 sm:px-4 sm:pt-3">
         <header
-          className={`rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(34,31,44,0.96),rgba(24,22,32,0.94))] px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.16)] backdrop-blur-md ${headerClassName ?? ""}`}
+          className={`club-frame club-header px-4 py-4 backdrop-blur-md ${headerClassName ?? ""}`}
         >
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className={`text-[10px] uppercase tracking-[0.2em] text-white/55 ${eyebrowClassName ?? ""}`}>Lumina Club</p>
-              <h1 className="mt-1.5 font-display text-[1.7rem] font-semibold leading-none text-white sm:text-[1.9rem]">
-                {title}
-              </h1>
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="club-header-emblem shrink-0" aria-hidden="true">
+                <Image src={TIER_EMBLEMS[effectiveTier]} alt="" width={96} height={96} className="h-full w-full rounded-full object-cover" />
+              </div>
+              <div className="min-w-0">
+                <p className={`club-eyebrow text-[10px] uppercase tracking-[0.2em] ${eyebrowClassName ?? ""}`}>Lumina Club</p>
+                <h1 className="club-title mt-1.5 break-words font-display text-[1.7rem] font-semibold leading-none sm:text-[1.9rem]">
+                  {title}
+                </h1>
+              </div>
             </div>
             {showHeaderActions ? (
               <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
@@ -61,7 +71,7 @@ export function MiniAppShell({
         </main>
       </div>
 
-      <MiniAppNav admin={profile.role === "admin"} hasAccess={hasAccess ?? hasClubAccess(profile)} />
+      <MiniAppNav admin={profile.role === "admin"} hasAccess={hasAccess ?? hasClubAccess(profile)} tier={effectiveTier} />
     </div>
   );
 }

@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { Tier } from "@/lib/types";
 
 type NavItem = {
   href: string;
   label: string;
   shortLabel: string;
+  symbol: string;
   featured?: boolean;
   badgeKey?: "pendingRequestsCount" | "unreadChatCount" | "unreadContentCommentCount";
 };
@@ -38,10 +40,12 @@ function isActive(pathname: string, searchParams: URLSearchParams, href: string)
 
 export function MiniAppNav({
   admin = false,
-  hasAccess = false
+  hasAccess = false,
+  tier = "tier_1"
 }: {
   admin?: boolean;
   hasAccess?: boolean;
+  tier?: Tier;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -109,38 +113,39 @@ export function MiniAppNav({
 
   const items: NavItem[] = admin
     ? [
-        { href: "/tg/content", label: "Лента", shortLabel: "Лента", badgeKey: "unreadContentCommentCount" },
-        { href: "/tg/admin/calendar", label: "Календарь", shortLabel: "Календ." },
-        { href: "/tg/admin/posts", label: "Посты", shortLabel: "Посты" },
-        { href: "/tg/admin/users", label: "Люди", shortLabel: "Люди", badgeKey: "pendingRequestsCount" },
-        { href: "/tg/admin/chat", label: "Чат", shortLabel: "Чат", badgeKey: "unreadChatCount" },
-        { href: "/tg/admin/invites", label: "Инвайты", shortLabel: "Коды" },
-        { href: "/tg/tiers", label: "Тарифы", shortLabel: "Тарифы" },
-        { href: "/tg/admin/support", label: "Реквизиты", shortLabel: "Оплата" }
+        { href: "/tg/content", label: "Лента", shortLabel: "Лента", symbol: "❖", badgeKey: "unreadContentCommentCount" },
+        { href: "/tg/admin/calendar", label: "Календарь", shortLabel: "Календ.", symbol: "◈" },
+        { href: "/tg/admin/posts", label: "Посты", shortLabel: "Посты", symbol: "✦" },
+        { href: "/tg/admin/users", label: "Люди", shortLabel: "Люди", symbol: "♙", badgeKey: "pendingRequestsCount" },
+        { href: "/tg/admin/chat", label: "Чат", shortLabel: "Чат", symbol: "◇", badgeKey: "unreadChatCount" },
+        { href: "/tg/admin/invites", label: "Инвайты", shortLabel: "Коды", symbol: "⚿" },
+        { href: "/tg/tiers", label: "Тарифы", shortLabel: "Тарифы", symbol: "♕" },
+        { href: "/tg/admin/support", label: "Реквизиты", shortLabel: "Оплата", symbol: "◆" }
       ]
     : hasAccess
       ? [
-          { href: "/tg/content", label: "Лента", shortLabel: "Лента" },
-          { href: "/tg/tiers", label: "Уровни", shortLabel: "Уровни" },
-          { href: "/tg/achievements", label: "Достижения", shortLabel: "Достиж." },
-          { href: "/tg/support", label: "Реквизиты", shortLabel: "Оплата" },
-          { href: "/tg/chat", label: "Чат", shortLabel: "Чат" },
-          { href: "/tg/profile", label: "Профиль", shortLabel: "Профиль" }
+          { href: "/tg/content", label: "Лента", shortLabel: "Лента", symbol: "❖" },
+          { href: "/tg/tiers", label: "Уровни", shortLabel: "Уровни", symbol: "♕" },
+          { href: "/tg/achievements", label: "Достижения", shortLabel: "Достиж.", symbol: "✦" },
+          { href: "/tg/support", label: "Реквизиты", shortLabel: "Оплата", symbol: "◆" },
+          { href: "/tg/chat", label: "Чат", shortLabel: "Чат", symbol: "◇" },
+          { href: "/tg/profile", label: "Профиль", shortLabel: "Профиль", symbol: "☾" }
         ]
       : [
-          { href: "/tg/content", label: "Лента", shortLabel: "Лента", featured: true },
-          { href: "/tg/tiers", label: "Уровни", shortLabel: "Уровни", featured: true },
-          { href: "/tg/support", label: "Реквизиты", shortLabel: "Оплата" }
+          { href: "/tg/content", label: "Лента", shortLabel: "Лента", symbol: "❖", featured: true },
+          { href: "/tg/tiers", label: "Уровни", shortLabel: "Уровни", symbol: "♕", featured: true },
+          { href: "/tg/support", label: "Реквизиты", shortLabel: "Оплата", symbol: "◆" }
         ];
 
   return (
     <>
       <button
+        data-club-tier={tier}
         type="button"
         aria-label={mobileOpen ? "Скрыть меню" : "Открыть меню"}
         aria-expanded={mobileOpen}
         onClick={() => setMobileOpen((value) => !value)}
-        className="fixed left-3 top-4 z-[70] inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-[#161720]/92 text-white shadow-[0_14px_40px_rgba(0,0,0,0.38)] backdrop-blur-xl transition hover:border-white/18 lg:hidden"
+        className="club-nav-toggle fixed left-3 top-4 z-[70] inline-flex h-11 w-11 items-center justify-center text-white backdrop-blur-xl transition lg:hidden"
       >
         <span className="sr-only">{mobileOpen ? "Скрыть меню" : "Открыть меню"}</span>
         <svg
@@ -175,11 +180,12 @@ export function MiniAppNav({
       />
 
       <nav
+        data-club-tier={tier}
         className={`fixed left-0 top-0 z-50 h-full w-[112px] px-3 py-20 transition-transform duration-300 lg:left-3 lg:top-1/2 lg:h-auto lg:w-[92px] lg:-translate-y-1/2 lg:px-0 lg:py-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-[110%]"
         } lg:translate-x-0`}
       >
-        <div className="rounded-[28px] border border-white/10 bg-[#14141c]/96 p-2 shadow-[0_18px_46px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+        <div className="club-nav-frame p-2 backdrop-blur-xl">
           <div className="flex flex-col gap-2">
             {items.map((item) => {
               const active = isActive(pathname, searchParams, item.href);
@@ -192,15 +198,16 @@ export function MiniAppNav({
                   href={item.href as never}
                   title={item.label}
                   onClick={() => setMobileOpen(false)}
-                  className={`relative rounded-[20px] px-3 py-3 text-center text-[12px] font-medium leading-4 transition lg:text-[11px] ${
+                  className={`club-nav-item relative px-3 py-3 text-center text-[12px] font-medium leading-4 transition lg:text-[11px] ${
                     active
-                      ? "bg-white text-slate-950 shadow-[0_8px_24px_rgba(255,255,255,0.16)]"
+                      ? "club-nav-item-active"
                       : featured
                         ? "border border-white/16 bg-white/[0.05] text-white"
                         : "border border-white/10 bg-white/[0.03] text-white/68 hover:border-white/18 hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >
-                  {item.shortLabel}
+                  <span className="club-nav-symbol" aria-hidden="true">{item.symbol}</span>
+                  <span className="club-nav-label">{item.shortLabel}</span>
                   {badgeCount ? (
                     <span className="absolute right-1.5 top-1.5 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border border-rose-200/30 bg-rose-500 px-1.5 text-[10px] font-semibold leading-none text-white shadow-[0_0_14px_rgba(244,63,94,0.55)]">
                       {badgeCount > 9 ? "9+" : badgeCount}

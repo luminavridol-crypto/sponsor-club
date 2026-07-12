@@ -185,7 +185,7 @@ export function MemberChatComposer({ isLimitReached }: { isLimitReached: boolean
 
       <button
         disabled={isLimitReached || status === "uploading"}
-        className="flex w-full items-center justify-center rounded-[20px] bg-[linear-gradient(135deg,#f0abfc,#8b5cf6_58%,#3b82f6)] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_rgba(99,102,241,0.24)] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-45"
+        className="club-primary-action flex w-full items-center justify-center rounded-[20px] px-4 py-3 text-sm font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
       >
         {isLimitReached
           ? "Лимит сообщений закончился"

@@ -77,12 +77,12 @@ export function getMimeTypeFromFileName(fileName: string) {
 
 function isImageUpload(file: Pick<File, "type" | "name">) {
   const extension = getExtensionFromName(file.name);
-  return IMAGE_TYPES.has(file.type) || IMAGE_EXTENSIONS.has(extension);
+  return file.type ? IMAGE_TYPES.has(file.type) : IMAGE_EXTENSIONS.has(extension);
 }
 
 function isVideoUpload(file: Pick<File, "type" | "name">) {
   const extension = getExtensionFromName(file.name);
-  return VIDEO_TYPES.has(file.type) || VIDEO_EXTENSIONS.has(extension);
+  return file.type ? VIDEO_TYPES.has(file.type) : VIDEO_EXTENSIONS.has(extension);
 }
 
 export function getUploadMediaType(file: File): MediaType {

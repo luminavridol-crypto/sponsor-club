@@ -250,7 +250,17 @@ function parseDaysBefore(value: FormDataEntryValue | null) {
     .filter((item) => Number.isInteger(item) && item > 0);
 }
 
-async function resolveRequestedPostFields(admin: ReturnType<typeof createAdminSupabaseClient>, rawSlug: string) {
+type RequestedPostFields = {
+  requested_post_id: string | null;
+  requested_post_slug: string | null;
+  requested_post_title: string | null;
+  requested_post_price: number | null;
+};
+
+async function resolveRequestedPostFields(
+  admin: ReturnType<typeof createAdminSupabaseClient>,
+  rawSlug: string
+): Promise<RequestedPostFields> {
   const requestedPostSlug = rawSlug ? decodeURIComponent(rawSlug) : "";
 
   if (!requestedPostSlug) {

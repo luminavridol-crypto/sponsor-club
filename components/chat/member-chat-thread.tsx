@@ -52,7 +52,7 @@ export function MemberChatThread({ messages }: { messages: MemberChatThreadMessa
         <button
           type="button"
           onClick={scrollToLatest}
-          className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/68 transition hover:border-fuchsia-200/28 hover:bg-fuchsia-400/10 hover:text-white"
+          className="club-soft-action rounded-full border px-3 py-1.5 text-[11px] transition"
         >
           Вниз
         </button>
@@ -60,7 +60,7 @@ export function MemberChatThread({ messages }: { messages: MemberChatThreadMessa
 
       <div
         ref={scrollContainerRef}
-        className="max-h-[62vh] min-h-[22rem] overflow-y-auto rounded-[22px] border border-white/8 bg-black/12 p-3 pr-2 sm:max-h-[34rem] sm:p-4 sm:pr-3"
+        className="club-chat-thread max-h-[62vh] min-h-[22rem] overflow-y-auto rounded-[22px] border p-3 pr-2 sm:max-h-[34rem] sm:p-4 sm:pr-3"
       >
         <div className="space-y-3">
           {messages.map((message) => {
@@ -71,7 +71,7 @@ export function MemberChatThread({ messages }: { messages: MemberChatThreadMessa
                 <div
                   className={`max-w-[88%] rounded-[24px] px-4 py-3 shadow-[0_14px_30px_rgba(0,0,0,0.18)] ${
                     isMember
-                      ? "border border-fuchsia-300/18 bg-[linear-gradient(180deg,rgba(110,46,177,0.42),rgba(53,28,94,0.5))] text-white"
+                      ? "club-chat-member border text-white"
                       : "border border-white/10 bg-white/[0.05] text-white/88"
                   }`}
                 >

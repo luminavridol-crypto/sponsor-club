@@ -190,9 +190,9 @@ export default async function TelegramAchievementsPage() {
                   key={cell.key}
                   className={`flex h-10 items-center justify-center rounded-[14px] border text-sm ${
                     cell.today
-                      ? "border-fuchsia-200/60 bg-[radial-gradient(circle_at_top,rgba(244,114,182,0.34),rgba(168,85,247,0.28),rgba(91,33,182,0.22))] text-white shadow-[0_0_22px_rgba(192,38,211,0.34)]"
+                      ? "club-calendar-today text-white"
                       : cell.active
-                        ? "border-violet-300/30 bg-[linear-gradient(180deg,rgba(168,85,247,0.2),rgba(91,33,182,0.16))] text-violet-50 shadow-[0_0_18px_rgba(139,92,246,0.2)]"
+                        ? "club-calendar-active"
                         : "border-white/8 bg-black/12 text-white/32"
                   }`}
                 >
@@ -203,8 +203,8 @@ export default async function TelegramAchievementsPage() {
           </div>
 
           <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/55">
-            <span className="rounded-full border border-violet-300/28 bg-violet-400/14 px-3 py-1 text-violet-50">День серии светится</span>
-            <span className="rounded-full border border-fuchsia-300/28 bg-fuchsia-400/16 px-3 py-1 text-fuchsia-50">Сегодня</span>
+            <span className="club-soft-action rounded-full border px-3 py-1">День серии светится</span>
+            <span className="club-tier-badge rounded-full border px-3 py-1">Сегодня</span>
             <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">Минимум {MIN_MONTHLY_DONATION} EUR в месяц</span>
           </div>
         </div>

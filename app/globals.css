@@ -89,6 +89,428 @@ button {
   font-family: "Palatino Linotype", "Book Antiqua", Georgia, "Times New Roman", serif;
 }
 
+.club-theme,
+[data-club-tier="tier_1"] {
+  --club-accent: 226 232 240;
+  --club-accent-strong: 248 250 252;
+  --club-accent-deep: 100 116 139;
+  --club-glow: 186 230 253;
+  --club-surface: 13 16 23;
+  --club-symbol: "✦";
+  --club-panel: 7 9 13;
+  --club-button-text: 8 10 14;
+}
+
+[data-club-tier="tier_2"] {
+  --club-accent: 244 114 182;
+  --club-accent-strong: 251 207 232;
+  --club-accent-deep: 157 23 77;
+  --club-glow: 236 72 153;
+  --club-surface: 24 10 20;
+  --club-symbol: "◇";
+  --club-panel: 24 7 19;
+  --club-button-text: 48 9 35;
+}
+
+[data-club-tier="tier_3"] {
+  --club-accent: 251 191 36;
+  --club-accent-strong: 254 243 199;
+  --club-accent-deep: 180 83 9;
+  --club-glow: 245 158 11;
+  --club-surface: 24 16 7;
+  --club-symbol: "♕";
+  --club-panel: 25 15 5;
+  --club-button-text: 45 24 3;
+}
+
+[data-club-tier="tier_4"] {
+  --club-accent: 192 132 252;
+  --club-accent-strong: 237 233 254;
+  --club-accent-deep: 109 40 217;
+  --club-glow: 168 85 247;
+  --club-surface: 10 6 15;
+  --club-symbol: "☾";
+  --club-panel: 9 4 14;
+  --club-button-text: 255 255 255;
+}
+
+.club-theme {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% -8%, rgb(var(--club-glow) / 0.2), transparent 32rem),
+    radial-gradient(circle at 100% 24%, rgb(var(--club-accent-deep) / 0.14), transparent 28rem),
+    linear-gradient(180deg, rgb(var(--club-surface)) 0%, #07070b 48%, #030305 100%);
+}
+
+.club-theme::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.34;
+  background-image:
+    linear-gradient(90deg, transparent 49.8%, rgb(var(--club-accent) / 0.08) 50%, transparent 50.2%),
+    radial-gradient(circle, rgb(var(--club-accent) / 0.18) 0 1px, transparent 1.5px);
+  background-size: 100% 100%, 46px 46px;
+  mask-image: linear-gradient(to bottom, black, transparent 70%);
+}
+
+.club-frame,
+.club-nav-frame,
+.club-nav-toggle {
+  position: relative;
+  border: 1px solid rgb(var(--club-accent) / 0.35);
+  background:
+    linear-gradient(135deg, rgb(var(--club-accent) / 0.08), transparent 30%),
+    rgb(var(--club-surface) / 0.94);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--club-accent) / 0.06),
+    0 0 24px rgb(var(--club-glow) / 0.12),
+    0 18px 46px rgb(0 0 0 / 0.34);
+}
+
+.club-frame::before {
+  content: var(--club-symbol);
+  position: absolute;
+  left: 50%;
+  top: 0;
+  translate: -50% -54%;
+  padding: 0 0.55rem;
+  color: rgb(var(--club-accent-strong));
+  background: rgb(var(--club-surface));
+  font-size: 0.8rem;
+  text-shadow: 0 0 14px rgb(var(--club-glow) / 0.8);
+}
+
+.club-header {
+  border-radius: 0.45rem 0.45rem 1.5rem 1.5rem;
+}
+
+.club-header-emblem {
+  width: 3.35rem;
+  height: 3.35rem;
+  overflow: hidden;
+  border: 1px solid rgb(var(--club-accent) / 0.46);
+  border-radius: 50%;
+  background: rgb(var(--club-surface));
+  box-shadow: 0 0 22px rgb(var(--club-glow) / 0.24);
+}
+
+.club-title {
+  color: rgb(var(--club-accent-strong));
+  text-shadow: 0 0 24px rgb(var(--club-glow) / 0.18);
+}
+
+.club-eyebrow {
+  color: rgb(var(--club-accent) / 0.72);
+}
+
+.club-nav-frame {
+  border-radius: 0.5rem 0.5rem 1.4rem 1.4rem;
+}
+
+.club-nav-toggle {
+  border-radius: 0.45rem 0.45rem 1rem 1rem;
+}
+
+.club-nav-item {
+  border-radius: 0.35rem 0.35rem 1rem 1rem;
+  display: flex;
+  min-height: 4.45rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  background:
+    radial-gradient(circle at 50% 0%, rgb(var(--club-accent) / 0.13), transparent 65%),
+    rgb(var(--club-surface) / 0.74);
+}
+
+.club-nav-symbol {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid rgb(var(--club-accent) / 0.32);
+  border-radius: 50%;
+  color: rgb(var(--club-accent-strong));
+  background: radial-gradient(circle, rgb(var(--club-glow) / 0.2), transparent 68%);
+  font-family: Georgia, serif;
+  font-size: 1.1rem;
+  line-height: 1;
+  text-shadow: 0 0 12px rgb(var(--club-glow) / 0.9);
+}
+
+.club-nav-label {
+  color: inherit;
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+.club-nav-item-active {
+  border: 1px solid rgb(var(--club-accent) / 0.7);
+  background: rgb(var(--club-accent) / 0.14);
+  color: rgb(var(--club-accent-strong));
+  box-shadow: inset 0 0 18px rgb(var(--club-glow) / 0.1), 0 0 18px rgb(var(--club-glow) / 0.18);
+}
+
+.club-nav-item-active .club-nav-symbol {
+  border-color: rgb(var(--club-accent) / 0.78);
+  box-shadow: 0 0 18px rgb(var(--club-glow) / 0.32);
+}
+
+.tier-card-seal {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  display: grid;
+  width: 4rem;
+  height: 4rem;
+  translate: 0 -50%;
+  place-items: center;
+  border: 1px solid rgb(226 232 240 / 0.3);
+  border-radius: 50%;
+  color: #f8fafc;
+  background: radial-gradient(circle, rgb(226 232 240 / 0.14), rgb(2 3 5 / 0.9) 70%);
+  box-shadow: 0 0 18px rgb(203 213 225 / 0.12);
+  font-family: Georgia, serif;
+  font-size: 1.45rem;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.tier-post-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.72;
+  background-image:
+    radial-gradient(circle at 8% 18%, currentColor 0 1px, transparent 1.7px),
+    radial-gradient(circle at 72% 12%, currentColor 0 1.2px, transparent 1.9px),
+    radial-gradient(circle at 88% 68%, currentColor 0 0.8px, transparent 1.5px),
+    radial-gradient(circle at 32% 82%, currentColor 0 0.8px, transparent 1.4px),
+    radial-gradient(circle at 56% 44%, currentColor 0 0.65px, transparent 1.3px);
+  background-size: 128px 112px, 176px 142px, 154px 128px, 132px 164px, 98px 126px;
+  mask-image: linear-gradient(110deg, black, transparent 72%);
+}
+
+.tier-post-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.tier-post-card[data-post-tier="tier_1"] {
+  color: rgb(226 232 240 / 0.58);
+  box-shadow: inset 0 0 30px rgb(226 232 240 / 0.025), 0 16px 40px rgb(0 0 0 / 0.42);
+}
+
+.tier-post-card[data-post-tier="tier_2"] {
+  color: rgb(244 114 182 / 0.68);
+  box-shadow: inset 0 0 42px rgb(236 72 153 / 0.06), 0 0 26px rgb(236 72 153 / 0.12), 0 16px 40px rgb(0 0 0 / 0.3);
+}
+
+.tier-post-card[data-post-tier="tier_3"] {
+  color: rgb(251 191 36 / 0.72);
+  box-shadow: inset 0 0 44px rgb(245 158 11 / 0.06), 0 0 28px rgb(245 158 11 / 0.13), 0 16px 40px rgb(0 0 0 / 0.32);
+}
+
+.tier-post-card[data-post-tier="tier_4"] {
+  color: rgb(192 132 252 / 0.7);
+}
+
+.tier-card-seal[data-post-tier="tier_2"] {
+  border-color: rgb(244 114 182 / 0.48);
+  color: #fbcfe8;
+  background: radial-gradient(circle, rgb(236 72 153 / 0.28), rgb(24 4 18 / 0.94) 70%);
+  box-shadow: 0 0 22px rgb(236 72 153 / 0.25);
+}
+
+.tier-card-seal[data-post-tier="tier_3"] {
+  border-color: rgb(251 191 36 / 0.5);
+  color: #fef3c7;
+  background: radial-gradient(circle, rgb(245 158 11 / 0.25), rgb(24 13 2 / 0.94) 70%);
+  box-shadow: 0 0 22px rgb(245 158 11 / 0.24);
+}
+
+.tier-card-seal[data-post-tier="tier_4"] {
+  border-color: rgb(192 132 252 / 0.52);
+  color: #ede9fe;
+  background: rgb(6 3 10 / 0.96);
+  box-shadow: 0 0 24px rgb(168 85 247 / 0.3);
+}
+
+.tier-card-seal + div {
+  padding-right: 4.75rem;
+}
+
+.tier-card-seal[data-post-tier="tier_1"] img {
+  filter: brightness(1.28) contrast(1.08);
+}
+
+.tier-card-seal img {
+  transition: filter 180ms ease, transform 180ms ease;
+}
+
+.tier-post-card:hover .tier-card-seal img {
+  filter: brightness(1.12);
+  transform: scale(1.035);
+}
+
+.tier-post-card[data-post-tier="tier_1"]:hover .tier-card-seal img {
+  filter: brightness(1.38) contrast(1.08);
+}
+
+.club-theme .glass-card {
+  border-color: rgb(var(--club-accent) / 0.25);
+  border-radius: 0.45rem 0.45rem 1.4rem 1.4rem;
+  background:
+    linear-gradient(145deg, rgb(var(--club-accent) / 0.06), transparent 34%),
+    rgb(var(--club-surface) / 0.78);
+  box-shadow: inset 0 0 0 1px rgb(var(--club-accent) / 0.035), 0 16px 40px rgb(0 0 0 / 0.22);
+}
+
+.club-theme main > section,
+.club-theme main > div > section {
+  position: relative;
+  border-color: rgb(var(--club-accent) / 0.24);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--club-accent) / 0.025),
+    0 16px 42px rgb(0 0 0 / 0.22),
+    0 0 24px rgb(var(--club-glow) / 0.07);
+}
+
+.club-theme main > section::after,
+.club-theme main > div > section::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(circle at 10% 18%, rgb(var(--club-accent)) 0 0.7px, transparent 1.4px),
+    radial-gradient(circle at 76% 12%, rgb(var(--club-accent)) 0 0.8px, transparent 1.5px),
+    radial-gradient(circle at 88% 72%, rgb(var(--club-accent)) 0 0.65px, transparent 1.3px);
+  background-size: 118px 132px, 164px 144px, 136px 158px;
+  mask-image: linear-gradient(125deg, black, transparent 76%);
+}
+
+.club-theme main > section > *,
+.club-theme main > div > section > * {
+  position: relative;
+  z-index: 1;
+}
+
+.club-theme input:not([type="hidden"]),
+.club-theme textarea,
+.club-theme select {
+  border-color: rgb(var(--club-accent) / 0.22);
+  background-color: rgb(var(--club-panel) / 0.72);
+  box-shadow: inset 0 1px 0 rgb(var(--club-accent) / 0.04);
+}
+
+.club-theme input:focus,
+.club-theme textarea:focus,
+.club-theme select:focus {
+  border-color: rgb(var(--club-accent) / 0.55);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(var(--club-glow) / 0.1), 0 0 20px rgb(var(--club-glow) / 0.1);
+}
+
+.club-primary-action {
+  border: 1px solid rgb(var(--club-accent) / 0.64);
+  color: rgb(var(--club-button-text));
+  background: linear-gradient(135deg, rgb(var(--club-accent-strong)), rgb(var(--club-accent)) 58%, rgb(var(--club-accent-deep)));
+  box-shadow: 0 14px 34px rgb(var(--club-glow) / 0.24);
+}
+
+.club-soft-action {
+  border-color: rgb(var(--club-accent) / 0.24);
+  color: rgb(var(--club-accent-strong) / 0.8);
+  background: rgb(var(--club-accent) / 0.07);
+}
+
+.club-soft-action:hover {
+  border-color: rgb(var(--club-accent) / 0.5);
+  color: rgb(var(--club-accent-strong));
+  background: rgb(var(--club-accent) / 0.13);
+}
+
+.club-tier-badge {
+  border-color: rgb(var(--club-accent) / 0.34);
+  color: rgb(var(--club-accent-strong));
+  background: rgb(var(--club-accent) / 0.1);
+}
+
+.club-comment-section,
+.club-comment-node,
+.club-comment-quote,
+.club-chat-thread {
+  border-color: rgb(var(--club-accent) / 0.2);
+  background:
+    radial-gradient(circle at 88% 12%, rgb(var(--club-glow) / 0.08), transparent 22%),
+    rgb(var(--club-panel) / 0.68);
+}
+
+.club-comment-reply {
+  border-color: rgb(var(--club-accent) / 0.26);
+}
+
+.club-chat-member {
+  border-color: rgb(var(--club-accent) / 0.3);
+  background: linear-gradient(160deg, rgb(var(--club-accent-deep) / 0.66), rgb(var(--club-panel) / 0.88));
+  box-shadow: inset 0 0 18px rgb(var(--club-glow) / 0.07);
+}
+
+.club-calendar-active {
+  border-color: rgb(var(--club-accent) / 0.42);
+  color: rgb(var(--club-accent-strong));
+  background: linear-gradient(180deg, rgb(var(--club-accent) / 0.24), rgb(var(--club-accent-deep) / 0.2));
+  box-shadow: 0 0 18px rgb(var(--club-glow) / 0.22);
+}
+
+.club-calendar-today {
+  border-color: rgb(var(--club-accent-strong) / 0.72);
+  background: radial-gradient(circle at top, rgb(var(--club-accent-strong) / 0.38), rgb(var(--club-accent) / 0.28), rgb(var(--club-accent-deep) / 0.24));
+  box-shadow: 0 0 24px rgb(var(--club-glow) / 0.34);
+}
+
+.club-tier-notice {
+  border-color: rgb(var(--club-accent) / 0.26);
+  background: linear-gradient(145deg, rgb(var(--club-accent) / 0.12), rgb(var(--club-panel) / 0.78));
+  box-shadow: 0 10px 28px rgb(var(--club-glow) / 0.1);
+}
+
+[data-tier-card] .tier-accordion-emblem img,
+[data-tier-card] .tier-accordion-watermark img {
+  filter: brightness(1.32) contrast(1.08) saturate(1.12);
+}
+
+[data-tier-card="tier_1"] .tier-accordion-emblem img,
+[data-tier-card="tier_1"] .tier-accordion-watermark img {
+  filter: brightness(1.58) contrast(1.12) saturate(0.78);
+}
+
+[data-tier-card="tier_2"] .tier-accordion-emblem img,
+[data-tier-card="tier_2"] .tier-accordion-watermark img {
+  filter: brightness(1.42) contrast(1.08) saturate(1.2);
+}
+
+[data-tier-card="tier_3"] .tier-accordion-emblem img,
+[data-tier-card="tier_3"] .tier-accordion-watermark img {
+  filter: brightness(1.45) contrast(1.08) saturate(1.16);
+}
+
+[data-tier-card="tier_4"] .tier-accordion-emblem img,
+[data-tier-card="tier_4"] .tier-accordion-watermark img {
+  filter: brightness(1.48) contrast(1.08) saturate(1.18);
+}
+
 @keyframes lumina-twinkle {
   0%,
   100% {

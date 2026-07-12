@@ -151,20 +151,20 @@ export function PostComments({
         key={comment.id}
         className={
           depth === 0
-            ? "rounded-3xl border border-white/10 bg-black/15 px-4 py-3"
-            : "relative ml-4 border-l border-white/10 pl-4 sm:ml-8 sm:pl-5"
+            ? "club-comment-node rounded-3xl border px-4 py-3"
+            : "club-comment-reply relative ml-4 border-l pl-4 sm:ml-8 sm:pl-5"
         }
       >
         <div
           className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${
-            depth > 0 ? "rounded-[24px] border border-white/8 bg-white/[0.03] px-4 py-3" : ""
+            depth > 0 ? "club-comment-node rounded-[24px] border px-4 py-3" : ""
           }`}
         >
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium text-white">{authorLabel}</p>
               {comment.profiles?.role === "admin" ? (
-                <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-accentSoft">
+                <span className="club-tier-badge rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.18em]">
                   Lumina
                 </span>
               ) : null}
@@ -176,7 +176,7 @@ export function PostComments({
             </div>
 
             {parsedReply ? (
-              <div className="mt-3 rounded-2xl border border-white/10 bg-black/18 px-3 py-2.5">
+              <div className="club-comment-quote mt-3 rounded-2xl border px-3 py-2.5">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">
                   Ответ для {parsedReply.replyAuthor}
                 </p>
@@ -201,7 +201,7 @@ export function PostComments({
                   setBody((current) => (current.trim() ? `${current}\n\n${template}` : template));
                   document.getElementById("post-comment-body")?.focus();
                 }}
-                className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/72 transition hover:border-accent/30 hover:bg-white/[0.06] hover:text-white"
+                className="club-soft-action rounded-full border px-3 py-1.5 text-xs transition"
               >
                 Ответить
               </button>
@@ -270,11 +270,11 @@ export function PostComments({
   return (
     <section
       id="comments"
-      className="scroll-mt-24 rounded-[32px] border border-white/10 bg-white/5 p-5 shadow-glow sm:p-6"
+      className="club-comment-section scroll-mt-24 rounded-[32px] border p-5 shadow-glow sm:p-6"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-accentSoft">Comments</p>
+          <p className="club-eyebrow text-xs uppercase tracking-[0.24em]">Comments</p>
           <h3 className="mt-2 text-2xl font-semibold text-white">Комментарии</h3>
         </div>
         <p className="text-sm text-white/45">{comments.length} всего</p>
@@ -284,7 +284,7 @@ export function PostComments({
         {commentThreads.length ? (
           commentThreads.map((thread) => renderCommentNode(thread))
         ) : (
-          <div className="rounded-3xl border border-dashed border-white/10 bg-black/10 px-4 py-6 text-sm text-white/50">
+          <div className="club-comment-node rounded-3xl border border-dashed px-4 py-6 text-sm text-white/50">
             Будь первым, кто оставит комментарий к этому посту.
           </div>
         )}

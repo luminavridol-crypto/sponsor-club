@@ -4,7 +4,7 @@ import { buildTelegramMiniAppLink } from "@/lib/telegram/links";
 const STATIC_FILE_PATTERN = /\.[^/]+$/;
 const PUBLIC_BROWSER_PATHS = new Set(["/", "/open-path/tiers"]);
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-current-pathname", pathname);

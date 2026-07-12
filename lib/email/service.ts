@@ -52,6 +52,15 @@ type DeliveryAttemptResult = {
   errorMessage: string | null;
 };
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function tierLabel(tier?: Tier | null) {
   switch (tier) {
     case "tier_1":
@@ -101,7 +110,8 @@ function replaceTemplateTokens(
 }
 
 function renderHtml(subject: string, text: string) {
-  const paragraphs = text
+  const safeSubject = escapeHtml(subject);
+  const paragraphs = escapeHtml(text)
     .split("\n\n")
     .map((part) => `<p style="margin:0 0 16px;line-height:1.7;">${part.replaceAll("\n", "<br/>")}</p>`)
     .join("");
@@ -111,7 +121,7 @@ function renderHtml(subject: string, text: string) {
   <body style="margin:0;padding:32px;background:#0b0b12;color:#f5f5f7;font-family:Arial,sans-serif;">
     <div style="max-width:680px;margin:0 auto;border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:32px;background:linear-gradient(180deg,#181824 0%,#0e0f16 100%);">
       <p style="margin:0 0 12px;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:#7ae8ff;">Lumina</p>
-      <h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;color:#ffffff;">${subject}</h1>
+      <h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;color:#ffffff;">${safeSubject}</h1>
       ${paragraphs}
     </div>
   </body>
@@ -145,9 +155,7 @@ async function deliverEmail(payload: DeliveryPayload): Promise<DeliveryAttemptRe
     };
   }
 
-  const outboxDir = path.isAbsolute(config.outboxDir)
-    ? config.outboxDir
-    : path.join(process.cwd(), config.outboxDir);
+  const outboxDir = path.join(/* turbopackIgnore: true */ process.cwd(), ".local", "email-outbox");
 
   await mkdir(outboxDir, { recursive: true });
   const safeEmail = payload.to.replaceAll(/[^a-zA-Z0-9._-]/g, "_");
@@ -195,8 +203,8 @@ export async function sendEmailCampaign(input: SendEmailCampaignInput) {
   const deliveries: CampaignDeliveryResult[] = [];
 
   for (const recipient of uniqueRecipients) {
-      const subject = replaceTemplateTokens(input.subject, recipient, input.metadata);
-      const text = replaceTemplateTokens(input.body, recipient, input.metadata);
+    const subject = replaceTemplateTokens(input.subject, recipient, input.metadata);
+    const text = replaceTemplateTokens(input.body, recipient, input.metadata);
     const html = renderHtml(subject, text);
 
     let result: DeliveryAttemptResult;

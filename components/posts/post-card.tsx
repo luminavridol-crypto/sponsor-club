@@ -6,6 +6,7 @@ import { PostNavLink } from "@/components/posts/post-nav-link";
 import { PostReactions } from "@/components/posts/post-reactions";
 import { ReactionSummary } from "@/lib/data/reactions";
 import { FeedPost, Tier } from "@/lib/types";
+import { TIER_EMBLEMS } from "@/lib/ui/tier-emblems";
 import { formatEuroAmount } from "@/lib/utils/money";
 import { formatDate } from "@/lib/utils/format";
 import { TIER_LABELS } from "@/lib/utils/tier";
@@ -45,22 +46,26 @@ const TIER_CARD_STYLES: Record<
     frame?: string;
     tierBadge: string;
     action: string;
+    symbol: string;
   }
 > = {
   tier_1: {
-    article: "border-white/10 bg-[#191a22]",
+    article: "border-slate-300/16 bg-[linear-gradient(155deg,rgba(24,25,31,0.96),rgba(3,4,7,0.99)_62%)]",
     tierBadge: "border-white/10 bg-white/[0.03] text-white/65",
-    action: "bg-white text-slate-950 hover:bg-white/92"
+    action: "bg-white text-slate-950 hover:bg-white/92",
+    symbol: "☾"
   },
   tier_2: {
-    article: "border-white/10 bg-[#191a22]",
-    tierBadge: "border-white/10 bg-white/[0.03] text-white/65",
-    action: "bg-white text-slate-950 hover:bg-white/92"
+    article: "border-pink-300/22 bg-[radial-gradient(circle_at_12%_20%,rgba(236,72,153,0.17),transparent_25%),linear-gradient(155deg,rgba(29,9,23,0.98),rgba(10,5,12,0.99)_70%)]",
+    tierBadge: "border-pink-300/22 bg-pink-400/10 text-pink-100",
+    action: "bg-pink-100 text-pink-950 hover:bg-pink-50",
+    symbol: "⚿"
   },
   tier_3: {
     article: "border-white/10 bg-[#201811]",
     tierBadge: "border-white/10 bg-white/[0.03] text-white/70",
-    action: "bg-[#ffe2a9] text-[#2c1d08] hover:bg-[#ffdf9b]"
+    action: "bg-[#ffe2a9] text-[#2c1d08] hover:bg-[#ffdf9b]",
+    symbol: "♕"
   },
   tier_4: {
     article:
@@ -68,7 +73,8 @@ const TIER_CARD_STYLES: Record<
     frame:
       "shadow-[0_0_34px_rgba(139,92,246,0.16),0_18px_44px_rgba(0,0,0,0.28)] before:absolute before:inset-0 before:pointer-events-none before:rounded-[24px] before:bg-[radial-gradient(circle_at_78%_18%,rgba(196,181,253,0.08),transparent_16%),radial-gradient(circle_at_22%_78%,rgba(168,85,247,0.10),transparent_22%)] before:opacity-100",
     tierBadge: "border-violet-300/18 bg-violet-400/10 text-violet-100",
-    action: "bg-white text-slate-950 hover:bg-white/92"
+    action: "bg-white text-slate-950 hover:bg-white/92",
+    symbol: "✾"
   }
 };
 
@@ -93,7 +99,8 @@ export function PostCard({
 
   return (
     <article
-      className={`relative overflow-hidden rounded-[24px] border ${tierStyle.article} ${
+      data-post-tier={post.required_tier}
+      className={`tier-post-card relative overflow-hidden rounded-[24px] border ${tierStyle.article} ${
         tierStyle.frame ?? "shadow-[0_12px_28px_rgba(0,0,0,0.12)]"
       }`}
     >
@@ -141,6 +148,15 @@ export function PostCard({
       ) : null}
 
       <div className="relative border-b border-white/8 px-4 py-3.5">
+        <div className="tier-card-seal" data-post-tier={post.required_tier} aria-hidden="true">
+          <Image
+            src={TIER_EMBLEMS[post.required_tier]}
+            alt=""
+            width={128}
+            height={128}
+            className="h-full w-full rounded-full object-cover"
+          />
+        </div>
         <div className="mb-2.5 flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-white/60">
             {POST_TYPE_LABELS[post.post_type] ?? post.post_type}
@@ -160,7 +176,7 @@ export function PostCard({
           ) : null}
         </div>
 
-        <h3 className="font-display text-[1.45rem] font-semibold leading-[1.05] text-white sm:text-[1.6rem]">
+        <h3 className="break-words pr-[4.75rem] font-display text-[1.45rem] font-semibold leading-[1.05] text-white sm:text-[1.6rem]">
           {post.title}
         </h3>
       </div>

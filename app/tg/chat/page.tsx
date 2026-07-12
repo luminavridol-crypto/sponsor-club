@@ -47,7 +47,6 @@ export default async function TelegramChatPage({
       profile={profile}
       title="Чат"
       hasAccess={hasContentAccess}
-      shellClassName="bg-[radial-gradient(circle_at_top,rgba(138,92,246,0.16),transparent_22%),radial-gradient(circle_at_82%_16%,rgba(59,130,246,0.12),transparent_20%),linear-gradient(180deg,#12131c_0%,#0e1017_48%,#090b11_100%)]"
     >
       {error ? (
         <section className="rounded-[24px] bg-rose-400/12 px-4 py-4 text-sm text-rose-100">
@@ -69,7 +68,7 @@ export default async function TelegramChatPage({
         </section>
       ) : null}
 
-      <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] px-5 py-5 text-white shadow-[0_18px_46px_rgba(0,0,0,0.24)]">
+      <section className="club-comment-section rounded-[28px] border px-5 py-5 text-white shadow-[0_18px_46px_rgba(0,0,0,0.24)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-[0.24em] text-white/42">Отдельный диалог</p>
@@ -101,7 +100,7 @@ export default async function TelegramChatPage({
             </div>
             <a
               href="/tg/support?request=chat_messages"
-              className="rounded-[18px] bg-sky-100 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:opacity-90"
+              className="club-primary-action rounded-[18px] px-4 py-2 text-sm font-semibold transition hover:brightness-110"
             >
               Купить ещё сообщения
             </a>

@@ -13,6 +13,10 @@ function isLocalHost(host: string | null) {
 }
 
 export async function isLocalTelegramPreviewEnabled() {
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+
   if (process.env.LOCAL_TELEGRAM_PREVIEW === "1") {
     return true;
   }
