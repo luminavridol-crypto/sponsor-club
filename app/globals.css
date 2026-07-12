@@ -158,8 +158,7 @@ button {
 }
 
 .club-frame,
-.club-nav-frame,
-.club-nav-toggle {
+.club-nav-frame {
   position: relative;
   border: 1px solid rgb(var(--club-accent) / 0.35);
   background:
@@ -212,6 +211,7 @@ button {
 }
 
 .club-nav-toggle {
+  position: fixed;
   border-radius: 0.45rem 0.45rem 1rem 1rem;
 }
 
