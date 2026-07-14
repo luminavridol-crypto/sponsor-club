@@ -120,6 +120,7 @@ export async function getOrphanedStorageReport(admin: SupabaseClient): Promise<O
     { data: posts },
     { data: postMedia },
     { data: chatMessages },
+    { data: comments },
     postMediaFiles,
     chatMediaFiles,
     r2Files
@@ -127,6 +128,7 @@ export async function getOrphanedStorageReport(admin: SupabaseClient): Promise<O
     admin.from("posts").select("thumbnail_path"),
     admin.from("post_media").select("storage_path"),
     admin.from("member_chat_messages").select("media_path"),
+    admin.from("post_comments").select("media_path"),
     listBucketFileEntries(admin, "post-media"),
     listBucketFileEntries(admin, "chat-media"),
     listR2Media().catch(() => [])
@@ -148,11 +150,19 @@ export async function getOrphanedStorageReport(admin: SupabaseClient): Promise<O
     }
   }
 
+  const chatAndCommentPaths = [
+    ...((chatMessages ?? []).map((message) => message.media_path)),
+    ...((comments ?? []).map((comment) => comment.media_path))
+  ].filter((path): path is string => Boolean(path));
+
   const usedChatMedia = new Set(
-    (chatMessages ?? [])
-      .map((message) => message.media_path)
-      .filter((path): path is string => Boolean(path))
+    chatAndCommentPaths
+      .filter((path) => !path.startsWith("r2:"))
   );
+
+  for (const path of chatAndCommentPaths) {
+    if (path.startsWith("r2:")) usedR2Media.add(path);
+  }
 
   const orphanPostMedia = postMediaFiles.filter((file) => !usedPostMedia.has(file.path));
   const orphanChatMedia = chatMediaFiles.filter((file) => !usedChatMedia.has(file.path));

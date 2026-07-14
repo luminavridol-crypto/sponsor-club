@@ -6,7 +6,7 @@ import { ProtectedVideoPlayer } from "@/components/posts/protected-video-player"
 type ProtectedMediaProps = {
   src: string;
   alt: string;
-  kind: "image" | "video";
+  kind: "image" | "video" | "audio";
   className?: string;
 };
 
@@ -18,6 +18,15 @@ export function ProtectedMedia({
 }: ProtectedMediaProps) {
   if (kind === "video") {
     return <ProtectedVideoPlayer src={src} className={className} />;
+  }
+
+  if (kind === "audio") {
+    return (
+      <div className={`rounded-[24px] border border-white/10 bg-white/[0.04] p-4 ${className}`}>
+        <p className="mb-3 text-xs uppercase tracking-[0.18em] text-white/45">Голосовая запись</p>
+        <audio src={src} controls preload="metadata" className="w-full" />
+      </div>
+    );
   }
 
   return (

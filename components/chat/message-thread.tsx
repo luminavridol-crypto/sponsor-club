@@ -112,7 +112,9 @@ export function MessageThread({
                     {message.media_url ? (
                       <div className="mt-3 space-y-3">
                         <div className="overflow-hidden rounded-[20px] border border-white/10 bg-black/20">
-                          {message.media_type === "video" ? (
+                          {message.media_type === "audio" ? (
+                            <audio src={message.media_url} controls preload="metadata" className="w-full" />
+                          ) : message.media_type === "video" ? (
                             <video
                               src={message.media_url}
                               controls
@@ -139,7 +141,11 @@ export function MessageThread({
                             rel="noreferrer"
                             className="rounded-full border border-white/10 px-3 py-2 text-xs text-white/78 transition hover:border-cyanGlow/30 hover:bg-white/5 hover:text-white"
                           >
-                            {message.media_type === "video" ? "Открыть видео" : "Открыть фото"}
+                            {message.media_type === "audio"
+                              ? "Открыть аудио"
+                              : message.media_type === "video"
+                                ? "Открыть видео"
+                                : "Открыть фото"}
                           </a>
                           <a
                             href={message.media_url}

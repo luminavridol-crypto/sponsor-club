@@ -13,25 +13,26 @@ function isLocalHost(host: string | null) {
 }
 
 export async function isLocalTelegramPreviewEnabled() {
+  const headerStore = await headers();
+  const forwardedHost = headerStore.get("x-forwarded-host");
+  const host = forwardedHost ?? headerStore.get("host");
+  const localHost = isLocalHost(host);
+
   if (process.env.NODE_ENV === "production") {
-    return false;
+    return process.env.LOCAL_TELEGRAM_PREVIEW === "1" && localHost;
   }
 
   if (process.env.LOCAL_TELEGRAM_PREVIEW === "1") {
     return true;
   }
 
-  const headerStore = await headers();
   const explicitPreview = headerStore.get("x-local-preview");
 
   if (explicitPreview === "1") {
     return true;
   }
 
-  const forwardedHost = headerStore.get("x-forwarded-host");
-  const host = forwardedHost ?? headerStore.get("host");
-
-  return isLocalHost(host);
+  return localHost;
 }
 
 type PreviewOverrides = Partial<

@@ -84,7 +84,7 @@ async function uploadFile(file: File, folder: string) {
 }
 
 async function uploadPostMedia(file: File, folder: string) {
-  assertUploadFile(file);
+  assertUploadFile(file, { allowAudio: true });
   const extension = getSafeFileExtension(file);
   return uploadMediaToR2(file, `${folder}/${randomUUID()}.${extension}`, file.type);
 }
@@ -161,6 +161,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Добавь текст публикации, чтобы создать текстовый пост." }, { status: 400 });
     }
 
+    const hasAudioMedia =
+      uploadedMediaTypes.includes("audio") || mediaFiles.some((file) => file.type.startsWith("audio/"));
+    if (postType === "audio" && !hasAudioMedia) {
+      return NextResponse.json({ error: "Запиши голосовое, чтобы создать голосовой пост." }, { status: 400 });
+    }
+
     if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
       const uploaded = await uploadFile(thumbnailFile, "thumbnails");
       thumbnailPath = uploaded.storagePath;
@@ -220,7 +226,12 @@ export async function POST(request: Request) {
 
     const directUploads = uploadedMediaPaths.map((storagePath, index) => ({
       storagePath,
-      mediaType: uploadedMediaTypes[index] === "video" ? "video" : "image",
+      mediaType:
+        uploadedMediaTypes[index] === "audio"
+          ? "audio"
+          : uploadedMediaTypes[index] === "video"
+            ? "video"
+            : "image",
       provider: uploadedMediaProviders[index] || R2_PROVIDER,
       bucket: uploadedMediaBuckets[index] || null,
       objectKey: uploadedMediaObjectKeys[index] || toR2ObjectKey(storagePath),

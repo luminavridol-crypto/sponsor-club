@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createPostCommentAction, deletePostCommentAction } from "@/app/actions";
 import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
+import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { CommentReactions } from "@/components/posts/comment-reactions";
 import { ReactionSummary } from "@/lib/data/reactions";
 import { PostCommentWithAuthor } from "@/lib/types";
@@ -186,7 +187,12 @@ export function PostComments({
               </div>
             ) : null}
 
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-white/78">{displayBody}</p>
+            {displayBody ? (
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-white/78">{displayBody}</p>
+            ) : null}
+            {comment.media_url && comment.media_type === "audio" ? (
+              <audio src={comment.media_url} controls preload="metadata" className="mt-3 w-full" />
+            ) : null}
 
             <div className="mt-3 flex flex-wrap gap-2">
               <button
@@ -290,7 +296,7 @@ export function PostComments({
         )}
       </div>
 
-      <form ref={formRef} action={action} className="mt-5 space-y-3">
+      <form ref={formRef} action={action} encType="multipart/form-data" className="mt-5 space-y-3">
         <input type="hidden" name="postId" value={postId} />
         <input type="hidden" name="postSlug" value={postSlug} />
         <input type="hidden" name="replyToCommentId" value={replyTarget?.id ?? ""} />
@@ -298,7 +304,6 @@ export function PostComments({
         <textarea
           id="post-comment-body"
           name="body"
-          required
           maxLength={1000}
           value={body}
           onChange={(event) => setBody(event.target.value)}
@@ -306,6 +311,7 @@ export function PostComments({
           className="min-h-[120px]"
         />
         <EmojiToolbar targetId="post-comment-body" label="Эмодзи для комментария" />
+        <VoiceRecorder />
         {replyTarget ? (
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/70">
             <div className="flex items-center justify-between gap-3">
@@ -328,7 +334,7 @@ export function PostComments({
         ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-white/35">
-            До 1000 символов. Комментарий увидят участники с доступом к посту.
+            До 1000 символов или голосовое до 5 минут. Гостям отправка недоступна.
           </p>
           <SubmitButton />
         </div>

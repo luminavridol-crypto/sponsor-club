@@ -1,9 +1,9 @@
 export type Role = "admin" | "member";
 export type Tier = "tier_1" | "tier_2" | "tier_3" | "tier_4";
 export type AccessStatus = "active" | "disabled";
-export type PostType = "gallery" | "video" | "text" | "announcement";
+export type PostType = "gallery" | "video" | "audio" | "text" | "announcement";
 export type PostStatus = "draft" | "published";
-export type MediaType = "image" | "video" | "file";
+export type MediaType = "image" | "video" | "audio" | "file";
 export type PurchaseRequestStatus = "new" | "in_progress" | "completed";
 export type PurchaseRequestKind = "tier" | "post" | "chat_messages";
 export type PostReactionType = "heart" | "fire" | "cry" | "sparkles" | "devil";
@@ -137,6 +137,14 @@ export interface PostComment {
   post_id: string;
   profile_id: string;
   body: string;
+  media_path?: string | null;
+  media_provider?: string | null;
+  media_bucket?: string | null;
+  media_object_key?: string | null;
+  media_mime_type?: string | null;
+  media_size_bytes?: number | null;
+  media_type?: MediaType | null;
+  media_url?: string | null;
   created_at: string;
 }
 

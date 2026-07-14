@@ -2,6 +2,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { PostCommentReaction, PostCommentWithAuthor, PostReactionType } from "@/lib/types";
 import { createEmptyReactionCounts, ReactionSummary } from "@/lib/data/reactions";
+import { getMediaUrl, isR2StoragePath } from "@/lib/storage/media";
 
 export type AdminPostCommentNotice = PostCommentWithAuthor & {
   posts: {
@@ -19,7 +20,21 @@ export async function getCommentsForPost(postId: string) {
     .eq("post_id", postId)
     .order("created_at", { ascending: true });
 
-  return (data ?? []) as PostCommentWithAuthor[];
+  const comments = (data ?? []) as PostCommentWithAuthor[];
+  return Promise.all(
+    comments.map(async (comment) => ({
+      ...comment,
+      media_url: comment.media_path
+        ? await getMediaUrl(
+            {
+              provider: isR2StoragePath(comment.media_path) ? "r2" : "supabase",
+              storage_path: comment.media_path
+            },
+            { supabase: admin, legacyBucket: "chat-media" }
+          )
+        : null
+    }))
+  );
 }
 
 export async function getCommentCountsForPosts(postIds: string[]) {

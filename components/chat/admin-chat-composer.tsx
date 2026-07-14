@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
+import { VoiceRecorder } from "@/components/forms/voice-recorder";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
@@ -27,11 +28,14 @@ export function AdminChatComposer({
     const formData = new FormData(event.currentTarget);
     const body = String(formData.get("body") ?? "").trim();
     const media = formData.get("media");
-    const hasMedia = media instanceof File && media.size > 0;
+    const voiceMedia = formData.get("voiceMedia");
+    const hasMedia =
+      (media instanceof File && media.size > 0) ||
+      (voiceMedia instanceof File && voiceMedia.size > 0);
 
     if (!body && !hasMedia) {
       setStatus("error");
-      setMessage("Напиши сообщение или прикрепи фото/видео.");
+      setMessage("Напиши сообщение или прикрепи файл/голосовое.");
       return;
     }
 
@@ -120,6 +124,7 @@ export function AdminChatComposer({
         />
 
         <div className="mt-3 flex flex-col gap-3">
+          <VoiceRecorder disabled={status === "uploading"} />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <EmojiToolbar targetId="admin-chat-body" label="Эмодзи" />
 

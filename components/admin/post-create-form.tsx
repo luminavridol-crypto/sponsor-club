@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
+import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { PostType, Tier } from "@/lib/types";
 import { formatEuroAmount } from "@/lib/utils/money";
 import { TIER_ACCESS_HINTS, TIER_LABELS } from "@/lib/utils/tier";
@@ -16,7 +17,7 @@ type ServerUploadResponse = {
   storage_path: string;
   mime_type: string;
   size_bytes: number;
-  media_type: "image" | "video";
+  media_type: "image" | "video" | "audio";
   upload_url?: string;
   upload_method?: "PUT";
   error?: string;
@@ -40,7 +41,8 @@ const POST_TYPE_LABELS: Record<PostType, string> = {
   announcement: "Объявление",
   text: "Текст",
   gallery: "Галерея",
-  video: "Видео"
+  video: "Видео",
+  audio: "Голосовой"
 };
 const CLUB_DESTINATION_HINT = "Материал будет опубликован только внутри закрытого клуба.";
 
@@ -510,6 +512,12 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       const mediaFiles = formData
         .getAll("media")
         .filter((item): item is File => item instanceof File && item.size > 0);
+      const voiceEntry = formData.get("voiceMedia");
+      if (voiceEntry instanceof File && voiceEntry.size > 0) mediaFiles.push(voiceEntry);
+
+      if (postType === "audio" && !mediaFiles.some((file) => file.type.startsWith("audio/"))) {
+        throw new Error("Запиши голосовое, чтобы создать голосовой пост.");
+      }
       const optimizedFiles: File[] = [];
 
       for (const file of postType === "text" ? [] : mediaFiles) {
@@ -564,6 +572,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
 
       formData.delete("thumbnail");
       formData.delete("media");
+      formData.delete("voiceMedia");
 
       mediaEntries.forEach((entry) => {
         formData.append("uploadedMediaPath", entry.storage_path);
@@ -633,7 +642,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
     }
   }
 
-  const mediaAccept = ".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,.m4v,.3gp,.3g2,image/*,video/*";
+  const mediaAccept = ".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,.m4v,.3gp,.3g2,.ogg,.m4a,.mp3,.wav,image/*,video/*,audio/*";
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 grid gap-3" encType="multipart/form-data">
@@ -695,6 +704,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
           <option value="announcement">{POST_TYPE_LABELS.announcement}</option>
           <option value="gallery">{POST_TYPE_LABELS.gallery}</option>
           <option value="video">{POST_TYPE_LABELS.video}</option>
+          <option value="audio">{POST_TYPE_LABELS.audio}</option>
         </select>
       </div>
 
@@ -824,7 +834,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm text-white/60">Фото или видео</label>
+        <label className="mb-2 block text-sm text-white/60">Фото, видео или аудио</label>
         <input
           name="media"
           type="file"
@@ -851,6 +861,8 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
           </div>
         ) : null}
       </div>
+
+      {selectedPostType !== "text" ? <VoiceRecorder /> : null}
 
       <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
         <div className="mb-2 flex items-center justify-between text-sm text-white/70">

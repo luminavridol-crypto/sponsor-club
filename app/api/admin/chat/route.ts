@@ -13,7 +13,7 @@ function formValue(value: FormDataEntryValue | null) {
 }
 
 async function uploadChatFile(file: File, profileId: string) {
-  assertUploadFile(file);
+  assertUploadFile(file, { allowAudio: true });
   const extension = getSafeFileExtension(file);
   return uploadMediaToR2(file, `chat/${profileId}/${randomUUID()}.${extension}`, file.type);
 }
@@ -31,8 +31,13 @@ export async function POST(request: Request) {
     const admin = createAdminSupabaseClient();
     const profileId = formValue(formData.get("profileId"));
     const body = formValue(formData.get("body"));
+    const voiceEntry = formData.get("voiceMedia");
     const mediaEntry = formData.get("media");
-    const mediaFile = mediaEntry instanceof File && mediaEntry.size > 0 ? mediaEntry : null;
+    const mediaFile = voiceEntry instanceof File && voiceEntry.size > 0
+      ? voiceEntry
+      : mediaEntry instanceof File && mediaEntry.size > 0
+        ? mediaEntry
+        : null;
 
     await cleanupOldChatMessages(admin);
     await cleanupOrphanedStorage(admin);
@@ -57,13 +62,13 @@ export async function POST(request: Request) {
     }
 
     let mediaPath: string | null = null;
-    let mediaType: "image" | "video" | "file" | null = null;
+    let mediaType: "image" | "video" | "audio" | "file" | null = null;
     let uploadedMedia: Awaited<ReturnType<typeof uploadChatFile>> | null = null;
 
     if (mediaFile) {
-      if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("video/")) {
+      if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("video/") && !mediaFile.type.startsWith("audio/")) {
         return NextResponse.json(
-          { error: "В чат можно загрузить только фото или видео." },
+          { error: "В чат можно загрузить только фото, видео или аудио." },
           { status: 400 }
         );
       }
