@@ -8,6 +8,7 @@ type MemberChatThreadMessage = {
   sender_role: "admin" | "member";
   body: string | null;
   media_url?: string | null;
+  media_type?: "image" | "video" | "audio" | "file" | null;
   created_at: string;
 };
 
@@ -90,21 +91,27 @@ export function MemberChatThread({ messages }: { messages: MemberChatThreadMessa
                   {message.body ? <p className="whitespace-pre-wrap text-sm leading-6">{message.body}</p> : null}
 
                   {message.media_url ? (
-                    <a
-                      href={message.media_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 block overflow-hidden rounded-[18px] border border-white/10 bg-black/20"
-                    >
-                      <Image
-                        src={message.media_url}
-                        width={1600}
-                        height={1200}
-                        unoptimized
-                        alt="Вложение чата"
-                        className="max-h-[360px] w-full object-contain"
-                      />
-                    </a>
+                    message.media_type === "audio" ? (
+                      <audio src={message.media_url} controls preload="metadata" className="mt-3 w-full" />
+                    ) : message.media_type === "video" ? (
+                      <video src={message.media_url} controls className="mt-3 max-h-[360px] w-full rounded-[18px] bg-black" />
+                    ) : (
+                      <a
+                        href={message.media_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 block overflow-hidden rounded-[18px] border border-white/10 bg-black/20"
+                      >
+                        <Image
+                          src={message.media_url}
+                          width={1600}
+                          height={1200}
+                          unoptimized
+                          alt="Вложение чата"
+                          className="max-h-[360px] w-full object-contain"
+                        />
+                      </a>
+                    )
                   ) : null}
                 </div>
               </div>

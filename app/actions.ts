@@ -123,7 +123,7 @@ const telegramSupportMethodSchema = z.object({
 const commentSchema = z.object({
   postId: z.string().uuid(),
   postSlug: z.string().min(1),
-  body: z.string().trim().min(1).max(1000)
+  body: z.string().trim().max(1000)
 });
 
 const postReactionSchema = z.object({
@@ -384,7 +384,7 @@ async function uploadFile(file: File, folder: string) {
 }
 
 async function uploadChatFile(file: File, profileId: string) {
-  assertUploadFile(file);
+  assertUploadFile(file, { allowAudio: true });
   const extension = getSafeFileExtension(file);
   return uploadMediaToR2(file, `chat/${profileId}/${randomUUID()}.${extension}`, file.type);
 }
@@ -1391,13 +1391,15 @@ export async function updateProfileAction(formData: FormData) {
 
 export async function createPostCommentAction(formData: FormData) {
   const profile = await requireAnyProfile();
+  const voiceEntry = formData.get("voiceMedia");
+  const voiceFile = voiceEntry instanceof File && voiceEntry.size > 0 ? voiceEntry : null;
   const parsed = commentSchema.safeParse({
     postId: formValue(formData.get("postId")),
     postSlug: formValue(formData.get("postSlug")),
     body: formValue(formData.get("body"))
   });
 
-  if (!parsed.success) {
+  if (!parsed.success || (!parsed.data.body && !voiceFile)) {
     revalidatePostSpace(formValue(formData.get("postSlug")));
     return;
   }
@@ -1426,11 +1428,42 @@ export async function createPostCommentAction(formData: FormData) {
     return;
   }
 
-  await admin.from("post_comments").insert({
+  let uploadedMedia: Awaited<ReturnType<typeof uploadMediaToR2>> | null = null;
+
+  if (voiceFile) {
+    assertUploadFile(voiceFile, { allowImages: false, allowVideos: false, allowAudio: true });
+    const extension = getSafeFileExtension(voiceFile);
+    uploadedMedia = await uploadMediaToR2(
+      voiceFile,
+      `comments/${profile.id}/${randomUUID()}.${extension}`,
+      voiceFile.type
+    );
+  }
+
+  const { error: insertError } = await admin.from("post_comments").insert({
     post_id: parsed.data.postId,
     profile_id: profile.id,
-    body: parsed.data.body
+    body: parsed.data.body,
+    media_path: uploadedMedia?.storagePath ?? null,
+    media_provider: uploadedMedia?.provider ?? null,
+    media_bucket: uploadedMedia?.bucket ?? null,
+    media_object_key: uploadedMedia?.objectKey ?? null,
+    media_mime_type: uploadedMedia?.contentType ?? null,
+    media_size_bytes: uploadedMedia?.sizeBytes ?? null,
+    media_type: uploadedMedia ? "audio" : null
   });
+
+  if (insertError && uploadedMedia) {
+    await deleteMedia(
+      {
+        provider: uploadedMedia.provider,
+        bucket: uploadedMedia.bucket,
+        object_key: uploadedMedia.objectKey,
+        storage_path: uploadedMedia.storagePath
+      },
+      { supabase: admin, legacyBucket: "chat-media" }
+    );
+  }
 
   revalidatePostSpace(parsed.data.postSlug);
 }
@@ -1448,7 +1481,7 @@ export async function deletePostCommentAction(formData: FormData) {
   const admin = createAdminSupabaseClient();
   const { data: comment } = await admin
     .from("post_comments")
-    .select("id, profile_id")
+    .select("id, profile_id, media_path, media_provider, media_bucket, media_object_key")
     .eq("id", commentId)
     .single();
 
@@ -1465,6 +1498,18 @@ export async function deletePostCommentAction(formData: FormData) {
   }
 
   await admin.from("post_comments").delete().eq("id", commentId);
+
+  if (comment.media_path) {
+    await deleteMedia(
+      {
+        provider: comment.media_provider,
+        bucket: comment.media_bucket,
+        object_key: comment.media_object_key,
+        storage_path: comment.media_path
+      },
+      { supabase: admin, legacyBucket: "chat-media" }
+    );
+  }
 
   revalidatePostSpace(postSlug);
 }
@@ -1680,7 +1725,7 @@ export async function sendMemberChatMessageAction(formData: FormData) {
   }
 
   let mediaPath: string | null = null;
-  let mediaType: "image" | "video" | "file" | null = null;
+  let mediaType: "image" | "video" | "audio" | "file" | null = null;
 
   if (mediaFile) {
     if (!mediaFile.type.startsWith("image/")) {
@@ -1831,12 +1876,12 @@ export async function sendAdminChatMessageAction(formData: FormData) {
   }
 
   let mediaPath: string | null = null;
-  let mediaType: "image" | "video" | "file" | null = null;
+  let mediaType: "image" | "video" | "audio" | "file" | null = null;
   let uploadedChatMedia: Awaited<ReturnType<typeof uploadChatFile>> | null = null;
 
   if (mediaFile) {
-    if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("video/")) {
-      throw new Error("В чат можно загрузить только фото или видео.");
+    if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("video/") && !mediaFile.type.startsWith("audio/")) {
+      throw new Error("В чат можно загрузить только фото, видео или аудио.");
     }
 
     uploadedChatMedia = await uploadChatFile(mediaFile, profileId);

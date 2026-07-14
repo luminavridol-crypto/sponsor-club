@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       const mediaType =
         kind === "thumbnail"
           ? assertUploadFile(pseudoFile, { allowImages: true, allowVideos: false })
-          : assertUploadFile(pseudoFile);
+          : assertUploadFile(pseudoFile, { allowAudio: true });
       const extension = getSafeFileExtension(pseudoFile);
       const contentType = fileType || getMimeTypeFromFileName(fileName) || "application/octet-stream";
       const key = buildKey(kind, extension);
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       const mediaType =
         kind === "thumbnail"
           ? assertUploadFile(pseudoFile, { allowImages: true, allowVideos: false })
-          : assertUploadFile(pseudoFile);
+          : assertUploadFile(pseudoFile, { allowAudio: true });
       const extension = getSafeFileExtension(pseudoFile);
       const contentType = fileType || getMimeTypeFromFileName(fileName) || "application/octet-stream";
       const key = buildKey(kind, extension);
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     const mediaType =
       kind === "thumbnail"
         ? assertUploadFile(file, { allowImages: true, allowVideos: false })
-        : assertUploadFile(file);
+        : assertUploadFile(file, { allowAudio: true });
     const extension = getSafeFileExtension(file);
     const key = buildKey(kind, extension);
     const contentType = file.type || getMimeTypeFromFileName(file.name) || "application/octet-stream";

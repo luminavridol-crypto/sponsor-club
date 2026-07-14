@@ -188,10 +188,13 @@ export default async function TelegramContentPostPage({
               return null;
             }
 
-            return media.media_type === "video" ? (
-              <ProtectedMedia key={media.id} kind="video" src={signedUrl} alt={post.title} />
-            ) : (
-              <ProtectedMedia key={media.id} kind="image" src={signedUrl} alt={post.title} />
+            return (
+              <ProtectedMedia
+                key={media.id}
+                kind={media.media_type === "audio" ? "audio" : media.media_type === "video" ? "video" : "image"}
+                src={signedUrl}
+                alt={post.title}
+              />
             );
           })}
         </section>

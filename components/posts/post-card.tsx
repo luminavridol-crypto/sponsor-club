@@ -36,7 +36,8 @@ const POST_TYPE_LABELS: Record<string, string> = {
   announcement: "Объявление",
   text: "Текст",
   gallery: "Галерея",
-  video: "Видео"
+  video: "Видео",
+  audio: "Голосовой"
 };
 
 const TIER_CARD_STYLES: Record<

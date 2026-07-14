@@ -2,14 +2,15 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { VoiceRecorder } from "@/components/forms/voice-recorder";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
 const errorMessages: Record<string, string> = {
-  empty: "Напиши сообщение или прикрепи изображение.",
+  empty: "Напиши сообщение или прикрепи файл/голосовое.",
   limit: "Лимит сообщений на этот месяц закончился.",
-  image: "В чат можно загрузить только изображение.",
-  upload: "Не получилось загрузить изображение. Проверь размер и попробуй ещё раз.",
+  image: "В чат можно загрузить изображение или голосовое.",
+  upload: "Не получилось загрузить вложение. Проверь размер и попробуй ещё раз.",
   send: "Не получилось отправить сообщение. Попробуй ещё раз."
 };
 
@@ -55,7 +56,10 @@ export function MemberChatComposer({ isLimitReached }: { isLimitReached: boolean
     const formData = new FormData(form);
     const body = String(formData.get("body") ?? "").trim();
     const media = formData.get("media");
-    const hasMedia = media instanceof File && media.size > 0;
+    const voiceMedia = formData.get("voiceMedia");
+    const hasMedia =
+      (media instanceof File && media.size > 0) ||
+      (voiceMedia instanceof File && voiceMedia.size > 0);
 
     if (!body && !hasMedia) {
       setStatus("error");
@@ -68,7 +72,7 @@ export function MemberChatComposer({ isLimitReached }: { isLimitReached: boolean
 
     setStatus("uploading");
     setProgress(hasMedia ? 1 : 35);
-    setMessage(hasMedia ? "Загружаю изображение..." : "Отправляю сообщение...");
+    setMessage(hasMedia ? "Загружаю вложение..." : "Отправляю сообщение...");
 
     xhr.upload.addEventListener("progress", (progressEvent) => {
       if (!progressEvent.lengthComputable) {
@@ -77,7 +81,7 @@ export function MemberChatComposer({ isLimitReached }: { isLimitReached: boolean
 
       const nextProgress = Math.max(1, Math.round((progressEvent.loaded / progressEvent.total) * 100));
       setProgress(nextProgress);
-      setMessage(hasMedia ? `Загружаю изображение: ${nextProgress}%` : "Отправляю сообщение...");
+      setMessage(hasMedia ? `Загружаю вложение: ${nextProgress}%` : "Отправляю сообщение...");
     });
 
     xhr.addEventListener("load", () => {
@@ -157,6 +161,8 @@ export function MemberChatComposer({ isLimitReached }: { isLimitReached: boolean
           onChange={handleFileChange}
         />
       </div>
+
+      <VoiceRecorder disabled={isLimitReached || status === "uploading"} />
 
       {showProgress ? (
         <div className="rounded-[20px] border border-white/10 bg-white/[0.035] px-4 py-3">

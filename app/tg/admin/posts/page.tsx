@@ -129,6 +129,7 @@ export default async function TelegramAdminPostsPage() {
                   <option value="text">Текст</option>
                   <option value="gallery">Галерея</option>
                   <option value="video">Видео</option>
+                  <option value="audio">Голосовой</option>
                 </select>
                 <select name="status" defaultValue={post.status} className={ADMIN_SELECT_CLASS}>
                   <option value="draft">Черновик</option>
