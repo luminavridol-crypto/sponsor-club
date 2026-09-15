@@ -12,12 +12,13 @@ import { requireAdmin } from "@/lib/auth/guards";
 export default async function TelegramAdminChatPage({
   searchParams
 }: {
-  searchParams?: Promise<{ chat?: string | string[] }>;
+  searchParams?: Promise<{ chat?: string | string[]; sort?: string | string[] }>;
 }) {
   const profile = await requireAdmin();
   const params = (await searchParams) ?? {};
   const selectedChatId =
     typeof params.chat === "string" ? params.chat : Array.isArray(params.chat) ? params.chat[0] : undefined;
+  const sort = typeof params.sort === "string" ? params.sort : Array.isArray(params.sort) ? params.sort[0] : undefined;
 
   return (
     <MiniAppShell
@@ -27,7 +28,7 @@ export default async function TelegramAdminChatPage({
       headerClassName={ADMIN_HEADER_CLASS}
       eyebrowClassName={ADMIN_EYEBROW_CLASS}
     >
-      <AdminUsersChatPanel selectedProfileId={selectedChatId} />
+      <AdminUsersChatPanel selectedProfileId={selectedChatId} sort={sort} />
     </MiniAppShell>
   );
 }

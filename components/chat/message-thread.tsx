@@ -1,9 +1,20 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { startTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MemberChatMessage } from "@/lib/types";
+import { formatEuroAmount } from "@/lib/utils/money";
+
+export type ChatPurchasePost = {
+  id: string | null;
+  slug: string | null;
+  title: string;
+  price: number | null;
+  requestedPrice: number | null;
+  isSellable: boolean | null;
+};
 
 function formatMessageTime(value: string) {
   return new Date(value).toLocaleString("ru-RU", {
@@ -25,12 +36,14 @@ export function MessageThread({
   memberLabel,
   adminLabel = "Lumina",
   emptyLabel,
+  purchasePostsByMessageId,
   refreshIntervalMs = 10000
 }: {
   messages: MemberChatMessage[];
   memberLabel: string;
   adminLabel?: string;
   emptyLabel: string;
+  purchasePostsByMessageId?: Record<string, ChatPurchasePost>;
   refreshIntervalMs?: number;
 }) {
   const router = useRouter();
@@ -82,6 +95,7 @@ export function MessageThread({
             {messages.map((message) => {
               const isAdminMessage = message.sender_role === "admin";
               const readStatus = getReadStatus(message);
+              const purchasePost = purchasePostsByMessageId?.[message.id];
 
               return (
                 <div
@@ -107,6 +121,35 @@ export function MessageThread({
 
                     {message.body ? (
                       <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-white/92">{message.body}</p>
+                    ) : null}
+
+                    {purchasePost ? (
+                      <div className="mt-2.5 rounded-[16px] border border-fuchsia-300/15 bg-fuchsia-400/[0.08] px-3 py-2.5 text-xs leading-5 text-white/75">
+                        <p className="font-semibold text-white">Пост: {purchasePost.title}</p>
+                        <p className="mt-1">
+                          Цена сейчас: {purchasePost.price != null ? formatEuroAmount(purchasePost.price) : "не задана"}
+                        </p>
+                        {purchasePost.requestedPrice != null ? (
+                          <p className="text-white/60">Цена на момент заявки: {formatEuroAmount(purchasePost.requestedPrice)}</p>
+                        ) : (
+                          <p className="text-white/50">В заявке сумма не указана.</p>
+                        )}
+                        {purchasePost.isSellable === false ? (
+                          <p className="text-white/50">Пост пока не отмечен как платный.</p>
+                        ) : null}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {purchasePost.slug ? (
+                            <Link href={`/tg/content/${encodeURIComponent(purchasePost.slug)}`} className="rounded-full border border-white/16 px-2.5 py-1 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-200/70">
+                              Открыть пост ↗
+                            </Link>
+                          ) : null}
+                          {purchasePost.id ? (
+                            <Link href={`/tg/admin/posts#post-${purchasePost.id}`} className="rounded-full border border-white/12 px-2.5 py-1 text-white/75 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-200/70">
+                              Настроить цену
+                            </Link>
+                          ) : null}
+                        </div>
+                      </div>
                     ) : null}
 
                     {message.media_url ? (

@@ -86,7 +86,7 @@ export default async function TelegramAdminPostsPage() {
 
       <PostsVisibilityToggle>
         {posts?.map((post) => (
-          <article key={post.id} className={ADMIN_SUBPANEL_CLASS}>
+          <article key={post.id} id={`post-${post.id}`} className={`${ADMIN_SUBPANEL_CLASS} scroll-mt-5`}>
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap gap-2">
@@ -135,6 +135,17 @@ export default async function TelegramAdminPostsPage() {
                   <option value="draft">Черновик</option>
                   <option value="published">Опубликован</option>
                 </select>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="flex items-center gap-2 rounded-[18px] border border-white/10 bg-black/14 px-4 py-3 text-sm text-white/75">
+                  <input type="checkbox" name="isSellable" defaultChecked={Boolean(post.is_sellable)} className="h-4 w-4 accent-fuchsia-400" />
+                  Платный пост
+                </label>
+                <label className="text-sm text-white/65">
+                  Цена продажи (EUR)
+                  <input type="number" name="salePrice" min="0.01" step="0.01" defaultValue={post.sale_price ?? ""} placeholder="Укажи цену" className={`mt-1 w-full ${ADMIN_INPUT_CLASS}`} />
+                </label>
               </div>
 
               <textarea name="description" defaultValue={post.description ?? ""} className={`${ADMIN_TEXTAREA_CLASS} min-h-[120px]`} />

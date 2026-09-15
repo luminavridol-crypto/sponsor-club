@@ -50,6 +50,21 @@ function isCompressibleImage(file: File) {
   return file.type === "image/jpeg" || file.type === "image/png" || file.type === "image/webp";
 }
 
+function isHeicImage(file: File) {
+  return /\.(heic|heif)$/i.test(file.name) || /^image\/hei[cf](?:-sequence)?$/i.test(file.type);
+}
+
+async function convertHeicImage(file: File): Promise<File> {
+  try {
+    const { default: heic2any } = await import("heic2any");
+    const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+    const jpeg = Array.isArray(result) ? result[0] : result;
+    return new File([jpeg], replaceFileExtension(file.name, "jpg"), { type: "image/jpeg" });
+  } catch {
+    throw new Error(`Не удалось преобразовать ${file.name} из HEIC/HEIF. Попробуй сохранить фото как JPG.`);
+  }
+}
+
 function replaceFileExtension(fileName: string, nextExtension: string) {
   const baseName = fileName.replace(/\.[^.]+$/, "");
   return `${baseName}.${nextExtension}`;
@@ -521,11 +536,13 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       const optimizedFiles: File[] = [];
 
       for (const file of postType === "text" ? [] : mediaFiles) {
-        if (file.type.startsWith("image/") && isCompressibleImage(file)) {
+        if (isHeicImage(file)) setMessage(`Преобразую HEIC/HEIF: ${file.name}`);
+        const uploadFile = isHeicImage(file) ? await convertHeicImage(file) : file;
+        if (isCompressibleImage(uploadFile)) {
           setMessage(`Оптимизирую фото: ${file.name}`);
-          optimizedFiles.push(await compressImageFile(file));
+          optimizedFiles.push(await compressImageFile(uploadFile));
         } else {
-          optimizedFiles.push(file);
+          optimizedFiles.push(uploadFile);
         }
       }
 
@@ -642,7 +659,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
     }
   }
 
-  const mediaAccept = ".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,.m4v,.3gp,.3g2,.ogg,.m4a,.mp3,.wav,image/*,video/*,audio/*";
+  const mediaAccept = ".jpg,.jpeg,.png,.webp,.gif,.heic,.heif,.mp4,.webm,.mov,.m4v,.3gp,.3g2,.ogg,.m4a,.mp3,.wav,image/*,video/*,audio/*";
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 grid gap-3" encType="multipart/form-data">

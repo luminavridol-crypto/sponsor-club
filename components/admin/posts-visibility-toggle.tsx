@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 
 export function PostsVisibilityToggle({
   children,
@@ -10,6 +10,20 @@ export function PostsVisibilityToggle({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+
+  useEffect(() => {
+    if (!window.location.hash.startsWith("#post-")) return;
+    const frame = window.requestAnimationFrame(() => setOpen(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!open || !window.location.hash.startsWith("#post-")) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(decodeURIComponent(window.location.hash.slice(1)))?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open]);
 
   return (
     <section className="space-y-4">

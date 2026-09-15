@@ -296,7 +296,7 @@ export function PostComments({
         )}
       </div>
 
-      <form ref={formRef} action={action} encType="multipart/form-data" className="mt-5 space-y-3">
+      <form ref={formRef} action={action} className="mt-5 space-y-3">
         <input type="hidden" name="postId" value={postId} />
         <input type="hidden" name="postSlug" value={postSlug} />
         <input type="hidden" name="replyToCommentId" value={replyTarget?.id ?? ""} />
