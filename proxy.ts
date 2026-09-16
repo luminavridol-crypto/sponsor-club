@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { buildTelegramMiniAppLink } from "@/lib/telegram/links";
 
 const STATIC_FILE_PATTERN = /\.[^/]+$/;
-const PUBLIC_BROWSER_PATHS = new Set(["/", "/login", "/account", "/open-path/tiers"]);
+const PUBLIC_BROWSER_PATHS = new Set(["/", "/login", "/invite", "/account", "/open-path/tiers"]);
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -25,18 +24,6 @@ export function proxy(request: NextRequest) {
 
   if (isApiRoute || isNextAsset || isStaticFile) {
     return response;
-  }
-
-  if (pathname === "/invite") {
-    const inviteCode = request.nextUrl.searchParams.get("code")?.trim().toUpperCase();
-
-    if (inviteCode?.startsWith("VIP-")) {
-      const inviteUrl = buildTelegramMiniAppLink(`invite-${inviteCode}`);
-
-      if (inviteUrl) {
-        return NextResponse.redirect(inviteUrl);
-      }
-    }
   }
 
   if (pathname.startsWith("/tg") || PUBLIC_BROWSER_PATHS.has(pathname)) {

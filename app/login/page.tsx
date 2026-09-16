@@ -22,7 +22,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <label className="text-sm text-white/65">Пароль<input name="password" type="password" minLength={8} required autoComplete="current-password" className="mt-1.5 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition focus:border-accent/50" /></label>
             <button type="submit" className="rounded-2xl border border-accent/40 bg-gradient-to-r from-accent/75 to-[#7040f4] px-4 py-3 font-semibold text-white shadow-[0_16px_38px_rgba(255,79,216,0.22)] transition hover:brightness-110">Войти</button>
           </form>
-          <p className="mt-5 text-center text-xs leading-5 text-white/42">Регистрация новых участников выполняется через приглашение или Telegram Mini App.</p>
+          <p className="mt-5 text-center text-xs leading-5 text-white/42">Регистрация доступна только по приглашению.</p>
         </div>
       </section>
     </BrandShell>

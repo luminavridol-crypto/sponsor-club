@@ -63,11 +63,12 @@ const loginSchema = z.object({
 });
 
 const inviteSchema = z.object({
-  code: z.string().min(4),
+  code: z.string().trim().min(4),
   email: z.string().email(),
   password: z.string().min(8),
-  displayName: z.string().optional()
-});
+  confirmPassword: z.string().min(8),
+  displayName: z.string().trim().min(1).max(80)
+}).refine((value) => value.password === value.confirmPassword, { path: ["confirmPassword"] });
 
 const passwordResetRequestSchema = z.object({
   email: z.string().email()
@@ -372,10 +373,12 @@ function addDays(base: string | null, days: number) {
   return start.toISOString();
 }
 
-function redirectToInviteError(message: string, code?: string) {
-  void message;
-  void code;
-  redirect("/tg");
+type InviteErrorCode = "invalid" | "used" | "expired" | "email_exists" | "fields" | "generic";
+
+function redirectToInviteError(error: InviteErrorCode, code?: string): never {
+  const query = new URLSearchParams({ error });
+  if (code) query.set("code", code);
+  redirect(`/invite?${query.toString()}` as Route);
 }
 
 async function uploadFile(file: File, folder: string) {
@@ -1244,11 +1247,12 @@ export async function redeemInviteAction(formData: FormData) {
     code: formValue(formData.get("code")).toUpperCase(),
     email: formValue(formData.get("email")).toLowerCase(),
     password: formValue(formData.get("password")),
+    confirmPassword: formValue(formData.get("confirmPassword")),
     displayName: formValue(formData.get("displayName"))
   });
 
   if (!parsed.success) {
-    redirectToInviteError("Проверьте поля формы");
+    redirectToInviteError("fields", formValue(formData.get("code")).toUpperCase());
   }
 
   const inviteInput = parsed.data!;
@@ -1258,20 +1262,26 @@ export async function redeemInviteAction(formData: FormData) {
     .from("invites")
     .select("*")
     .eq("code", inviteInput.code)
-    .is("disabled_at", null)
-    .is("used_at", null)
-    .single();
+    .maybeSingle();
 
   if (inviteError || !invite) {
-    redirectToInviteError("Приглашение не найдено, уже использовано или отключено", inviteInput.code);
+    redirectToInviteError("invalid", inviteInput.code);
+  }
+
+  if (invite.used_at) {
+    redirectToInviteError("used", inviteInput.code);
+  }
+
+  if (invite.disabled_at) {
+    redirectToInviteError("invalid", inviteInput.code);
   }
 
   if (invite.email && invite.email.toLowerCase() !== inviteInput.email) {
-    redirectToInviteError("Это приглашение привязано к другому email", inviteInput.code);
+    redirectToInviteError("invalid", inviteInput.code);
   }
 
   if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-    redirectToInviteError("Срок действия приглашения истёк", inviteInput.code);
+    redirectToInviteError("expired", inviteInput.code);
   }
 
   const { data: existingUsers } = await admin.auth.admin.listUsers();
@@ -1280,7 +1290,7 @@ export async function redeemInviteAction(formData: FormData) {
   );
 
   if (existingUser) {
-    redirectToInviteError("Пользователь с таким email уже существует", inviteInput.code);
+    redirectToInviteError("email_exists", inviteInput.code);
   }
 
   const createdUser = await admin.auth.admin.createUser({
@@ -1289,62 +1299,54 @@ export async function redeemInviteAction(formData: FormData) {
     email_confirm: true
   });
 
-  const user = createdUser.data.user!;
+  const user = createdUser.data.user;
 
   if (createdUser.error || !user) {
-    redirectToInviteError("Не удалось создать аккаунт", inviteInput.code);
+    const isExistingEmail = createdUser.error?.message.toLowerCase().includes("already") || createdUser.error?.message.toLowerCase().includes("registered");
+    redirectToInviteError(isExistingEmail ? "email_exists" : "generic", inviteInput.code);
   }
 
   const { error: profileError } = await admin.from("profiles").insert({
     id: user.id,
     email: inviteInput.email,
-    display_name: inviteInput.displayName || null,
+    display_name: inviteInput.displayName,
     role: "member",
     tier: invite.assigned_tier,
     access_status: "active"
   });
 
   if (profileError) {
-    try {
-      await admin.auth.admin.deleteUser(user.id);
-    } catch {
-      // no-op
-    }
-
-    redirectToInviteError("Не удалось создать профиль", inviteInput.code);
+    await admin.auth.admin.deleteUser(user.id);
+    redirectToInviteError("generic", inviteInput.code);
   }
-
-  await setUserSubscription({
-    userId: user.id,
-    tier: invite.assigned_tier,
-    accessStatus: "active",
-    paymentSource: "web_invite",
-    client: admin
-  });
 
   const usedAt = new Date().toISOString();
   const { data: claimedInvite, error: claimError } = await admin
     .from("invites")
-    .update({
-      used_at: usedAt,
-      disabled_at: usedAt,
-      used_by: user.id
-    })
+    .update({ used_at: usedAt, disabled_at: usedAt, used_by: user.id })
     .eq("id", invite.id)
     .is("used_at", null)
     .is("disabled_at", null)
     .select("id")
-    .single();
+    .maybeSingle();
 
   if (claimError || !claimedInvite) {
-    try {
-      await admin.from("profiles").delete().eq("id", user.id);
-      await admin.auth.admin.deleteUser(user.id);
-    } catch {
-      // Cleanup problems should not break the invite screen UX.
-    }
+    await Promise.allSettled([
+      admin.from("profiles").delete().eq("id", user.id),
+      admin.auth.admin.deleteUser(user.id)
+    ]);
+    redirectToInviteError("used", inviteInput.code);
+  }
 
-    redirectToInviteError("Это приглашение уже использовано или отключено", inviteInput.code);
+  try {
+    await setUserSubscription({ userId: user.id, tier: invite.assigned_tier, accessStatus: "active", paymentSource: "web_invite", client: admin });
+  } catch {
+    await Promise.allSettled([
+      admin.from("profiles").delete().eq("id", user.id),
+      admin.from("invites").update({ used_at: null, disabled_at: null, used_by: null }).eq("id", invite.id).eq("used_by", user.id),
+      admin.auth.admin.deleteUser(user.id)
+    ]);
+    redirectToInviteError("generic", inviteInput.code);
   }
 
   const supabase = await createServerSupabaseClient();
@@ -1353,7 +1355,7 @@ export async function redeemInviteAction(formData: FormData) {
     password: inviteInput.password
   });
 
-  redirect("/tg");
+  redirect("/account" as Route);
 }
 
 export async function updateProfileAction(formData: FormData) {
