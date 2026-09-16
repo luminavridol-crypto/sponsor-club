@@ -9,6 +9,7 @@ import { readTelegramSession } from "@/lib/telegram/session";
 import { syncExpiredProfileAccess } from "@/lib/auth/membership-alerts";
 import { Profile } from "@/lib/types";
 import { normalizeProfileTier } from "@/lib/utils/tier";
+import { applySubscriptionToProfile, setUserSubscription } from "@/lib/data/subscriptions";
 
 type TelegramInitUser = {
   id: number | string;
@@ -129,6 +130,10 @@ function resolveRequestedPathFromStartParam(startParam: string | null) {
 
   if (["tiers", "tariffs", "plans"].includes(normalized)) {
     return "/tg/tiers";
+  }
+
+  if (["link", "link-account", "account-link"].includes(normalized)) {
+    return "/tg/link-account";
   }
 
   return null;
@@ -275,8 +280,19 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
       ? await activateInviteForTelegramProfile(updatedProfile as Profile, inviteCode)
       : (updatedProfile as Profile);
 
+    if (approvedRequest || inviteCode) {
+      await setUserSubscription({
+        userId: nextProfile.id,
+        tier: nextProfile.tier,
+        accessStatus: nextProfile.access_status,
+        expiresAt: nextProfile.access_expires_at,
+        paymentSource: approvedRequest ? "telegram_purchase_request" : "telegram_invite",
+        client: admin
+      });
+    }
+    const subscribedProfile = await applySubscriptionToProfile(normalizeProfileTier(nextProfile), admin);
     return {
-      profile: normalizeProfileTier(nextProfile),
+      profile: subscribedProfile,
       telegramId,
       isAdmin: nextProfile.role === "admin",
       requestedPath: resolveRequestedPathFromStartParam(startParam)
@@ -316,8 +332,17 @@ export async function upsertTelegramProfile(initData: string): Promise<TelegramA
     ? await activateInviteForTelegramProfile(insertedProfile as Profile, inviteCode)
     : (insertedProfile as Profile);
 
+  await setUserSubscription({
+    userId: nextProfile.id,
+    tier: nextProfile.tier,
+    accessStatus: nextProfile.access_status,
+    expiresAt: nextProfile.access_expires_at,
+    paymentSource: approvedRequest ? "telegram_purchase_request" : inviteCode ? "telegram_invite" : "telegram_guest",
+    client: admin
+  });
+  const subscribedProfile = await applySubscriptionToProfile(normalizeProfileTier(nextProfile), admin);
   return {
-    profile: normalizeProfileTier(nextProfile),
+    profile: subscribedProfile,
     telegramId,
     isAdmin: nextProfile.role === "admin",
     requestedPath: resolveRequestedPathFromStartParam(startParam)
@@ -345,5 +370,6 @@ export async function getTelegramProfileFromSession() {
     return null;
   }
 
-  return syncExpiredProfileAccess(normalizeProfileTier(profile));
+  const syncedProfile = await syncExpiredProfileAccess(normalizeProfileTier(profile));
+  return applySubscriptionToProfile(syncedProfile, admin);
 }

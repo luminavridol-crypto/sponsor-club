@@ -45,6 +45,7 @@ import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
 import { clearTelegramSession } from "@/lib/telegram/session";
 import { AccessStatus, DonationClaimStatus, PostReactionType, PostStatus, PostType, Tier } from "@/lib/types";
 import { canAccessTier, normalizeTierBadges } from "@/lib/utils/tier";
+import { setUserSubscription } from "@/lib/data/subscriptions";
 import { buildContentSlug } from "@/lib/utils/content-space";
 import { mergeFavoriteLuminaCosplayIntoAdminNote } from "@/lib/utils/favorite-cosplay";
 
@@ -439,6 +440,28 @@ export async function loginAction(formData: FormData) {
   }
 
   redirect("/tg");
+}
+
+export async function websiteLoginAction(formData: FormData) {
+  const parsed = loginSchema.safeParse({
+    email: formValue(formData.get("email")),
+    password: formValue(formData.get("password")),
+    next: formValue(formData.get("next")) || undefined
+  });
+  const nextPath = parsed.success && parsed.data.next?.startsWith("/") && !parsed.data.next.startsWith("//")
+    ? parsed.data.next
+    : "/account";
+  if (!parsed.success) redirect(`/login?error=fields&next=${encodeURIComponent(nextPath)}` as Route);
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password: parsed.data.password });
+  if (error) redirect(`/login?error=credentials&next=${encodeURIComponent(nextPath)}` as Route);
+  redirect(nextPath as Route);
+}
+
+export async function websiteSignOutAction() {
+  const supabase = await createServerSupabaseClient();
+  await supabase.auth.signOut();
+  redirect("/");
 }
 
 export async function requestPasswordResetAction(formData: FormData) {
@@ -999,13 +1022,7 @@ export async function updatePurchaseRequestStatusAction(formData: FormData) {
         .maybeSingle();
 
       if (existingProfile && existingProfile.role !== "admin") {
-        await admin
-          .from("profiles")
-          .update({
-            tier: request.tier,
-            access_status: "active"
-          })
-          .eq("id", existingProfile.id);
+        await setUserSubscription({ userId: existingProfile.id, tier: request.tier, accessStatus: "active", paymentSource: "purchase_request", client: admin });
       } else {
         const defaultExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         const note = `Заявка: ${request.display_name || "без имени"} • ${request.country} • ${request.contact}`;
@@ -1174,6 +1191,15 @@ export async function approveDonationClaimAction(formData: FormData) {
     })
     .eq("id", claim.profile_id);
 
+  await setUserSubscription({
+    userId: claim.profile_id,
+    tier,
+    accessStatus: "active",
+    expiresAt: addDays(targetProfile.access_expires_at, accessDays),
+    paymentSource: "donation_claim",
+    client: admin
+  });
+
   if (amount > 0) {
     const { donationYear, donationMonth } = currentDonationPeriod();
     await admin.from("donation_events").insert({
@@ -1287,6 +1313,14 @@ export async function redeemInviteAction(formData: FormData) {
 
     redirectToInviteError("Не удалось создать профиль", inviteInput.code);
   }
+
+  await setUserSubscription({
+    userId: user.id,
+    tier: invite.assigned_tier,
+    accessStatus: "active",
+    paymentSource: "web_invite",
+    client: admin
+  });
 
   const usedAt = new Date().toISOString();
   const { data: claimedInvite, error: claimError } = await admin
@@ -2427,13 +2461,13 @@ export async function updateUserAccessAction(formData: FormData) {
   }
 
   const admin = createAdminSupabaseClient();
-  await admin
-    .from("profiles")
-    .update({
-      tier: formValue(formData.get("tier")) as Tier,
-      access_status: formValue(formData.get("accessStatus")) as AccessStatus
-    })
-    .eq("id", userId);
+  await setUserSubscription({
+    userId,
+    tier: formValue(formData.get("tier")) as Tier,
+    accessStatus: formValue(formData.get("accessStatus")) as AccessStatus,
+    paymentSource: "admin",
+    client: admin
+  });
 
   revalidatePath("/admin/users");
   revalidatePath("/tg/admin/users");
@@ -2527,6 +2561,14 @@ export async function updateUserDetailsAction(formData: FormData) {
   if (safeResult.error) {
     throw new Error(`Не удалось обновить пользователя: ${safeResult.error.message}`);
   }
+
+  await setUserSubscription({
+    userId,
+    tier: nextTier,
+    accessStatus: nextAccessStatus,
+    paymentSource: "admin",
+    client: admin
+  });
 
   revalidatePath("/admin/users");
   revalidatePath("/tg/admin/users");
@@ -2663,7 +2705,7 @@ export async function extendUserAccessAction(formData: FormData) {
   const admin = createAdminSupabaseClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("access_expires_at")
+    .select("tier, access_expires_at")
     .eq("id", userId)
     .single();
 
@@ -2675,13 +2717,7 @@ export async function extendUserAccessAction(formData: FormData) {
 
   baseDate.setDate(baseDate.getDate() + 30);
 
-  await admin
-    .from("profiles")
-    .update({
-      access_expires_at: baseDate.toISOString(),
-      access_status: "active"
-    })
-    .eq("id", userId);
+  await setUserSubscription({ userId, tier: (profile?.tier as Tier) ?? "tier_1", accessStatus: "active", expiresAt: baseDate.toISOString(), paymentSource: "admin_extension", client: admin });
 
   await resetMonthlyChatUsageForProfile(admin, userId);
 
@@ -2709,13 +2745,8 @@ export async function setUserAccessUntilAction(formData: FormData) {
   }
 
   const admin = createAdminSupabaseClient();
-  await admin
-    .from("profiles")
-    .update({
-      access_expires_at: parsedDate ? parsedDate.toISOString() : null,
-      access_status: "active"
-    })
-    .eq("id", userId);
+  const { data: profile } = await admin.from("profiles").select("tier").eq("id", userId).maybeSingle();
+  await setUserSubscription({ userId, tier: (profile?.tier as Tier) ?? "tier_1", accessStatus: "active", expiresAt: parsedDate ? parsedDate.toISOString() : null, paymentSource: "admin", client: admin });
 
   revalidatePath("/admin/users");
   revalidatePath("/tg/admin/users");
@@ -2735,12 +2766,8 @@ export async function stopUserAccessAction(formData: FormData) {
   }
 
   const admin = createAdminSupabaseClient();
-  await admin
-    .from("profiles")
-    .update({
-      access_status: "disabled"
-    })
-    .eq("id", userId);
+  const { data: profile } = await admin.from("profiles").select("tier, access_expires_at").eq("id", userId).maybeSingle();
+  await setUserSubscription({ userId, tier: (profile?.tier as Tier) ?? "tier_1", accessStatus: "disabled", expiresAt: profile?.access_expires_at ?? null, paymentSource: "admin", client: admin });
 
   revalidatePath("/admin/users");
   revalidatePath("/tg/admin/users");

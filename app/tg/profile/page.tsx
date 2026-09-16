@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import Image from "next/image";
+import Link from "next/link";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { updateProfileAction } from "@/app/actions";
 import { ProfileAvatarPicker } from "@/components/telegram/profile-avatar-picker";
@@ -343,6 +345,13 @@ export default async function TelegramProfilePage({
             Сохранить
           </button>
         </form>
+      </section>
+
+      <section className={`rounded-[28px] border p-5 shadow-glow ${theme.section}`}>
+        <p className={`text-xs uppercase tracking-[0.24em] ${theme.accentText}`}>Единый аккаунт</p>
+        <h3 className="mt-2 text-lg font-semibold text-white">Сайт и Telegram</h3>
+        <p className="mt-2 text-sm leading-6 text-white/60">Свяжи существующий email-аккаунт, чтобы подписка и доступ были одинаковыми в обоих интерфейсах.</p>
+        <Link href={"/tg/link-account" as Route} className={`mt-4 inline-flex rounded-2xl border px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 ${theme.item}`}>Связать аккаунты</Link>
       </section>
 
       <section className={`rounded-[28px] border p-5 shadow-glow ${theme.section}`}>

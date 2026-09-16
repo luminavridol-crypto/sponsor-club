@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { buildTelegramMiniAppLink } from "@/lib/telegram/links";
 
 const STATIC_FILE_PATTERN = /\.[^/]+$/;
-const PUBLIC_BROWSER_PATHS = new Set(["/", "/open-path/tiers"]);
+const PUBLIC_BROWSER_PATHS = new Set(["/", "/login", "/account", "/open-path/tiers"]);
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;

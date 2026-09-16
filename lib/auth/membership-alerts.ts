@@ -81,6 +81,7 @@ export async function syncExpiredProfileAccess(profile: Profile): Promise<Profil
   }
 
   const admin = createAdminSupabaseClient();
+  await admin.from("subscriptions").update({ status: "expired" }).eq("user_id", profile.id);
   const { data } = await admin
     .from("profiles")
     .update({
@@ -111,6 +112,7 @@ export async function disableExpiredProfiles() {
   }
 
   await admin.from("profiles").update({ access_status: "disabled" }).in("id", ids);
+  await admin.from("subscriptions").update({ status: "expired" }).in("user_id", ids);
 
   return {
     updatedCount: ids.length

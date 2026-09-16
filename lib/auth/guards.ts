@@ -7,8 +7,8 @@ import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
 import { isLocalTelegramPreviewEnabled, resolveLocalPreviewProfile } from "@/lib/telegram/local-preview";
 import { clearTelegramSession } from "@/lib/telegram/session";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Profile } from "@/lib/types";
 import { normalizeProfileTier } from "@/lib/utils/tier";
+import { resolveProfileForAuthUser } from "@/lib/auth/current-profile";
 
 export async function requireSession() {
   if (await isLocalTelegramPreviewEnabled()) {
@@ -47,13 +47,7 @@ export async function requireAnyProfile() {
 
   const user = await requireSession();
   const supabase = await createServerSupabaseClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  const typedProfile = profile as Profile | null;
+  const typedProfile = await resolveProfileForAuthUser(user.id);
 
   if (!typedProfile) {
     await supabase.auth.signOut();

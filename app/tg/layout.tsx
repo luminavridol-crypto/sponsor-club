@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { TelegramAuthGate } from "@/components/telegram/telegram-auth-gate";
 import { isLocalTelegramPreviewEnabled } from "@/lib/telegram/local-preview";
 import { readTelegramSession } from "@/lib/telegram/session";
+import { getCurrentWebsiteProfile } from "@/lib/auth/current-profile";
 
 export default async function TelegramLayout({
   children
@@ -11,8 +12,9 @@ export default async function TelegramLayout({
 }>) {
   const session = await readTelegramSession();
   const localPreview = await isLocalTelegramPreviewEnabled();
+  const websiteProfile = session || localPreview ? null : await getCurrentWebsiteProfile();
 
-  if (!session && !localPreview) {
+  if (!session && !localPreview && !websiteProfile) {
     const headerStore = await headers();
     const pathname = headerStore.get("x-current-pathname") || "/tg";
     return (

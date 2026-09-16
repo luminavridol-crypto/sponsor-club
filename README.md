@@ -145,3 +145,24 @@ https://your-domain.com/invite?code=VIP-ABCDEFGH
 - For local media/avatar signing, `.env.local` must include `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`.
 - `LOCAL_TELEGRAM_PREVIEW=1` can be used to force localhost Telegram preview mode, though localhost also auto-enables the preview path.
 - `vercel env pull` defaults to Development variables. If a secret exists only in Preview or Production, local `.env.local` may still need a manual value or a Preview-sourced pull.
+
+## Unified web + Telegram accounts
+
+Migration `032_unified_accounts_and_subscriptions.sql` adds the shared subscription source and identity map without deleting legacy profile fields or data.
+
+Apply migrations to a linked Supabase project:
+
+```bash
+npx supabase db push
+```
+
+Or execute migrations `001` through `032` in order in the Supabase SQL editor. Back up the production database before applying schema changes.
+
+Shared authenticated endpoints:
+
+- `GET /api/me`
+- `GET /api/subscription`
+- `GET /api/posts`
+- `GET /api/posts/:id` (returns `403` without protected body/media when the tier is insufficient)
+
+Existing email accounts can be linked from `/tg/link-account`. Telegram `initData` continues to be validated on the server; the linking form verifies the existing email/password through Supabase Auth and never stores the password.

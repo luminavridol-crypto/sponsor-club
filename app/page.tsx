@@ -5,6 +5,9 @@ import { LogoMark } from "@/components/layout/logo-mark";
 import { getTierLandingCards } from "@/lib/data/tier-landing";
 import { TIER_BY_BADGE, TIER_EMBLEMS } from "@/lib/ui/tier-emblems";
 import { buildTelegramBotLink } from "@/lib/telegram/links";
+import { WebsiteAccountNav } from "@/components/layout/website-account-nav";
+import { getCurrentWebsiteProfile } from "@/lib/auth/current-profile";
+import { getSubscriptionForUser } from "@/lib/data/subscriptions";
 
 export const dynamic = "force-dynamic";
 
@@ -324,10 +327,12 @@ function buildHomeTariffsFromCards(cards: Awaited<ReturnType<typeof getTierLandi
 
 export default async function HomePage() {
   const telegramMiniAppTariffsHref = buildTelegramBotLink() ?? "https://t.me/SponsorClubLumina_bot";
-  const homeTariffs = buildHomeTariffsFromCards(await getTierLandingCards());
+  const [cards, profile] = await Promise.all([getTierLandingCards(), getCurrentWebsiteProfile()]);
+  const homeTariffs = buildHomeTariffsFromCards(cards);
+  const subscription = profile ? await getSubscriptionForUser(profile.id, profile) : null;
 
   return (
-    <BrandShell>
+    <BrandShell rightSlot={<WebsiteAccountNav profile={profile} subscription={subscription} />}>
       <div className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-[4%] top-[18%] h-72 w-72 rounded-full bg-cyanGlow/8 blur-[110px]" />

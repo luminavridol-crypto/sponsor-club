@@ -34,6 +34,7 @@ export interface Profile {
   access_expires_at: string | null;
   last_content_seen_at: string | null;
   created_at: string;
+  updated_at?: string | null;
 }
 
 export interface DonationEvent {
