@@ -10,6 +10,7 @@ type NavItem = {
   label: string;
   shortLabel: string;
   symbol: string;
+  icon?: "home";
   featured?: boolean;
   badgeKey?: "pendingRequestsCount" | "unreadChatCount" | "unreadContentCommentCount";
 };
@@ -111,7 +112,7 @@ export function MiniAppNav({
     };
   }, [admin]);
 
-  const items: NavItem[] = admin
+  const sectionItems: NavItem[] = admin
     ? [
         { href: "/tg/content", label: "Лента", shortLabel: "Лента", symbol: "❖", badgeKey: "unreadContentCommentCount" },
         { href: "/tg/admin/calendar", label: "Календарь", shortLabel: "Календ.", symbol: "◈" },
@@ -136,6 +137,10 @@ export function MiniAppNav({
           { href: "/tg/tiers", label: "Уровни", shortLabel: "Уровни", symbol: "♕", featured: true },
           { href: "/tg/support", label: "Реквизиты", shortLabel: "Оплата", symbol: "◆" }
         ];
+  const items: NavItem[] = [
+    { href: "/", label: "Главная страница и соцсети", shortLabel: "Главная", symbol: "", icon: "home" },
+    ...sectionItems
+  ];
 
   return (
     <>
@@ -206,7 +211,15 @@ export function MiniAppNav({
                         : "border border-white/10 bg-white/[0.03] text-white/68 hover:border-white/18 hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >
-                  <span className="club-nav-symbol" aria-hidden="true">{item.symbol}</span>
+                  <span className="club-nav-symbol" aria-hidden="true">
+                    {item.icon === "home" ? (
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 11.5 12 4l9 7.5" />
+                        <path d="M5.5 10.5V20h13v-9.5" />
+                        <path d="M9.5 20v-5.5h5V20" />
+                      </svg>
+                    ) : item.symbol}
+                  </span>
                   <span className="club-nav-label">{item.shortLabel}</span>
                   {badgeCount ? (
                     <span className="absolute right-1.5 top-1.5 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border border-rose-200/30 bg-rose-500 px-1.5 text-[10px] font-semibold leading-none text-white shadow-[0_0_14px_rgba(244,63,94,0.55)]">
