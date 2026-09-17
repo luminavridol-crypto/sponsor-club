@@ -9,6 +9,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   used: "Это приглашение уже использовано.",
   expired: "Срок действия приглашения истёк.",
   email_exists: "Аккаунт с таким email уже зарегистрирован.",
+  password_mismatch: "Пароли не совпадают.",
   fields: "Проверьте правильность заполнения полей.",
   generic: "Не удалось создать аккаунт. Попробуйте ещё раз."
 };
@@ -39,7 +40,7 @@ export function InviteRegistrationForm({ code, error }: { code: string; error?: 
     <label className="text-sm text-white/65">Email<input name="email" type="email" required autoComplete="email" className={fieldClass} /></label>
     <label className="text-sm text-white/65">Пароль<input name="password" type="password" required minLength={8} autoComplete="new-password" className={fieldClass} /></label>
     <label className="text-sm text-white/65">Повтор пароля<input name="confirmPassword" type="password" required minLength={8} autoComplete="new-password" className={fieldClass} /></label>
-    {code ? <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"><p className="text-xs uppercase tracking-[0.18em] text-white/38">Код приглашения</p><p className="mt-1 font-medium text-white/80">{code}</p><input type="hidden" name="code" value={code} /></div> : <label className="text-sm text-white/65">Invite code<input name="code" required minLength={4} autoCapitalize="characters" className={fieldClass} /></label>}
+    {code ? <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"><p className="text-xs uppercase tracking-[0.18em] text-white/38">Код приглашения</p><p className="mt-1 font-medium text-white/80">{code}</p><input type="hidden" name="code" value={code} /></div> : <label className="text-sm text-white/65">Код приглашения<input name="code" required minLength={4} autoComplete="one-time-code" autoCapitalize="characters" className={fieldClass} /></label>}
     <SubmitButton />
   </form>;
 }

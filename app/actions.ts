@@ -373,7 +373,14 @@ function addDays(base: string | null, days: number) {
   return start.toISOString();
 }
 
-type InviteErrorCode = "invalid" | "used" | "expired" | "email_exists" | "fields" | "generic";
+type InviteErrorCode =
+  | "invalid"
+  | "used"
+  | "expired"
+  | "email_exists"
+  | "password_mismatch"
+  | "fields"
+  | "generic";
 
 function redirectToInviteError(error: InviteErrorCode, code?: string): never {
   const query = new URLSearchParams({ error });
@@ -1243,13 +1250,19 @@ export async function signOutAction() {
 }
 
 export async function redeemInviteAction(formData: FormData) {
-  const parsed = inviteSchema.safeParse({
+  const input = {
     code: formValue(formData.get("code")).toUpperCase(),
     email: formValue(formData.get("email")).toLowerCase(),
     password: formValue(formData.get("password")),
     confirmPassword: formValue(formData.get("confirmPassword")),
     displayName: formValue(formData.get("displayName"))
-  });
+  };
+
+  if (input.password !== input.confirmPassword) {
+    redirectToInviteError("password_mismatch", input.code);
+  }
+
+  const parsed = inviteSchema.safeParse(input);
 
   if (!parsed.success) {
     redirectToInviteError("fields", formValue(formData.get("code")).toUpperCase());
