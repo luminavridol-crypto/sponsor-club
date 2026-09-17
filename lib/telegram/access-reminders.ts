@@ -5,20 +5,70 @@ import { buildTelegramPathUrl, sendTelegramMessage } from "./notifications";
 
 type ReminderKind = MembershipAlert["kind"];
 
-const REMINDER_MESSAGES: Record<ReminderKind, { text: string; buttonText: string }> = {
-  expires_7_days: {
-    text: "Твой тариф Lumina Club закончится через 7 дней. Если хочешь сохранить доступ ко всем материалам, продли его заранее.",
-    buttonText: "Продлить доступ"
-  },
-  expires_3_days: {
-    text: "До окончания тарифа Lumina Club осталось 3 дня. Чтобы не потерять доступ, продли его заранее.",
-    buttonText: "Продлить доступ"
-  },
-  access_disabled: {
-    text: "Твой тариф Lumina Club сейчас отключён. Чтобы снова открыть доступ к материалам клуба, продли подписку.",
-    buttonText: "Открыть поддержку"
+const DAY_MS = 24 * 60 * 60 * 1000;
+const REMINDER_TIME_ZONE = "Europe/Kyiv";
+
+function getCalendarDayNumber(value: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: REMINDER_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((item) => item.type === type)?.value);
+  return Date.UTC(part("year"), part("month") - 1, part("day")) / DAY_MS;
+}
+
+function formatExpiryDate(value: Date) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: REMINDER_TIME_ZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(value);
+}
+
+function formatDays(days: number) {
+  const absolute = Math.abs(days);
+  const mod100 = absolute % 100;
+  const mod10 = absolute % 10;
+  const suffix = mod100 >= 11 && mod100 <= 14 ? "дней" : mod10 === 1 ? "день" : mod10 >= 2 && mod10 <= 4 ? "дня" : "дней";
+  return `${days} ${suffix}`;
+}
+
+export function buildTelegramAccessReminder(
+  profile: Pick<Profile, "access_status" | "access_expires_at">,
+  reminderKind: ReminderKind,
+  now = new Date()
+) {
+  if (!profile.access_expires_at) return null;
+
+  const expiresAt = new Date(profile.access_expires_at);
+  const formattedDate = formatExpiryDate(expiresAt);
+  const daysLeft = getCalendarDayNumber(expiresAt) - getCalendarDayNumber(now);
+  const hasEnded = expiresAt.getTime() <= now.getTime();
+  const needsRestore = hasEnded || profile.access_status === "disabled" || reminderKind === "access_disabled";
+  let firstLine: string;
+
+  if (hasEnded) {
+    firstLine = `Твой доступ к Lumina Club закончился ${formattedDate}.`;
+  } else if (profile.access_status === "disabled" || reminderKind === "access_disabled") {
+    firstLine = `Твой доступ к Lumina Club сейчас отключён. Дата окончания текущего периода — ${formattedDate}.`;
+  } else if (daysLeft === 1) {
+    firstLine = `Твой доступ к Lumina Club закончится завтра — ${formattedDate}.`;
+  } else if (daysLeft === 0) {
+    firstLine = `Твой доступ к Lumina Club закончится сегодня — ${formattedDate}.`;
+  } else {
+    firstLine = `Твой доступ к Lumina Club закончится через ${formatDays(daysLeft)} — ${formattedDate}.`;
   }
-};
+
+  return {
+    daysLeft,
+    text: `${firstLine}\n${needsRestore ? "Чтобы снова открыть материалы клуба" : "Если хочешь сохранить доступ к материалам клуба"}, подай заявку на продление.`,
+    buttonText: "Продлить доступ",
+    buttonUrl: buildTelegramPathUrl("/tg/tiers")
+  };
+}
 
 export async function sendTelegramAccessReminderIfNeeded(profile: Profile) {
   if (!profile.telegram_id || profile.role === "admin" || profile.telegram_id === "local-preview") {
@@ -57,10 +107,11 @@ export async function sendTelegramAccessReminderIfNeeded(profile: Profile) {
     return alert;
   }
 
-  const reminder = REMINDER_MESSAGES[alert.kind];
+  const reminder = buildTelegramAccessReminder(profile, alert.kind);
+  if (!reminder) return alert;
   const result = await sendTelegramMessage(String(profile.telegram_id), reminder.text, {
     text: reminder.buttonText,
-    url: buildTelegramPathUrl("/tg/support")
+    url: reminder.buttonUrl
   });
 
   if (!result.ok) {
