@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
+import { IMAGE_FILE_ACCEPT, VIDEO_FILE_ACCEPT } from "@/lib/media/accept";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
@@ -133,7 +134,7 @@ export function AdminChatComposer({
                 ref={fileInputRef}
                 type="file"
                 name="media"
-                accept="image/*,video/*"
+                accept={`${IMAGE_FILE_ACCEPT},${VIDEO_FILE_ACCEPT}`}
                 onChange={handleFileChange}
                 className="hidden"
               />

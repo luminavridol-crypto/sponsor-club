@@ -1,6 +1,7 @@
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
+  CopyObjectCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
@@ -109,7 +110,8 @@ export function getMediaBucket(record: MediaRecord, fallback = "post-media") {
 export async function uploadMediaToR2(
   fileOrBuffer: File | Buffer | Uint8Array | ArrayBuffer,
   key: string,
-  contentType = "application/octet-stream"
+  contentType = "application/octet-stream",
+  metadata?: Record<string, string>
 ) {
   const body =
     fileOrBuffer instanceof File
@@ -126,7 +128,8 @@ export async function uploadMediaToR2(
       Key: key,
       Body: body,
       ContentType: contentType || "application/octet-stream",
-      ContentDisposition: "inline"
+      ContentDisposition: "inline",
+      Metadata: metadata
     })
   );
 
@@ -138,6 +141,52 @@ export async function uploadMediaToR2(
     sizeBytes: body.byteLength,
     contentType: contentType || "application/octet-stream"
   };
+}
+
+export async function getR2ObjectBuffer(key: string, range?: string) {
+  const client = getR2Client();
+  const { bucketName } = getR2Env();
+  const result = await client.send(new GetObjectCommand({
+    Bucket: bucketName,
+    Key: toR2ObjectKey(key),
+    Range: range
+  }));
+
+  if (!result.Body) {
+    throw new Error("Загруженный файл не найден в хранилище.");
+  }
+
+  return Buffer.from(await result.Body.transformToByteArray());
+}
+
+export async function getR2ObjectHead(key: string) {
+  const client = getR2Client();
+  const { bucketName } = getR2Env();
+  return client.send(new HeadObjectCommand({
+    Bucket: bucketName,
+    Key: toR2ObjectKey(key)
+  }));
+}
+
+export async function copyR2Object(
+  sourceKey: string,
+  destinationKey: string,
+  contentType: string,
+  metadata?: Record<string, string>
+) {
+  const client = getR2Client();
+  const { bucketName } = getR2Env();
+  const encodedSource = `${bucketName}/${toR2ObjectKey(sourceKey).split("/").map(encodeURIComponent).join("/")}`;
+
+  await client.send(new CopyObjectCommand({
+    Bucket: bucketName,
+    CopySource: encodedSource,
+    Key: toR2ObjectKey(destinationKey),
+    ContentType: contentType,
+    ContentDisposition: "inline",
+    Metadata: metadata,
+    MetadataDirective: "REPLACE"
+  }));
 }
 
 export async function createR2SignedUploadUrl(

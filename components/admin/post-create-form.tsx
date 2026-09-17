@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EmojiToolbar } from "@/components/forms/emoji-toolbar";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
+import { MEDIA_FILE_ACCEPT } from "@/lib/media/accept";
 import { PostType, Tier } from "@/lib/types";
 import { formatEuroAmount } from "@/lib/utils/money";
 import { TIER_ACCESS_HINTS, TIER_LABELS } from "@/lib/utils/tier";
@@ -20,6 +21,9 @@ type ServerUploadResponse = {
   media_type: "image" | "video" | "audio";
   upload_url?: string;
   upload_method?: "PUT";
+  width?: number | null;
+  height?: number | null;
+  converted?: boolean;
   error?: string;
 };
 
@@ -52,17 +56,6 @@ function isCompressibleImage(file: File) {
 
 function isHeicImage(file: File) {
   return /\.(heic|heif)$/i.test(file.name) || /^image\/hei[cf](?:-sequence)?$/i.test(file.type);
-}
-
-async function convertHeicImage(file: File): Promise<File> {
-  try {
-    const { default: heic2any } = await import("heic2any");
-    const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
-    const jpeg = Array.isArray(result) ? result[0] : result;
-    return new File([jpeg], replaceFileExtension(file.name, "jpg"), { type: "image/jpeg" });
-  } catch {
-    throw new Error(`Не удалось преобразовать ${file.name} из HEIC/HEIF. Попробуй сохранить фото как JPG.`);
-  }
 }
 
 function replaceFileExtension(fileName: string, nextExtension: string) {
@@ -266,15 +259,8 @@ async function uploadFileInChunks(
       throw new Error(completePayload.error || "Не удалось завершить загрузку файла.");
     }
 
-    return {
-      provider: "r2" as const,
-      bucket: startPayload.bucket,
-      object_key: startPayload.object_key,
-      storage_path: startPayload.storage_path,
-      mime_type: startPayload.mime_type || file.type || "application/octet-stream",
-      size_bytes: startPayload.size_bytes || file.size,
-      media_type: startPayload.media_type
-    };
+    onMessage?.("Проверяю формат файла...");
+    return await finalizeUploadedFile(file, startPayload.object_key);
   } catch (error) {
     await fetch(startPayload.worker_abort_url, {
       method: "POST",
@@ -290,6 +276,24 @@ async function uploadFileInChunks(
 
     throw error;
   }
+}
+
+async function finalizeUploadedFile(file: File, objectKey: string) {
+  const body = new FormData();
+  body.set("mode", "finalize");
+  body.set("kind", "media");
+  body.set("objectKey", objectKey);
+  body.set("fileName", file.name);
+  body.set("fileType", file.type);
+  body.set("fileSize", String(file.size));
+  const response = await fetch("/api/admin/posts/upload-media", { method: "POST", body });
+  const payload = (await response.json().catch(() => ({}))) as ServerUploadResponse;
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Файл не прошёл безопасную проверку.");
+  }
+
+  return payload;
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, quality: number) {
@@ -417,7 +421,7 @@ async function uploadFileThroughServer(
       onProgress
     });
 
-    return payload;
+    return await finalizeUploadedFile(file, payload.object_key);
   } catch (directUploadError) {
     if (file.size > SERVER_UPLOAD_FALLBACK_MAX_BYTES) {
       throw directUploadError;
@@ -536,13 +540,14 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       const optimizedFiles: File[] = [];
 
       for (const file of postType === "text" ? [] : mediaFiles) {
-        if (isHeicImage(file)) setMessage(`Преобразую HEIC/HEIF: ${file.name}`);
-        const uploadFile = isHeicImage(file) ? await convertHeicImage(file) : file;
-        if (isCompressibleImage(uploadFile)) {
+        if (isHeicImage(file)) {
+          setMessage(`Подготовка изображения: ${file.name}`);
+          optimizedFiles.push(file);
+        } else if (isCompressibleImage(file)) {
           setMessage(`Оптимизирую фото: ${file.name}`);
-          optimizedFiles.push(await compressImageFile(uploadFile));
+          optimizedFiles.push(await compressImageFile(file));
         } else {
-          optimizedFiles.push(uploadFile);
+          optimizedFiles.push(file);
         }
       }
 
@@ -560,7 +565,9 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
         setMessage(
           shouldUseChunkedUpload
             ? `Готовлю безопасную загрузку видео: ${index + 1} из ${optimizedFiles.length}`
-            : `Загружаю файл: ${index + 1} из ${optimizedFiles.length}`
+            : isHeicImage(file)
+              ? `Конвертация и загрузка: ${index + 1} из ${optimizedFiles.length}`
+              : `Загрузка: ${index + 1} из ${optimizedFiles.length}`
         );
 
         const uploaded = shouldUseChunkedUpload
@@ -658,8 +665,6 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
       setMessage(error instanceof Error ? error.message : "Не удалось загрузить файлы и создать публикацию.");
     }
   }
-
-  const mediaAccept = ".jpg,.jpeg,.png,.webp,.gif,.heic,.heif,.mp4,.webm,.mov,.m4v,.3gp,.3g2,.ogg,.m4a,.mp3,.wav,image/*,video/*,audio/*";
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 grid gap-3" encType="multipart/form-data">
@@ -855,7 +860,7 @@ export function PostCreateForm({ miniApp = false }: { miniApp?: boolean }) {
         <input
           name="media"
           type="file"
-          accept={mediaAccept}
+          accept={MEDIA_FILE_ACCEPT}
           multiple
           disabled={selectedPostType === "text"}
           onChange={(event) => {

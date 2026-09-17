@@ -14,6 +14,7 @@ import {
   uploadMediaToR2
 } from "@/lib/storage/media";
 import { createUploadWorkerToken, getUploadWorkerEnv } from "@/lib/upload-worker/token";
+import { finalizePendingUpload, MAX_BUFFERED_UPLOAD_BYTES } from "@/lib/media/process-upload";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,9 +24,7 @@ function formValue(value: FormDataEntryValue | null) {
 }
 
 function buildKey(kind: string, extension: string) {
-  return kind === "thumbnail"
-    ? `thumbnails/${randomUUID()}.${extension}`
-    : `posts/pending/${randomUUID()}.${extension}`;
+  return `uploads/pending/${kind === "thumbnail" ? "thumbnail-" : "media-"}${randomUUID()}.${extension}`;
 }
 
 export async function POST(request: Request) {
@@ -41,6 +40,38 @@ export async function POST(request: Request) {
     const kind = formValue(formData.get("kind")) || "media";
     const mode = formValue(formData.get("mode")) || "direct";
     const { bucketName } = getR2Env();
+
+    if (mode === "finalize") {
+      const pendingKey = formValue(formData.get("objectKey"));
+      const fileName = formValue(formData.get("fileName"));
+      const fileType = formValue(formData.get("fileType"));
+      const fileSize = Number(formValue(formData.get("fileSize")) || 0);
+
+      if (!pendingKey || !fileName || fileSize <= 0) {
+        return NextResponse.json({ error: "Данные загруженного файла неполные." }, { status: 400 });
+      }
+
+      const finalized = await finalizePendingUpload({
+        pendingKey,
+        originalName: fileName,
+        claimedType: fileType,
+        claimedSize: fileSize,
+        kind
+      });
+
+      return NextResponse.json({
+        provider: finalized.provider,
+        bucket: bucketName,
+        object_key: finalized.objectKey,
+        storage_path: finalized.storagePath,
+        mime_type: finalized.contentType,
+        size_bytes: finalized.sizeBytes,
+        media_type: finalized.mediaType,
+        width: finalized.width,
+        height: finalized.height,
+        converted: finalized.converted
+      });
+    }
 
     if (mode === "direct") {
       const fileName = formValue(formData.get("fileName"));
@@ -125,23 +156,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Файл не найден." }, { status: 400 });
     }
 
-    const mediaType =
-      kind === "thumbnail"
-        ? assertUploadFile(file, { allowImages: true, allowVideos: false })
-        : assertUploadFile(file, { allowAudio: true });
+    if (file.size > MAX_BUFFERED_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { error: "Большой файл нужно загрузить напрямую в защищённое хранилище." },
+        { status: 413 }
+      );
+    }
+
+    if (kind === "thumbnail") {
+      assertUploadFile(file, { allowImages: true, allowVideos: false });
+    } else {
+      assertUploadFile(file, { allowAudio: true });
+    }
     const extension = getSafeFileExtension(file);
     const key = buildKey(kind, extension);
     const contentType = file.type || getMimeTypeFromFileName(file.name) || "application/octet-stream";
-    const uploaded = await uploadMediaToR2(file, key, contentType);
+    await uploadMediaToR2(file, key, contentType);
+    const finalized = await finalizePendingUpload({
+      pendingKey: key,
+      originalName: file.name,
+      claimedType: file.type,
+      claimedSize: file.size,
+      kind
+    });
 
     return NextResponse.json({
       provider: "r2",
-      bucket: uploaded.bucket || bucketName,
-      object_key: uploaded.objectKey,
-      storage_path: toR2StoragePath(uploaded.objectKey),
-      mime_type: uploaded.contentType,
-      size_bytes: uploaded.sizeBytes,
-      media_type: mediaType
+      bucket: bucketName,
+      object_key: finalized.objectKey,
+      storage_path: finalized.storagePath,
+      mime_type: finalized.contentType,
+      size_bytes: finalized.sizeBytes,
+      media_type: finalized.mediaType,
+      width: finalized.width,
+      height: finalized.height,
+      converted: finalized.converted
     });
   } catch (error) {
     if (isInvalidRequestOriginError(error)) {
@@ -152,7 +201,7 @@ export async function POST(request: Request) {
       {
         error: error instanceof Error ? error.message : "Ошибка загрузки файла."
       },
-      { status: 500 }
+      { status: error instanceof Error && /неподдерживаем|небезопас|слишком больш|не удалось определить|только изображение/i.test(error.message) ? 400 : 500 }
     );
   }
 }

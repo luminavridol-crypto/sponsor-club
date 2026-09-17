@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { sendMemberChatMessageAction } from "@/app/actions";
+import { IMAGE_FILE_ACCEPT } from "@/lib/media/accept";
 import { Tier } from "@/lib/types";
 import { formatEuroAmount } from "@/lib/utils/money";
 
@@ -111,7 +112,7 @@ export function SupportRequestForm({
           <input
             type="file"
             name="media"
-            accept="image/*"
+            accept={IMAGE_FILE_ACCEPT}
             className="hidden"
             onChange={(event) => {
               const nextFile = event.currentTarget.files?.[0] ?? null;

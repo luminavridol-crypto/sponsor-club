@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
+import { IMAGE_FILE_ACCEPT } from "@/lib/media/accept";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
@@ -155,7 +156,7 @@ export function MemberChatComposer({ isLimitReached }: { isLimitReached: boolean
           ref={fileInputRef}
           type="file"
           name="media"
-          accept="image/*"
+          accept={IMAGE_FILE_ACCEPT}
           className="hidden"
           disabled={isLimitReached || status === "uploading"}
           onChange={handleFileChange}

@@ -1,11 +1,10 @@
-import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireActiveAdminSession } from "@/lib/auth/admin-session";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
 import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
-import { assertUploadFile, getSafeFileExtension, getUploadMediaType } from "@/lib/security/file-uploads";
 import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
-import { deleteMedia, uploadMediaToR2 } from "@/lib/storage/media";
+import { deleteMedia } from "@/lib/storage/media";
+import { uploadValidatedFileToR2 } from "@/lib/media/process-upload";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 function formValue(value: FormDataEntryValue | null) {
@@ -13,9 +12,7 @@ function formValue(value: FormDataEntryValue | null) {
 }
 
 async function uploadChatFile(file: File, profileId: string) {
-  assertUploadFile(file, { allowAudio: true });
-  const extension = getSafeFileExtension(file);
-  return uploadMediaToR2(file, `chat/${profileId}/${randomUUID()}.${extension}`, file.type);
+  return uploadValidatedFileToR2(file, `chat/${profileId}`, { allowAudio: true });
 }
 
 export async function POST(request: Request) {
@@ -66,16 +63,9 @@ export async function POST(request: Request) {
     let uploadedMedia: Awaited<ReturnType<typeof uploadChatFile>> | null = null;
 
     if (mediaFile) {
-      if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("video/") && !mediaFile.type.startsWith("audio/")) {
-        return NextResponse.json(
-          { error: "В чат можно загрузить только фото, видео или аудио." },
-          { status: 400 }
-        );
-      }
-
       uploadedMedia = await uploadChatFile(mediaFile, profileId);
       mediaPath = uploadedMedia.storagePath;
-      mediaType = getUploadMediaType(mediaFile);
+      mediaType = uploadedMedia.mediaType;
     }
 
     const { error } = await admin.from("member_chat_messages").insert({

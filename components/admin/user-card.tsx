@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import { IMAGE_FILE_ACCEPT } from "@/lib/media/accept";
 import {
   addUserDonationAction,
   addUserDonationForMonthAction,
@@ -427,7 +428,7 @@ export function UserCard({
 
                 <div>
                   <label className="mb-2 block text-sm text-white/60">Аватар</label>
-                  <input name="avatar" type="file" accept="image/*" className="block w-full text-sm text-white/70 file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-white" />
+                  <input name="avatar" type="file" accept={IMAGE_FILE_ACCEPT} className="block w-full text-sm text-white/70 file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-white" />
                 </div>
 
                 <div>

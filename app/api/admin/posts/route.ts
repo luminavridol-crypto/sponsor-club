@@ -1,12 +1,11 @@
-import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireActiveAdminSession } from "@/lib/auth/admin-session";
 import { cleanupOrphanedStorage } from "@/lib/data/storage-cleanup";
 import { getPostEmailRecipients } from "@/lib/email/recipients";
 import { sendEmailCampaign } from "@/lib/email/service";
-import { assertUploadFile, getSafeFileExtension, getUploadMediaType } from "@/lib/security/file-uploads";
 import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
-import { R2_PROVIDER, toR2ObjectKey, uploadMediaToR2 } from "@/lib/storage/media";
+import { R2_PROVIDER, toR2ObjectKey } from "@/lib/storage/media";
+import { uploadValidatedFileToR2 } from "@/lib/media/process-upload";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { notifyTelegramUsersAboutNewPost } from "@/lib/telegram/notifications";
 import { PostStatus, PostType, Tier } from "@/lib/types";
@@ -78,15 +77,11 @@ type TelegramCampaignResultPayload = {
 };
 
 async function uploadFile(file: File, folder: string) {
-  assertUploadFile(file, { allowImages: true, allowVideos: false });
-  const extension = getSafeFileExtension(file);
-  return uploadMediaToR2(file, `${folder}/${randomUUID()}.${extension}`, file.type);
+  return uploadValidatedFileToR2(file, folder, { allowImages: true, allowVideos: false });
 }
 
 async function uploadPostMedia(file: File, folder: string) {
-  assertUploadFile(file, { allowAudio: true });
-  const extension = getSafeFileExtension(file);
-  return uploadMediaToR2(file, `${folder}/${randomUUID()}.${extension}`, file.type);
+  return uploadValidatedFileToR2(file, folder, { allowAudio: true });
 }
 
 export async function POST(request: Request) {
@@ -239,6 +234,15 @@ export async function POST(request: Request) {
       sizeBytes: uploadedMediaSizeBytes[index] || null
     }));
 
+    if (directUploads.some((upload) =>
+      upload.provider !== R2_PROVIDER ||
+      !upload.storagePath.startsWith("r2:posts/pending/") ||
+      upload.objectKey !== toR2ObjectKey(upload.storagePath)
+    )) {
+      await cleanupOrphanedStorage(admin);
+      return NextResponse.json({ error: "Один из файлов не прошёл проверку загрузки." }, { status: 400 });
+    }
+
     for (const [index, directUpload] of directUploads.entries()) {
       const { error: mediaError } = await admin.from("post_media").insert({
         post_id: post.id,
@@ -260,7 +264,7 @@ export async function POST(request: Request) {
 
     for (const [offset, file] of mediaFiles.entries()) {
       const uploaded = await uploadPostMedia(file, `posts/${post.id}`);
-      const mediaType = getUploadMediaType(file);
+      const mediaType = uploaded.mediaType;
 
       const { error: mediaError } = await admin.from("post_media").insert({
         post_id: post.id,

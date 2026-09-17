@@ -1,12 +1,11 @@
-import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { requireAnyProfile } from "@/lib/auth/guards";
 import { cleanupOldChatMessages } from "@/lib/data/chat";
 import { canSendMonthlyChatMessage } from "@/lib/data/chat-limits";
-import { assertUploadFile, getSafeFileExtension } from "@/lib/security/file-uploads";
 import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
-import { deleteMedia, uploadMediaToR2 } from "@/lib/storage/media";
+import { deleteMedia } from "@/lib/storage/media";
+import { uploadValidatedFileToR2 } from "@/lib/media/process-upload";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 function formValue(value: FormDataEntryValue | null) {
@@ -41,9 +40,11 @@ function respondToChatRequest(request: Request, params: Record<string, string> =
 }
 
 async function uploadChatMedia(file: File, profileId: string) {
-  assertUploadFile(file, { allowImages: true, allowVideos: false, allowAudio: true });
-  const extension = getSafeFileExtension(file);
-  return uploadMediaToR2(file, `chat/${profileId}/${randomUUID()}.${extension}`, file.type);
+  return uploadValidatedFileToR2(file, `chat/${profileId}`, {
+    allowImages: true,
+    allowVideos: false,
+    allowAudio: true
+  });
 }
 
 export async function POST(request: Request) {
@@ -75,12 +76,8 @@ export async function POST(request: Request) {
     let mediaType: "image" | "audio" | null = null;
 
     if (mediaFile) {
-      if (!mediaFile.type.startsWith("image/") && !mediaFile.type.startsWith("audio/")) {
-        return respondToChatRequest(request, { error: "image" });
-      }
-
       uploadedMedia = await uploadChatMedia(mediaFile, profile.id);
-      mediaType = mediaFile.type.startsWith("audio/") ? "audio" : "image";
+      mediaType = uploadedMedia.mediaType === "audio" ? "audio" : "image";
     }
 
     const { error } = await admin.from("member_chat_messages").insert({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AUDIO_FILE_ACCEPT } from "@/lib/media/accept";
 
 const MAX_RECORDING_SECONDS = 5 * 60;
 
@@ -161,7 +162,7 @@ export function VoiceRecorder({
 
   return (
     <div className={`rounded-[20px] border border-white/10 bg-white/[0.03] p-3 ${className}`}>
-      <input ref={inputRef} type="file" name={name} accept="audio/*" className="hidden" />
+      <input ref={inputRef} type="file" name={name} accept={AUDIO_FILE_ACCEPT} className="hidden" />
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"

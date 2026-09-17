@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { IMAGE_FILE_ACCEPT } from "@/lib/media/accept";
 
 export function ProfileAvatarPicker({
   currentAvatarUrl,
@@ -52,7 +53,7 @@ export function ProfileAvatarPicker({
         <input
           name="avatar"
           type="file"
-          accept="image/*"
+          accept={IMAGE_FILE_ACCEPT}
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0];
