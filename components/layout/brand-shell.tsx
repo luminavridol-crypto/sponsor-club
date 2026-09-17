@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 import { LogoMark } from "@/components/layout/logo-mark";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
+import { getI18n } from "@/lib/i18n/server";
 
-export function BrandShell({
+export async function BrandShell({
   children,
   rightSlot
 }: {
   children: ReactNode;
   rightSlot?: ReactNode;
 }) {
+  const { locale, messages } = await getI18n();
   return (
     <div className="min-h-screen bg-hero text-white">
       <header className="relative z-[100] border-b border-white/10 backdrop-blur">
@@ -19,12 +22,17 @@ export function BrandShell({
             </div>
             <div className="min-w-0">
               <p className="truncate text-[10px] uppercase tracking-[0.32em] text-white/50 sm:text-[11px]">
-                {"\u041f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u043e Lumina"}
+                {messages.brand.space}
               </p>
               <p className="truncate text-sm font-semibold text-white sm:text-base">Lumina</p>
             </div>
           </Link>
-          {rightSlot ? <div className="w-full lg:w-auto">{rightSlot}</div> : null}
+          <div className="flex w-full items-center justify-end gap-2 lg:w-auto">
+            <LanguageSwitcher locale={locale} label={messages.language.label} options={[
+              { value: "ru", label: "RU" }, { value: "en", label: "EN" }, { value: "vi", label: "VI" }
+            ]} />
+            {rightSlot}
+          </div>
         </div>
       </header>
       <main>{children}</main>

@@ -1,0 +1,21 @@
+{
+  "common": { "login": "Đăng nhập", "logout": "Đăng xuất", "notSpecified": "Chưa có", "loading": "Đang tải…" },
+  "language": { "label": "Ngôn ngữ", "ru": "Русский", "en": "English", "vi": "Tiếng Việt" },
+  "brand": { "space": "Không gian Lumina" },
+  "nav": { "account": "Tài khoản", "subscription": "Gói thành viên", "content": "Nội dung riêng" },
+  "auth": {
+    "login": { "eyebrow": "Lumina Club", "title": "Đăng nhập", "description": "Dùng email và mật khẩu của tài khoản Lumina.", "email": "Email", "password": "Mật khẩu", "submit": "Đăng nhập", "invalidCredentials": "Email hoặc mật khẩu không đúng.", "invalidFields": "Vui lòng kiểm tra lại thông tin.", "inviteOnly": "Chỉ có thể đăng ký khi có lời mời." }
+  },
+  "invite": {
+    "eyebrow": "Chỉ dành cho người được mời", "title": "Tạo tài khoản", "description": "Dùng mã mời một lần để tham gia Lumina Club.", "name": "Tên", "email": "Email", "password": "Mật khẩu", "confirmPassword": "Nhập lại mật khẩu", "code": "Mã mời", "submit": "Tạo tài khoản", "submitting": "Đang tạo tài khoản…",
+    "errors": { "invalid": "Mã mời không hợp lệ.", "used": "Mã mời này đã được sử dụng.", "expired": "Mã mời đã hết hạn.", "email_exists": "Email này đã có tài khoản.", "password_mismatch": "Mật khẩu nhập lại chưa khớp.", "fields": "Vui lòng kiểm tra lại thông tin.", "generic": "Chưa thể tạo tài khoản. Vui lòng thử lại." }
+  },
+  "account": {
+    "profile": "Hồ sơ", "member": "Thành viên Lumina", "memberAvatar": "thành viên", "emailMissing": "Chưa có email", "telegramConnected": "Đã liên kết Telegram", "accountConfirmed": "Tài khoản đã xác minh", "telegramMissing": "Chưa liên kết Telegram.", "connectTelegram": "Liên kết Telegram →", "mySubscription": "Gói thành viên", "status": "Trạng thái", "startedAt": "Ngày bắt đầu", "expiresAt": "Quyền truy cập đến", "noSubscription": "Chưa có gói thành viên", "openContent": "Xem nội dung riêng", "chooseSubscription": "Chọn gói thành viên", "upgrade": "Nâng cấp", "manage": "Quản lý gói", "loadError": "Không tải được tài khoản. Hãy tải lại trang hoặc đăng nhập lại.", "loading": "Đang tải tài khoản…",
+    "statuses": { "active": "Đang hoạt động", "pending": "Chờ xác nhận", "expired": "Đã hết hạn", "cancelled": "Đã hủy", "disabled": "Đã tắt" }
+  },
+  "subscription": { "title": "Gói thành viên", "description": "Xem các gói, quyền lợi và mức giá mà không cần đăng nhập.", "openTelegram": "Mở trong Telegram", "choosePlan": "Chọn gói", "viewPlans": "Xem các gói", "currentPlan": "Gói hiện tại" },
+  "post": { "locked": "Nội dung dành cho thành viên", "requiresTier": "Cần gói {tier} để xem nội dung này.", "viewPlans": "Xem các gói", "open": "Mở bài viết", "buy": "Mua bài viết", "requestPurchase": "Gửi yêu cầu", "comments": "Bình luận" },
+  "errors": { "notFoundTitle": "Không tìm thấy trang", "notFoundDescription": "Nội dung có thể đã bị ẩn, xóa hoặc chưa dành cho gói hiện tại của bạn.", "dashboard": "Về trang chính", "feed": "Xem bảng tin" },
+  "home": { "socialChat": "Nhóm chat Telegram", "screamers": "Scream alert (RU)", "heroEyebrow": "những điều không có trên mạng xã hội", "heroTitle": "Một góc riêng của", "heroDescription": "Nơi bạn có thể đến gần hơn với Lumina qua hậu trường, ảnh đầy cảm xúc, video riêng và quá trình hoàn thiện từng concept.", "heroNote": "Không chỉ là một gói thành viên — đây là cánh cửa dẫn vào thế giới Lumina ít người được thấy.", "chooseCta": "Chọn gói phù hợp", "links": "kết nối với Lumina", "support": "ủng hộ", "donations": "Ủng hộ Lumina", "supportLumina": "gửi lời ủng hộ", "collaboration": "Hợp tác", "imageAlt": "Lumina dưới ánh đèn đỏ", "privateAtmosphere": "không gian riêng", "privateAtmosphereText": "đến gần hơn với các concept, hậu trường và những khoảnh khắc chỉ có trong club", "clubInside": "Có gì trong club", "clubInsideTitle": "Không chỉ là nội dung — mà là cảm xúc không thể chia sẻ trên trang công khai.", "clubInsideNote": "Không đơn thuần là một thư mục ảnh. Đây là không gian riêng dành cho cảm xúc, quá trình sáng tạo và một góc Lumina bạn chưa từng thấy.", "chooseAccess": "Chọn gói phù hợp", "chooseAccessTitle": "Bạn muốn đến gần Lumina đến đâu?", "access": "quyền truy cập", "choose": "Chọn", "telegramHint": "Sau khi chọn gói, hãy mở ứng dụng Telegram để gửi yêu cầu tham gia.", "openBot": "Mở bot và vào club", "important": "Thông tin cần biết" }
+}

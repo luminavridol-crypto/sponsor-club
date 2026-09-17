@@ -8,6 +8,10 @@ import { buildTelegramBotLink } from "@/lib/telegram/links";
 import { WebsiteAccountNav } from "@/components/layout/website-account-nav";
 import { getCurrentWebsiteProfile } from "@/lib/auth/current-profile";
 import { getSubscriptionForUser } from "@/lib/data/subscriptions";
+import { getI18n } from "@/lib/i18n/server";
+import { localizeTierCards } from "@/lib/i18n/tier-content";
+import type { TierAccordionCard } from "@/components/tiers/tier-accordion-list";
+import { getLocalizedHomeCollections } from "@/lib/i18n/home-content";
 
 export const dynamic = "force-dynamic";
 
@@ -302,7 +306,7 @@ const homeTariffs = [
   }
 ];
 
-function buildHomeTariffsFromCards(cards: Awaited<ReturnType<typeof getTierLandingCards>>) {
+function buildHomeTariffsFromCards(cards: TierAccordionCard[]) {
   return cards.map((card, index) => {
     const style = homeTariffs.find((tariff) => tariff.badge === card.badge) ?? homeTariffs[index];
 
@@ -328,7 +332,14 @@ function buildHomeTariffsFromCards(cards: Awaited<ReturnType<typeof getTierLandi
 export default async function HomePage() {
   const telegramMiniAppTariffsHref = buildTelegramBotLink() ?? "https://t.me/SponsorClubLumina_bot";
   const [cards, profile] = await Promise.all([getTierLandingCards(), getCurrentWebsiteProfile()]);
-  const homeTariffs = buildHomeTariffsFromCards(cards);
+  const { locale, messages } = await getI18n();
+  const copy = messages.home;
+  const homeTariffs = buildHomeTariffsFromCards(localizeTierCards(cards, locale));
+  const localizedHome = getLocalizedHomeCollections(locale);
+  const localizedClubInside = clubInside.map((item, index) => localizedHome ? { ...item, title: localizedHome.inside[index][0], text: localizedHome.inside[index][1] } : item);
+  const localizedFaqItems = faqItems.map((item, index) => localizedHome ? { question: localizedHome.faq[index][0], answer: localizedHome.faq[index][1] } : item);
+  const localizedSocials = socials.map((item) => item.name === "Чат TG" ? { ...item, name: copy.socialChat } : item);
+  const localizedDonationLinks = donationLinks.map((item) => item.name === "Скримеры (RU)" ? { ...item, name: copy.screamers } : item);
   const subscription = profile ? await getSubscriptionForUser(profile.id, profile) : null;
 
   return (
@@ -351,10 +362,10 @@ export default async function HomePage() {
               </div>
 
               <p className="mt-8 text-[10px] font-semibold uppercase tracking-[0.34em] text-accentSoft">
-                не для открытых соцсетей
+                {copy.heroEyebrow}
               </p>
               <h1 className="font-display mt-5 max-w-3xl text-[2.8rem] leading-[0.95] text-white sm:text-[4.6rem] lg:text-[5.6rem]">
-                Закрытая сторона
+                {copy.heroTitle}
                 <br />
                 <span className="bg-gradient-to-r from-white via-accentSoft to-cyanGlow bg-clip-text text-transparent">
                   Lumina
@@ -362,11 +373,10 @@ export default async function HomePage() {
               </h1>
 
               <p className="mt-7 max-w-2xl text-lg leading-8 text-white/74 sm:text-xl sm:leading-9">
-                Место для тех, кто хочет видеть больше, чем попадает в открытую ленту: backstage,
-                атмосферные фото, личные видео, косплей-процесс и моменты ближе к настоящей мне.
+                {copy.heroDescription}
               </p>
               <p className="mt-5 max-w-xl text-base leading-8 text-white/55">
-                Это не просто подписка. Это дверь в ту часть Lumina, которую не видят случайные зрители.
+                {copy.heroNote}
               </p>
 
               <div className="mt-9 flex flex-col items-stretch gap-4 sm:items-center lg:items-start">
@@ -375,16 +385,16 @@ export default async function HomePage() {
                   className="inline-flex w-full items-center justify-center gap-3 rounded-[1.25rem] border border-accent/45 bg-gradient-to-r from-accent/80 via-[#c458f6] to-[#6f3ff4] px-6 py-4 text-base font-medium text-white shadow-[0_10px_40px_rgba(255,79,216,0.28)] transition hover:scale-[1.01] hover:brightness-110 sm:w-auto sm:min-w-[19rem]"
                 >
                   <DiamondButtonIcon />
-                  <span>Выбрать свой уровень доступа</span>
+                  <span>{copy.chooseCta}</span>
                 </Link>
               </div>
 
               <div className="mt-8 max-w-2xl">
                 <p className="text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40 lg:text-left">
-                  ссылки и связь
+                  {copy.links}
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {socials.map((social) => (
+                  {localizedSocials.map((social) => (
                     <a
                       key={social.name}
                       href={social.href}
@@ -414,18 +424,18 @@ export default async function HomePage() {
                   <div className="flex flex-wrap items-end justify-between gap-2">
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.30em] text-white/50">
-                        поддержка
+                        {copy.support}
                       </p>
                       <p className="mt-1 text-2xl font-semibold leading-none text-white">
-                        Донаты
+                        {copy.donations}
                       </p>
                     </div>
                     <p className="rounded-full border border-accentSoft/34 bg-black/24 px-3 py-1.5 text-xs font-medium text-accentSoft">
-                      поддержать Lumina
+                      {copy.supportLumina}
                     </p>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {donationLinks.map((link) => (
+                    {localizedDonationLinks.map((link) => (
                       <a
                         key={link.name}
                         href={link.href}
@@ -445,7 +455,7 @@ export default async function HomePage() {
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm leading-6 text-white/50 lg:justify-start">
-                  <span className="text-[10px] uppercase tracking-[0.22em] text-white/32">Сотрудничество</span>
+                  <span className="text-[10px] uppercase tracking-[0.22em] text-white/32">{copy.collaboration}</span>
                   <a
                     href="mailto:lumina.vr.idol@gmail.com"
                     className="font-medium text-accentSoft/90 decoration-accentSoft/30 underline-offset-4 hover:text-white hover:underline"
@@ -459,7 +469,7 @@ export default async function HomePage() {
             <div className="relative min-h-[30rem] overflow-hidden rounded-[2.35rem] border border-white/10 bg-black/30 shadow-[0_30px_100px_rgba(0,0,0,0.48)] sm:min-h-[42rem] lg:min-h-[46rem]">
               <Image
                 src="/lumina-hero.jpg"
-                alt="Lumina в красном свете"
+                alt={copy.imageAlt}
                 fill
                 priority
                 sizes="(min-width: 1024px) 680px, 100vw"
@@ -468,9 +478,9 @@ export default async function HomePage() {
               <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,7,17,0.62),rgba(6,7,17,0.10)_48%,rgba(6,7,17,0.38)),linear-gradient(180deg,rgba(6,7,17,0.02),rgba(6,7,17,0.60))]" />
               <div className="absolute bottom-5 left-5 right-5 sm:bottom-7 sm:left-7 sm:right-7">
                 <div className="max-w-[24rem] rounded-[1.4rem] border border-white/10 bg-black/24 px-4 py-4 backdrop-blur-[2px] sm:px-5">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-white/48">закрытая атмосфера</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-white/48">{copy.privateAtmosphere}</p>
                   <p className="mt-2 text-[1rem] font-medium leading-7 text-white/82 sm:text-[1.12rem]">
-                    ближе к образам, закулисью и моментам, которые остаются только внутри клуба
+                    {copy.privateAtmosphereText}
                   </p>
                 </div>
               </div>
@@ -481,10 +491,10 @@ export default async function HomePage() {
         <section className="relative mx-auto max-w-[88rem] px-4 py-20 sm:px-6 sm:py-28">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.34em] text-accentSoft [text-shadow:0_0_18px_rgba(255,79,216,0.62)] sm:text-base">
-              Что внутри клуба
+              {copy.clubInside}
             </p>
             <h2 className="font-display mt-4 text-3xl leading-tight text-white sm:text-5xl">
-              Не контент ради контента, а настроение, которое нельзя вынести в открытую ленту.
+              {copy.clubInsideTitle}
             </h2>
           </div>
 
@@ -494,7 +504,7 @@ export default async function HomePage() {
             <div className="pointer-events-none absolute -right-16 bottom-4 h-44 w-44 rounded-full bg-cyanGlow/10 blur-3xl" />
 
             <div className="relative grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {clubInside.map((item) => (
+              {localizedClubInside.map((item) => (
                 <div
                   key={item.title}
                   className={`group relative min-h-[13rem] overflow-hidden rounded-[1.35rem] border p-5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_42px_rgba(0,0,0,0.18)] transition duration-300 hover:-translate-y-0.5 ${
@@ -543,7 +553,7 @@ export default async function HomePage() {
               ))}
             </div>
             <div className="relative mt-4 rounded-[1.35rem] border border-accent/18 bg-black/18 px-5 py-4 text-center text-base leading-7 text-white/66">
-              Это не просто папка с файлами. Это закрытое пространство с настроением, процессом и той частью Lumina, которую не видно снаружи.
+              {copy.clubInsideNote}
             </div>
           </div>
         </section>
@@ -551,10 +561,10 @@ export default async function HomePage() {
         <section id="club-terms" className="relative mx-auto max-w-[88rem] scroll-mt-8 px-4 py-20 sm:px-6 sm:py-28">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.34em] text-accentSoft [text-shadow:0_0_18px_rgba(255,79,216,0.62)] sm:text-base">
-              Выбрать уровень доступа
+              {copy.chooseAccess}
             </p>
             <h2 className="font-display mt-4 text-3xl leading-tight text-white sm:text-5xl">
-              Выбери, насколько близко ты хочешь зайти.
+              {copy.chooseAccessTitle}
             </h2>
           </div>
 
@@ -597,7 +607,7 @@ export default async function HomePage() {
                     </div>
 
                     <div className={`shrink-0 rounded-[1rem] border px-3 py-2 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${tariff.priceClass}`}>
-                      <p className="text-[9px] uppercase tracking-[0.22em] text-white/45">доступ</p>
+                      <p className="text-[9px] uppercase tracking-[0.22em] text-white/45">{copy.access}</p>
                       <p className="mt-1 text-sm font-bold sm:text-base">{tariff.price}</p>
                     </div>
                   </div>
@@ -612,7 +622,7 @@ export default async function HomePage() {
 
                   <div className="mt-auto pt-6">
                     <div className={`inline-flex w-full items-center justify-between gap-3 rounded-[1rem] border px-4 py-3 text-sm font-semibold transition group-open:bg-white/10 ${tariff.priceClass}`}>
-                      <span>{`Выбрать ${tariff.title.replace("Тариф ", "")}`}</span>
+                      <span>{`${copy.choose} ${tariff.title.replace("Тариф ", "")}`}</span>
                       <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/16 bg-black/20 text-lg leading-none transition duration-300 group-open:rotate-180">
                         ↓
                       </span>
@@ -653,7 +663,7 @@ export default async function HomePage() {
 
           <div className="mx-auto mt-10 max-w-2xl rounded-[1.6rem] border border-accent/24 bg-[radial-gradient(circle_at_top,rgba(255,79,216,0.18),transparent_36%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025))] p-5 text-center shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
             <p className="text-sm leading-6 text-white/66">
-              Когда выберешь уровень, открой Telegram-приложение: там уже есть тарифы, заявка и оплата.
+              {copy.telegramHint}
             </p>
             <a
               href={telegramMiniAppTariffsHref}
@@ -662,7 +672,7 @@ export default async function HomePage() {
               className="mt-4 inline-flex w-full items-center justify-center gap-3 rounded-[1.15rem] border border-accentSoft/50 bg-gradient-to-r from-accent/85 via-[#c458f6] to-[#6f3ff4] px-5 py-4 text-base font-semibold text-white shadow-[0_14px_46px_rgba(255,79,216,0.32)] transition hover:scale-[1.01] hover:brightness-110 sm:w-auto sm:min-w-[20rem]"
             >
               <TelegramIcon />
-              <span>Открыть бота и перейти в клуб</span>
+              <span>{copy.openBot}</span>
             </a>
           </div>
         </section>
@@ -670,11 +680,11 @@ export default async function HomePage() {
         <section className="relative mx-auto max-w-[72rem] px-4 py-16 sm:px-6 sm:py-24">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.34em] text-accentSoft [text-shadow:0_0_18px_rgba(255,79,216,0.62)] sm:text-base">
-              Важное
+              {copy.important}
             </p>
           </div>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {faqItems.map((item) => (
+            {localizedFaqItems.map((item) => (
               <div key={item.question} className="rounded-[1.35rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.2)]">
                 <h3 className="text-base font-semibold text-white">{item.question}</h3>
                 <p className="mt-3 text-sm leading-6 text-white/58">{item.answer}</p>
