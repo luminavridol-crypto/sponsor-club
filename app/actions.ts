@@ -43,6 +43,8 @@ import { canAccessTier, normalizeTierBadges } from "@/lib/utils/tier";
 import { setUserSubscription } from "@/lib/data/subscriptions";
 import { buildContentSlug } from "@/lib/utils/content-space";
 import { mergeFavoriteLuminaCosplayIntoAdminNote } from "@/lib/utils/favorite-cosplay";
+import { createAccessRequest } from "@/lib/requests/access-requests";
+import { getCurrentWebsiteProfile } from "@/lib/auth/current-profile";
 
 export type CleanupCheckState = {
   status: "idle" | "success" | "error";
@@ -1369,6 +1371,39 @@ export async function redeemInviteAction(formData: FormData) {
   });
 
   redirect("/account" as Route);
+}
+
+async function submitAccessRequest(formData: FormData, profile: Awaited<ReturnType<typeof requireAnyProfile>>, source: "website" | "telegram") {
+  const tier = formValue(formData.get("tier")) as Tier;
+  const comment = formValue(formData.get("comment"));
+
+  try {
+    const result = await createAccessRequest({ profile, requestedTier: tier, source, comment });
+    revalidatePath("/request-access");
+    revalidatePath("/tg/tiers");
+    revalidatePath("/tg/admin/users");
+    redirect(`/request-access?tier=${tier}&status=${result.status}` as Route);
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    console.error("Access request creation failed", {
+      profileId: profile.id,
+      source,
+      message: error instanceof Error ? error.message : "Unknown request error"
+    });
+    redirect(`/request-access?tier=${encodeURIComponent(tier)}&status=error` as Route);
+  }
+}
+
+export async function createWebsiteAccessRequestAction(formData: FormData) {
+  const profile = await getCurrentWebsiteProfile();
+  if (!profile) redirect("/login?next=/request-access" as Route);
+  return submitAccessRequest(formData, profile, "website");
+}
+
+export async function createTelegramAccessRequestAction(formData: FormData) {
+  const profile = await getTelegramProfileFromSession();
+  if (!profile) redirect("/tg" as Route);
+  return submitAccessRequest(formData, profile, "telegram");
 }
 
 export async function updateProfileAction(formData: FormData) {

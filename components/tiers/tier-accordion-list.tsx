@@ -326,6 +326,7 @@ export function TierAccordionList({
   paymentContext,
   showPaymentButton = true,
   paymentButtonLabel = "Оплатить",
+  paymentHrefBase,
   paymentHrefBuilder
 }: {
   cards: TierAccordionCard[];
@@ -334,6 +335,7 @@ export function TierAccordionList({
   paymentContext?: PaymentContext;
   showPaymentButton?: boolean;
   paymentButtonLabel?: string;
+  paymentHrefBase?: string;
   paymentHrefBuilder?: (tier: Tier) => string;
 }) {
   const [openId, setOpenId] = useState<string>(() => cards.find((card) => card.tier === initialOpenTier)?.id ?? "");
@@ -364,6 +366,7 @@ export function TierAccordionList({
           const isOpen = openId === card.id;
           const paymentHref =
             paymentHrefBuilder?.(card.tier) ??
+            (paymentHrefBase ? `${paymentHrefBase}${paymentHrefBase.includes("?") ? "&" : "?"}tier=${card.tier}` : null) ??
             `/tg/support?tier=${card.tier}${
             paymentContext?.postSlug ? `&postSlug=${encodeURIComponent(paymentContext.postSlug)}` : ""
           }${

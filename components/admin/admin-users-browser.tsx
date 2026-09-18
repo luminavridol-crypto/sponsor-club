@@ -12,6 +12,7 @@ import {
 import { UserCard } from "@/components/admin/user-card";
 import { POST_PURCHASE_CHAT_MESSAGE_GRANT } from "@/lib/data/chat-limits";
 import { DonationEvent, Profile, PurchaseRequest } from "@/lib/types";
+import { TIER_LABELS } from "@/lib/utils/tier";
 
 type BrowserUser = Profile & {
   donationEvents: DonationEvent[];
@@ -76,6 +77,15 @@ function SummaryCard({
 function PendingRequestCard({ request }: { request: PurchaseRequest }) {
   const isChatMessagesRequest = request.request_kind === "chat_messages";
   const isPostRequest = request.request_kind === "post" || Boolean(request.requested_post_id);
+  const isPendingRequest = request.status === "new" || request.status === "in_progress";
+  const statusLabel = {
+    new: "Новая",
+    in_progress: "В работе",
+    completed: "Завершена",
+    approved: "Одобрена",
+    rejected: "Отклонена",
+    cancelled: "Отменена"
+  }[request.status];
 
   return (
     <article className={ADMIN_SUBPANEL_CLASS}>
@@ -118,6 +128,15 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
               ) : null}
             </div>
           ) : null}
+          {request.source || request.request_type ? (
+            <div className="mt-3 rounded-[18px] border border-violet-300/15 bg-violet-400/10 px-3 py-3 text-sm text-violet-50">
+              <p>Источник: <span className="font-medium text-white">{request.source === "telegram" ? "Telegram" : "Website"}</span></p>
+              <p className="mt-1">Тип: <span className="font-medium text-white">{request.request_type === "upgrade" ? "Повышение тарифа" : request.request_type === "renewal" ? "Продление" : "Новый доступ"}</span></p>
+              <p className="mt-1">Текущий тариф: <span className="font-medium text-white">{request.current_tier ? TIER_LABELS[request.current_tier] : "Guest"}</span></p>
+              <p className="mt-1">Запрошенный тариф: <span className="font-medium text-white">{TIER_LABELS[request.tier]}</span></p>
+              {request.comment ? <p className="mt-2 text-white/75">{request.comment}</p> : null}
+            </div>
+          ) : null}
           {request.latest_request_body ? (
             <div className="mt-3 rounded-[18px] border border-white/10 bg-black/18 px-3 py-3 text-sm leading-6 text-white/78">
               {request.latest_request_body}
@@ -142,7 +161,7 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
           ) : null}
         </div>
         <div className="text-right text-sm text-white/48">
-          <p>{request.status === "in_progress" ? "В работе" : "Новая"}</p>
+          <p>{statusLabel}</p>
           <p className="mt-1">{new Date(request.created_at).toLocaleString("ru-RU")}</p>
           {request.latest_request_message_at ? (
             <p className="mt-1 text-white/32">Чат: {new Date(request.latest_request_message_at).toLocaleString("ru-RU")}</p>
@@ -168,7 +187,7 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
           </Link>
         ) : null}
 
-        {isChatMessagesRequest ? (
+        {isPendingRequest && isChatMessagesRequest ? (
           <form method="post" action="/api/admin/purchase-requests">
             <input type="hidden" name="actionType" value="update" />
             <input type="hidden" name="requestId" value={request.id} />
@@ -178,7 +197,7 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
           </form>
         ) : null}
 
-        {!isChatMessagesRequest && isPostRequest ? (
+        {isPendingRequest && !isChatMessagesRequest && isPostRequest ? (
           <form method="post" action="/api/admin/purchase-requests">
             <input type="hidden" name="actionType" value="update" />
             <input type="hidden" name="requestId" value={request.id} />
@@ -190,13 +209,23 @@ function PendingRequestCard({ request }: { request: PurchaseRequest }) {
           </form>
         ) : null}
 
-        {!isChatMessagesRequest && !isPostRequest ? (
+        {isPendingRequest && !isChatMessagesRequest && !isPostRequest ? (
           <form method="post" action="/api/admin/purchase-requests">
             <input type="hidden" name="actionType" value="update" />
             <input type="hidden" name="requestId" value={request.id} />
-            <input type="hidden" name="status" value="completed" />
+            <input type="hidden" name="status" value={request.request_type ? "approved" : "completed"} />
             <input type="hidden" name="accessMode" value="club" />
             <button className={ADMIN_BUTTON_PRIMARY_CLASS}>Открыть клуб</button>
+          </form>
+        ) : null}
+
+        {isPendingRequest && request.request_type ? (
+          <form method="post" action="/api/admin/purchase-requests">
+            <input type="hidden" name="actionType" value="update" />
+            <input type="hidden" name="requestId" value={request.id} />
+            <input type="hidden" name="status" value="rejected" />
+            <input type="hidden" name="accessMode" value="none" />
+            <button className={ADMIN_BUTTON_DANGER_CLASS}>Отклонить</button>
           </form>
         ) : null}
 

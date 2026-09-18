@@ -4,6 +4,7 @@ import { requireActiveAdminSession } from "@/lib/auth/admin-session";
 import { getChatMessageGrantExpiry } from "@/lib/data/chat-limits";
 import { assertSameOriginRequest, isInvalidRequestOriginError } from "@/lib/security/request-origin";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { setUserSubscription } from "@/lib/data/subscriptions";
 
 function formValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     const status = formValue(formData.get("status"));
     const accessMode = formValue(formData.get("accessMode"));
 
-    if (!["new", "in_progress", "completed"].includes(status)) {
+    if (!["new", "in_progress", "completed", "approved", "rejected", "cancelled"].includes(status)) {
       return redirectBack(request);
     }
 
@@ -52,25 +53,24 @@ export async function POST(request: Request) {
     if (allowClubAccess) {
       const { data: purchaseRequest } = await admin
         .from("purchase_requests")
-        .select("id, tier, email, display_name, country, contact")
+        .select("id, profile_id, tier, email, display_name, country, contact")
         .eq("id", requestId)
         .maybeSingle();
 
       if (purchaseRequest?.email) {
-        const { data: existingProfile } = await admin
-          .from("profiles")
-          .select("id, role")
-          .eq("email", purchaseRequest.email)
-          .maybeSingle();
+        const profileQuery = admin.from("profiles").select("id, role");
+        const { data: existingProfile } = purchaseRequest.profile_id
+          ? await profileQuery.eq("id", purchaseRequest.profile_id).maybeSingle()
+          : await profileQuery.eq("email", purchaseRequest.email).maybeSingle();
 
         if (existingProfile && existingProfile.role !== "admin") {
-          await admin
-            .from("profiles")
-            .update({
-              tier: purchaseRequest.tier,
-              access_status: "active"
-            })
-            .eq("id", existingProfile.id);
+          await setUserSubscription({
+            userId: existingProfile.id,
+            tier: purchaseRequest.tier,
+            accessStatus: "active",
+            paymentSource: "purchase_request",
+            client: admin
+          });
         } else {
           const defaultExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
           const note = `Заявка: ${purchaseRequest.display_name || "без имени"} • ${purchaseRequest.country} • ${purchaseRequest.contact}`;
@@ -155,7 +155,9 @@ export async function POST(request: Request) {
         status,
         approved_for_club: allowClubAccess,
         approved_for_post: allowPostAccess,
-        approved_for_chat_messages: allowChatMessages
+        approved_for_chat_messages: allowChatMessages,
+        handled_at: ["approved", "rejected", "cancelled", "completed"].includes(status) ? new Date().toISOString() : null,
+        handled_by: ["approved", "rejected", "cancelled", "completed"].includes(status) ? adminProfile.id : null
       })
       .eq("id", requestId);
 

@@ -4,8 +4,10 @@ export type AccessStatus = "active" | "disabled";
 export type PostType = "gallery" | "video" | "audio" | "text" | "announcement";
 export type PostStatus = "draft" | "published";
 export type MediaType = "image" | "video" | "audio" | "file";
-export type PurchaseRequestStatus = "new" | "in_progress" | "completed";
+export type PurchaseRequestStatus = "new" | "in_progress" | "completed" | "approved" | "rejected" | "cancelled";
 export type PurchaseRequestKind = "tier" | "post" | "chat_messages";
+export type PurchaseRequestSource = "website" | "telegram";
+export type PurchaseRequestType = "new_access" | "renewal" | "upgrade";
 export type PostReactionType = "heart" | "fire" | "cry" | "sparkles" | "devil";
 
 export interface Profile {
@@ -175,6 +177,13 @@ export interface PurchaseRequest {
   id: string;
   tier: Tier;
   request_kind?: PurchaseRequestKind;
+  profile_id?: string | null;
+  source?: PurchaseRequestSource | null;
+  request_type?: PurchaseRequestType | null;
+  current_tier?: Tier | null;
+  comment?: string | null;
+  handled_at?: string | null;
+  handled_by?: string | null;
   display_name: string | null;
   email: string;
   country: string;

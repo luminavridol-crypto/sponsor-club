@@ -6,6 +6,7 @@ import { hasClubAccess } from "@/lib/auth/access";
 import { requireAnyProfile } from "@/lib/auth/guards";
 import { hasApprovedPurchasedPosts } from "@/lib/data/post-purchases";
 import { getTierLandingCards } from "@/lib/data/tier-landing";
+import { getI18n } from "@/lib/i18n/server";
 
 function readParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -38,6 +39,7 @@ export default async function TelegramTiersPage({
   const postPrice = readParam(params.postPrice);
   const hasContentAccess = hasClubAccess(profile) || (await hasApprovedPurchasedPosts(profile));
   const tierCards = await getTierLandingCards();
+  const { messages } = await getI18n();
   const savedLabel = tierCards.find((card) => card.tier === savedTier)?.label;
 
   return (
@@ -73,6 +75,8 @@ export default async function TelegramTiersPage({
         cards={tierCards}
         isAdmin={profile.role === "admin"}
         initialOpenTier={openTier}
+        paymentButtonLabel={messages.request.submit}
+        paymentHrefBase="/request-access"
         paymentContext={
           postSlug || postTitle || postPrice
             ? {

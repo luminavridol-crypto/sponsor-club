@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const STATIC_FILE_PATTERN = /\.[^/]+$/;
-const PUBLIC_BROWSER_PATHS = new Set(["/", "/login", "/invite", "/account", "/open-path/tiers"]);
+const PUBLIC_BROWSER_PATHS = new Set(["/", "/login", "/invite", "/account", "/open-path/tiers", "/request-access"]);
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;

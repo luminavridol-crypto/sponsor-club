@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import { TierAccordionList } from "@/components/tiers/tier-accordion-list";
 import { getTierLandingCards } from "@/lib/data/tier-landing";
-import { buildTelegramMiniAppLink } from "@/lib/telegram/links";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { getI18n } from "@/lib/i18n/server";
 import { localizeTierCards } from "@/lib/i18n/tier-content";
@@ -12,7 +11,6 @@ export default async function GuestTiersPage() {
   const { locale, messages } = await getI18n();
   const tierCards = localizeTierCards(baseTierCards, locale);
   const copy = messages.subscription;
-  const openMiniAppLink = buildTelegramMiniAppLink("tiers");
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#17151d_0%,#111119_42%,#0c0d13_100%)] px-3 py-6 text-white sm:px-4 sm:py-8">
@@ -25,17 +23,13 @@ export default async function GuestTiersPage() {
           <p className="mt-4 max-w-[42rem] text-sm leading-6 text-white/72 sm:text-[0.96rem]">
             {copy.description}
           </p>
-          {openMiniAppLink ? (
-            <a
-              href={openMiniAppLink}
-              className="mt-5 inline-flex rounded-[18px] border border-white/14 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/24 hover:bg-white/[0.1]"
-            >
-              {copy.openTelegram}
-            </a>
-          ) : null}
         </section>
 
-        <TierAccordionList cards={tierCards} showPaymentButton={false} />
+        <TierAccordionList
+          cards={tierCards}
+          paymentButtonLabel={messages.request.submit}
+          paymentHrefBase="/request-access"
+        />
       </div>
     </main>
   );
