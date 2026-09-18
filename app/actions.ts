@@ -34,7 +34,6 @@ import { getManualEmailRecipients, getPostEmailRecipients, ManualEmailAudience }
 import { sendEmailCampaign } from "@/lib/email/service";
 import { deleteR2Objects, isR2StoragePath } from "@/lib/r2/server";
 import { deleteMedia } from "@/lib/storage/media";
-import { uploadValidatedFileToR2 } from "@/lib/media/process-upload";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getTelegramProfileFromSession } from "@/lib/telegram/auth";
@@ -385,19 +384,32 @@ function redirectToInviteError(error: InviteErrorCode, code?: string): never {
 }
 
 async function uploadFile(file: File, folder: string) {
+  const { uploadValidatedFileToR2 } = await import("@/lib/media/process-upload");
   return uploadValidatedFileToR2(file, folder, { allowImages: true, allowVideos: false });
 }
 
 async function uploadChatFile(file: File, profileId: string) {
+  const { uploadValidatedFileToR2 } = await import("@/lib/media/process-upload");
   return uploadValidatedFileToR2(file, `chat/${profileId}`, { allowAudio: true });
 }
 
 async function uploadPostMedia(file: File, folder: string) {
+  const { uploadValidatedFileToR2 } = await import("@/lib/media/process-upload");
   return uploadValidatedFileToR2(file, folder);
 }
 
 async function uploadAvatarFile(file: File, profileId: string) {
+  const { uploadValidatedFileToR2 } = await import("@/lib/media/process-upload");
   return uploadValidatedFileToR2(file, `avatars/${profileId}`, { allowImages: true, allowVideos: false });
+}
+
+async function uploadAudioFile(file: File, folder: string) {
+  const { uploadValidatedFileToR2 } = await import("@/lib/media/process-upload");
+  return uploadValidatedFileToR2(file, folder, {
+    allowImages: false,
+    allowVideos: false,
+    allowAudio: true
+  });
 }
 
 async function removeChatStorage(paths: string[]) {
@@ -1465,14 +1477,10 @@ export async function createPostCommentAction(formData: FormData) {
     return;
   }
 
-  let uploadedMedia: Awaited<ReturnType<typeof uploadValidatedFileToR2>> | null = null;
+  let uploadedMedia: Awaited<ReturnType<typeof uploadAudioFile>> | null = null;
 
   if (voiceFile) {
-    uploadedMedia = await uploadValidatedFileToR2(voiceFile, `comments/${profile.id}`, {
-      allowImages: false,
-      allowVideos: false,
-      allowAudio: true
-    });
+    uploadedMedia = await uploadAudioFile(voiceFile, `comments/${profile.id}`);
   }
 
   const { error: insertError } = await admin.from("post_comments").insert({

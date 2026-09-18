@@ -8,6 +8,8 @@ import { deleteMedia } from "@/lib/storage/media";
 import { uploadValidatedFileToR2 } from "@/lib/media/process-upload";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
+export const runtime = "nodejs";
+
 function formValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }

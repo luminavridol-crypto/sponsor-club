@@ -81,7 +81,7 @@ export async function finalizePendingUpload({
         width = metadata.width ?? null;
         height = metadata.height ?? null;
 
-        let output = displaySource;
+        let output: Buffer = displaySource;
         if (inspected.isHeic) {
           output = await image.rotate().jpeg({ quality: 88, mozjpeg: true }).toBuffer();
           destinationKey = finalKey(kind, "jpg");
@@ -159,7 +159,7 @@ export async function uploadValidatedFileToR2(
     throw new Error(`Файл слишком большой. Лимит: ${Math.round(maxBytes / 1024 / 1024)} MB.`);
   }
 
-  let output = source;
+  let output: Buffer = source;
   let extension = inspected.extension;
   let contentType = inspected.mimeType;
   let width: number | null = null;

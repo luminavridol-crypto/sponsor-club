@@ -11,6 +11,8 @@ import { notifyTelegramUsersAboutNewPost } from "@/lib/telegram/notifications";
 import { PostStatus, PostType, Tier } from "@/lib/types";
 import { buildContentSlug } from "@/lib/utils/content-space";
 
+export const runtime = "nodejs";
+
 function formValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
